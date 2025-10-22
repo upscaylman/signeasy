@@ -335,36 +335,25 @@ const sendEmailViaDualServices = async (
   ];
   const PUBLIC_KEY = 'g2n34kxUJPlU6tsI0';
 
-  const results = await Promise.allSettled(
-    SERVICES.map(async (service) => {
-      try {
-        // @ts-ignore
-        await emailjs.send(service.id, templateId, templateParams, PUBLIC_KEY);
-        console.log(`✅ Email envoyé via ${service.name} à:`, recipientEmail);
-        return { service: service.name, success: true };
-      } catch (error) {
-        console.warn(`⚠️ Échec via ${service.name} à ${recipientEmail}:`, error);
-        return { service: service.name, success: false, error };
-      }
-    })
-  );
-
-  // Au moins un service a réussi ?
-  const hasSuccess = results.some(r => r.status === 'fulfilled' && r.value.success);
-  
-  if (hasSuccess) {
-    const successfulServices = results
-      .filter(r => r.status === 'fulfilled' && r.value.success)
-      .map(r => r.status === 'fulfilled' ? r.value.service : '');
-    console.log(`📧 Email envoyé avec succès via: ${successfulServices.join(', ')}`);
-  } else {
-    console.error(`❌ Échec d'envoi via TOUS les services à: ${recipientEmail}`);
+  // Essayer d'envoyer via Gmail d'abord, fallback sur Outlook
+  const results = [];
+  for (const service of SERVICES) {
+    try {
+      // @ts-ignore
+      await emailjs.send(service.id, templateId, templateParams, PUBLIC_KEY);
+      console.log(`✅ Email envoyé via ${service.name} à:`, recipientEmail);
+      results.push({ service: service.name, success: true });
+      return { success: true, results }; // ✅ Retourner après succès
+    } catch (error) {
+      console.warn(`⚠️ Échec via ${service.name} à ${recipientEmail}:`, error);
+      results.push({ service: service.name, success: false, error });
+      // Continuer avec le service suivant
+    }
   }
 
-  return { 
-    success: hasSuccess, 
-    results: results.map(r => r.status === 'fulfilled' ? r.value : { success: false }) 
-  };
+  // Si tous les services ont échoué
+  console.error(`❌ Échec d'envoi via TOUS les services à: ${recipientEmail}`);
+  return { success: false, results };
 };
 
 // 📧 NOTIFICATION : Envoyer un email de confirmation après signature
