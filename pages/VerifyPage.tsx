@@ -27,18 +27,18 @@ const AuditTimeline: React.FC<{data: AuditData}> = ({data}) => {
             {data.events.map((event, index) => {
                 const Icon = eventIcons[event.type] || ShieldCheck;
                 return (
-                    <div key={index} className="flex items-start gap-4 text-left">
-                        <div className="bg-surface p-2 rounded-full border border-outlineVariant/30">
-                           <Icon className="h-5 w-5 text-secondary" />
+                    <div key={index} className="flex items-start gap-2 sm:gap-4 text-left">
+                        <div className="bg-surface p-2 rounded-full border border-outlineVariant/30 flex-shrink-0">
+                           <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-secondary" />
                         </div>
-                        <div className="flex-grow pb-4 border-b border-outlineVariant/30">
-                            <p className="font-bold text-onSurface">{event.action}</p>
-                            <div className="text-xs text-onSurfaceVariant mt-1 flex items-center gap-4">
-                                <span>{new Date(event.timestamp).toLocaleString('fr-FR')}</span>
-                                {event.user && <span>👤 {event.user}</span>}
-                                {event.ip && <span>🌐 {event.ip}</span>}
+                        <div className="flex-grow pb-4 border-b border-outlineVariant/30 min-w-0">
+                            <p className="font-bold text-onSurface break-words">{event.action}</p>
+                            <div className="text-xs text-onSurfaceVariant mt-1 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
+                                <span className="whitespace-nowrap">{new Date(event.timestamp).toLocaleString('fr-FR')}</span>
+                                {event.user && <span className="truncate">👤 {event.user}</span>}
+                                {event.ip && <span className="truncate">🌐 {event.ip}</span>}
                             </div>
-                            {event.reason && <p className="text-sm text-error mt-2 p-2 bg-errorContainer/30 rounded-lg">Raison : {event.reason}</p>}
+                            {event.reason && <p className="text-xs sm:text-sm text-error mt-2 p-2 bg-errorContainer/30 rounded-lg break-words">Raison : {event.reason}</p>}
                         </div>
                     </div>
                 );
@@ -79,7 +79,7 @@ const VerifyPage: React.FC = () => {
 
   return (
     <div className="container mx-auto max-w-2xl text-center p-4 sm:p-6 lg:p-8">
-      <div className="bg-surface p-8 rounded-3xl shadow-sm border border-outlineVariant/30">
+      <div className="bg-surface p-4 sm:p-6 lg:p-8 rounded-3xl shadow-sm border border-outlineVariant/30">
         <div className="bg-tertiaryContainer inline-block p-4 rounded-full">
             <ShieldCheck className="h-12 w-12 text-onTertiaryContainer" />
         </div>
@@ -107,10 +107,12 @@ const VerifyPage: React.FC = () => {
         {error && <p className="mt-4 text-sm text-error">{error}</p>}
 
         {auditData && (
-          <div className="mt-8 text-left bg-surfaceVariant/40 p-6 rounded-2xl border border-outlineVariant/30">
-            <h2 className="text-xl font-bold text-onSurface mb-1">Piste d'audit</h2>
-            <p className="text-sm text-onSurfaceVariant mb-6 truncate" title={auditData.documentName}>{auditData.documentName}</p>
-            <AuditTimeline data={auditData} />
+          <div className="mt-8 text-left bg-surfaceVariant/40 p-3 sm:p-4 lg:p-6 rounded-2xl border border-outlineVariant/30 overflow-hidden">
+            <h2 className="text-lg sm:text-xl font-bold text-onSurface mb-1">Piste d'audit</h2>
+            <p className="text-xs sm:text-sm text-onSurfaceVariant mb-4 sm:mb-6 truncate" title={auditData.documentName}>{auditData.documentName}</p>
+            <div className="overflow-x-auto -mx-3 sm:-mx-4 lg:-mx-6 px-3 sm:px-4 lg:px-6">
+              <AuditTimeline data={auditData} />
+            </div>
           </div>
         )}
       </div>

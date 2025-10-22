@@ -217,24 +217,38 @@ const DashboardPage: React.FC = () => {
       {/* En-tête de la page */}
       <div className="container mx-auto mb-8">
         {isSelectionMode ? (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 h-[68px]">
-              <div className="flex items-center gap-4">
-                  <h2 className="text-xl font-bold text-onSurface">{selectedDocuments.length} sélectionné(s)</h2>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 min-h-[68px]">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
+                  <h2 className="text-lg sm:text-xl font-bold text-onSurface">{selectedDocuments.length} sélectionné(s)</h2>
                   <Button 
                     variant="text" 
                     onClick={handleSelectAllClick} 
                     disabled={filteredDocuments.length === 0}
+                    size="small"
+                    className="w-full sm:w-auto"
                   >
                     {filteredDocuments.length > 0 && selectedDocuments.length === filteredDocuments.length
                       ? 'Tout désélectionner'
                       : 'Tout sélectionner'}
                   </Button>
               </div>
-              <div className="flex items-center gap-2">
-                  <Button variant="danger" icon={Trash2} disabled={selectedDocuments.length === 0} onClick={() => setIsConfirmDeleteOpen(true)}>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <Button 
+                    variant="danger" 
+                    icon={Trash2} 
+                    disabled={selectedDocuments.length === 0} 
+                    onClick={() => setIsConfirmDeleteOpen(true)}
+                    size="small"
+                    className="flex-1 sm:flex-initial"
+                  >
                       Supprimer
                   </Button>
-                  <Button variant="text" onClick={handleExitSelectionMode}>
+                  <Button 
+                    variant="text" 
+                    onClick={handleExitSelectionMode}
+                    size="small"
+                    className="flex-1 sm:flex-initial"
+                  >
                       Annuler
                   </Button>
               </div>
@@ -250,11 +264,11 @@ const DashboardPage: React.FC = () => {
                   {filteredDocuments.length > 0 && (
                     <button
                       onClick={handleEmptyStateClick}
-                      className="hidden md:flex items-center justify-center h-14 px-8 bg-primary text-onPrimary rounded-full shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-primary/30 transition-all duration-300 transform hover:scale-[1.02] ease-in-out whitespace-nowrap"
-                      aria-label="Ajouter un fichier à signer"
+                      className="hidden lg:flex items-center justify-center h-14 px-6 bg-primary text-onPrimary rounded-full shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-primary/30 transition-all duration-300 transform hover:scale-[1.02] ease-in-out whitespace-nowrap"
+                      aria-label="Ajouter un fichier"
                     >
                       <PlusCircle className="h-6 w-6 mr-2 flex-shrink-0" />
-                      <span className="font-bold tracking-wide text-base">Ajouter un fichier à signer</span>
+                      <span className="font-bold tracking-wide text-base">Ajouter un fichier</span>
                     </button>
                   )}
                   <div className="relative w-full sm:w-64">
@@ -276,16 +290,16 @@ const DashboardPage: React.FC = () => {
       {/* Container blanc pour bouton + cartes */}
       <div className="container mx-auto">
         <div className="bg-white rounded-3xl shadow-sm p-4 sm:p-6 lg:p-8 relative">
-          {/* Bouton Ajouter un fichier - Full width en mobile, dans container - Masqué si aucun document */}
+          {/* Bouton Ajouter un fichier - Full width en mobile/tablette, dans container - Masqué si aucun document */}
           {!isSelectionMode && filteredDocuments.length > 0 && (
-            <div className="mb-6 md:hidden">
+            <div className="mb-6 lg:hidden">
               <button
                   onClick={handleEmptyStateClick}
-                  className="w-full flex items-center justify-center h-14 px-8 bg-primary text-onPrimary rounded-full shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-primary/30 transition-all duration-300 transform hover:scale-[1.02] ease-in-out"
-                  aria-label="Ajouter un fichier à signer"
+                  className="w-full flex items-center justify-center h-12 sm:h-14 px-4 sm:px-6 bg-primary text-onPrimary rounded-full shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-primary/30 transition-all duration-300 transform hover:scale-[1.02] ease-in-out"
+                  aria-label="Ajouter un fichier"
               >
-                  <PlusCircle className="h-6 w-6 mr-2" />
-                  <span className="font-bold tracking-wide text-base">Ajouter un fichier à signer</span>
+                  <PlusCircle className="h-5 w-5 sm:h-6 sm:w-6 mr-2 flex-shrink-0" />
+                  <span className="font-bold tracking-wide text-sm sm:text-base whitespace-nowrap">Ajouter un fichier</span>
               </button>
             </div>
           )}
@@ -293,10 +307,11 @@ const DashboardPage: React.FC = () => {
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
           {[...Array(8)].map((_, i) => (
-            <div key={i} className="bg-surfaceVariant/30 rounded-2xl shadow-sm border border-outlineVariant/30 h-44 animate-pulse">
-                <div className="p-5 h-full">
-                    <div className="h-8 bg-surfaceVariant rounded-lg w-3/4 mb-4"></div>
-                    <div className="h-5 bg-surfaceVariant rounded-lg w-1/2"></div>
+            <div key={i} className="bg-surfaceVariant/30 rounded-2xl elevation-0 border border-outlineVariant/30 h-44 stagger-item">
+                <div className="p-5 h-full space-y-3">
+                    <div className="h-8 skeleton w-3/4"></div>
+                    <div className="h-5 skeleton w-1/2"></div>
+                    <div className="h-4 skeleton w-2/3"></div>
                 </div>
             </div>
           ))}
@@ -360,11 +375,11 @@ const DashboardPage: React.FC = () => {
               e.stopPropagation(); // Empêcher le double déclenchement
               handleEmptyStateClick();
             }}
-            className="inline-flex items-center justify-center h-12 sm:h-14 px-6 sm:px-8 bg-primary text-onPrimary rounded-full shadow-lg hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-primary/30 transition-all duration-300 transform hover:scale-[1.02] ease-in-out text-sm sm:text-base"
-            aria-label="Ajouter un fichier à signer"
+            className="inline-flex items-center justify-center h-12 sm:h-14 px-4 sm:px-6 bg-primary text-onPrimary rounded-full shadow-lg hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-primary/30 transition-all duration-300 transform hover:scale-[1.02] ease-in-out text-sm sm:text-base"
+            aria-label="Ajouter un fichier"
           >
-            <PlusCircle className="h-5 w-5 sm:h-6 sm:w-6 mr-2" />
-            <span className="font-bold tracking-wide">Ajouter un fichier à signer</span>
+            <PlusCircle className="h-5 w-5 sm:h-6 sm:w-6 mr-2 flex-shrink-0" />
+            <span className="font-bold tracking-wide whitespace-nowrap">Ajouter un fichier</span>
           </button>
         </div>
       )}

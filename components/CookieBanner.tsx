@@ -33,18 +33,19 @@ const CookieBanner: React.FC = () => {
   }
 
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-2xl z-50 animate-slide-up">
-        <div className="bg-inverseSurface text-inverseOnSurface rounded-xl shadow-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-sm text-center sm:text-left flex-grow">
-            Nous utilisons des cookies pour améliorer votre expérience. En continuant, vous acceptez notre{' '}
-            <a href="#" className="font-semibold text-inversePrimary hover:underline">
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-2xl z-50">
+        <div className="glass-effect-strong rounded-2xl elevation-5 p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4 border border-outline/20 animate-slide-up">
+            <p className="text-sm text-center sm:text-left flex-grow text-onSurface">
+            🍪 Nous utilisons des cookies pour améliorer votre expérience. En continuant, vous acceptez notre{' '}
+            <a href="#" className="font-semibold text-primary hover:underline transition-colors">
                 Politique de confidentialité
             </a>.
             </p>
             <Button 
                 onClick={handleAccept} 
-                variant="text" 
-                className="flex-shrink-0 w-full sm:w-auto !text-inversePrimary hover:!bg-inverseOnSurface/10"
+                variant="elevated" 
+                size="small"
+                className="flex-shrink-0 w-full sm:w-auto"
             >
             Accepter
             </Button>

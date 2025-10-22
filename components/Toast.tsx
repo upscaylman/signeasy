@@ -74,7 +74,12 @@ const Toast: React.FC<ToastProps> = ({ toast, onDismiss }) => {
   }
 
   return (
-    <div className={`max-w-sm w-full ${bgColors[toast.type]} shadow-lg rounded-xl pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden`}>
+    <div className={`
+      max-w-sm w-full ${bgColors[toast.type]}
+      elevation-3 rounded-xl pointer-events-auto
+      ring-1 ring-black ring-opacity-5 overflow-hidden
+      animate-slide-in-right
+    `.trim().replace(/\s+/g, ' ')}>
       <div className="p-4">
         <div className="flex items-start">
           <div className="flex-shrink-0">{icons[toast.type]}</div>
@@ -84,7 +89,13 @@ const Toast: React.FC<ToastProps> = ({ toast, onDismiss }) => {
           <div className="ml-4 flex-shrink-0 flex">
             <button
               onClick={() => onDismiss(toast.id)}
-              className="inline-flex rounded-md text-current/70 hover:text-current/100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+              className="
+                inline-flex rounded-md min-h-[40px] min-w-[40px] items-center justify-center
+                text-current/70 hover:text-current/100
+                state-layer
+                focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary
+              "
+              aria-label="Fermer la notification"
             >
               <span className="sr-only">Fermer</span>
               <X className="h-5 w-5" />

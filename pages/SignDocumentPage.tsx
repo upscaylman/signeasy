@@ -256,27 +256,27 @@ const SignaturePad: React.FC<{
           </div>
           
           {activeTab === 'draw' && (
-                <div className="mt-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-                    <div className="flex items-center space-x-2">
-                        <span className="text-sm font-medium text-onSurfaceVariant mr-2">Couleur :</span>
+                <div className="mt-4 flex flex-col gap-3">
+                    <div className="flex items-center justify-center flex-wrap gap-2">
+                        <span className="text-sm font-medium text-onSurfaceVariant">Couleur :</span>
                         {signatureColors.map(({ name, color }) => (
                             <button
                                 key={name}
                                 title={name}
                                 onClick={() => setStrokeColor(color)}
-                                className={`h-8 w-8 rounded-full transition-all duration-200 ${strokeColor === color ? 'ring-2 ring-offset-2 ring-offset-surface ring-primary' : ''}`}
+                                className={`h-8 w-8 rounded-full transition-all duration-200 flex-shrink-0 ${strokeColor === color ? 'ring-2 ring-offset-2 ring-offset-surface ring-primary' : ''}`}
                                 style={{ backgroundColor: color }}
                             />
                         ))}
                     </div>
-                    <div className="flex items-center space-x-2">
-                        <span className="text-sm font-medium text-onSurfaceVariant mr-2">Épaisseur :</span>
+                    <div className="flex items-center justify-center flex-wrap gap-2">
+                        <span className="text-sm font-medium text-onSurfaceVariant">Épaisseur :</span>
                         {signatureWidths.map(({ name, width }) => (
                             <button
                                 key={name}
                                 title={name}
                                 onClick={() => setLineWidth(width)}
-                                className={`p-2 rounded-lg transition-colors ${lineWidth === width ? 'bg-primaryContainer' : 'hover:bg-surfaceVariant'}`}
+                                className={`p-2 rounded-lg transition-colors flex-shrink-0 ${lineWidth === width ? 'bg-primaryContainer' : 'hover:bg-surfaceVariant'}`}
                             >
                                 <div className="h-4 w-6 flex items-center justify-center">
                                     <div className="bg-onSurface rounded-full" style={{ height: `${width}px`, width: '100%' }}></div>
@@ -287,13 +287,16 @@ const SignaturePad: React.FC<{
                 </div>
           )}
           
-          <div className="flex justify-between items-center mt-6">
-            <div>
-              {activeTab === 'draw' && <Button variant="text" onClick={clearCanvas}>Effacer</Button>}
+          <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 mt-6">
+            <div className="flex-shrink-0">
+              {activeTab === 'draw' && <Button variant="text" onClick={clearCanvas} className="w-full sm:w-auto">Effacer</Button>}
             </div>
-            <div className="flex space-x-3">
-              <Button variant="outlined" onClick={onCancel}>Annuler</Button>
-              <Button variant="filled" onClick={handleSave}>Appliquer la signature</Button>
+            <div className="flex gap-3 flex-wrap sm:flex-nowrap">
+              <Button variant="outlined" onClick={onCancel} className="flex-1 sm:flex-initial">Annuler</Button>
+              <Button variant="filled" onClick={handleSave} className="flex-1 sm:flex-initial">
+                <span className="hidden sm:inline">Appliquer la signature</span>
+                <span className="sm:hidden">Appliquer</span>
+              </Button>
             </div>
           </div>
         </div>
@@ -321,7 +324,11 @@ const SignDocumentPage: React.FC = () => {
     const [signerName, setSignerName] = useState('');
     const [alreadySigned, setAlreadySigned] = useState(false); // Nouveau state pour tracker si déjà signé
     const [readOnly, setReadOnly] = useState(location.state?.readOnly === true);
-    const [zoomLevel, setZoomLevel] = useState(1);
+    // 📱 Zoom adaptatif : 50% sur mobile, 100% sur desktop
+    const getInitialZoom = () => {
+        return window.innerWidth < 768 ? 0.5 : 1;
+    };
+    const [zoomLevel, setZoomLevel] = useState(getInitialZoom());
     const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [goToPageInput, setGoToPageInput] = useState("1");
@@ -437,6 +444,25 @@ const SignDocumentPage: React.FC = () => {
     useEffect(() => {
         pageRefs.current = pageRefs.current.slice(0, pdf?.numPages || 0);
     }, [pdf]);
+
+    // 📱 Ajuster le zoom lors du redimensionnement de la fenêtre (changement d'orientation sur mobile)
+    useEffect(() => {
+        const handleResize = () => {
+            const isMobile = window.innerWidth < 768;
+            const currentIsMobileZoom = zoomLevel === 0.5;
+            const currentIsDesktopZoom = zoomLevel === 1;
+            
+            // Uniquement si on est au zoom par défaut, on ajuste
+            if (isMobile && currentIsDesktopZoom) {
+                setZoomLevel(0.5);
+            } else if (!isMobile && currentIsMobileZoom) {
+                setZoomLevel(1);
+            }
+        };
+        
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, [zoomLevel]);
 
     useEffect(() => {
         if (!viewerRef.current) return;

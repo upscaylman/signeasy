@@ -13,6 +13,7 @@ const InboxPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
+  const [showEmailContent, setShowEmailContent] = useState(false); // 📱 Pour mobile : afficher le contenu de l'email
   const navigate = useNavigate();
   const { addToast } = useToast();
 
@@ -45,6 +46,7 @@ const InboxPage: React.FC = () => {
 
   const handleSelectEmail = (email: MockEmail) => {
     setSelectedEmail(email);
+    setShowEmailContent(true); // 📱 Afficher le contenu sur mobile
     if (!email.read) {
       markEmailAsRead(email.id).then(() => {
          setEmails(prev => prev.map(e => e.id === email.id ? {...e, read: true} : e));
@@ -108,24 +110,38 @@ const InboxPage: React.FC = () => {
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8">
       {isSelectionMode ? (
-        <div className="flex flex-col sm:flex-row items-center justify-between mb-8 gap-4">
-            <div className="flex items-center gap-4">
-                <h2 className="text-xl font-bold text-onSurface">{selectedEmails.length} sélectionné(s)</h2>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between mb-8 gap-3 sm:gap-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
+                <h2 className="text-lg sm:text-xl font-bold text-onSurface">{selectedEmails.length} sélectionné(s)</h2>
                 <Button 
                   variant="text" 
                   onClick={handleSelectAllClick} 
                   disabled={emails.length === 0}
+                  size="small"
+                  className="w-full sm:w-auto"
                 >
                   {emails.length > 0 && selectedEmails.length === emails.length
                     ? 'Tout désélectionner'
                     : 'Tout sélectionner'}
                 </Button>
             </div>
-            <div className="flex items-center gap-2">
-                <Button variant="danger" icon={Trash2} disabled={selectedEmails.length === 0} onClick={handleDeleteEmails}>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+                <Button 
+                  variant="danger" 
+                  icon={Trash2} 
+                  disabled={selectedEmails.length === 0} 
+                  onClick={handleDeleteEmails}
+                  size="small"
+                  className="flex-1 sm:flex-initial"
+                >
                     Supprimer
                 </Button>
-                <Button variant="text" onClick={handleExitSelectionMode}>
+                <Button 
+                  variant="text" 
+                  onClick={handleExitSelectionMode}
+                  size="small"
+                  className="flex-1 sm:flex-initial"
+                >
                     Annuler
                 </Button>
             </div>
@@ -141,8 +157,8 @@ const InboxPage: React.FC = () => {
       )}
 
       <div className="bg-surface rounded-3xl shadow-sm flex h-[calc(100vh-220px)] overflow-hidden" style={{ borderWidth: '1px', borderColor: 'rgb(216, 194, 191)' }}>
-        {/* Email List */}
-        <div className="w-full sm:w-1/3 overflow-y-auto" style={{ borderRight: '1px solid rgb(216, 194, 191)' }}>
+        {/* Email List - Caché sur mobile quand on affiche le contenu */}
+        <div className={`w-full sm:w-1/3 overflow-y-auto ${showEmailContent ? 'hidden sm:block' : 'block'}`} style={{ borderRight: '1px solid rgb(216, 194, 191)' }}>
           {emails.length === 0 ? (
              <div className="text-center p-8 text-onSurfaceVariant">
                 <InboxIcon className="mx-auto h-12 w-12" />
@@ -183,11 +199,18 @@ const InboxPage: React.FC = () => {
           )}
         </div>
 
-        {/* Email Content */}
-        <div className="hidden sm:block w-2/3 p-6 overflow-y-auto">
+        {/* Email Content - Visible sur mobile quand showEmailContent est true */}
+        <div className={`w-full sm:w-2/3 p-4 sm:p-6 overflow-y-auto ${showEmailContent ? 'block' : 'hidden sm:block'}`}>
           {selectedEmail ? (
             <div>
-              <h2 className="text-2xl font-bold text-onSurface">{selectedEmail.subject}</h2>
+              {/* Bouton retour pour mobile */}
+              <button 
+                onClick={() => setShowEmailContent(false)}
+                className="sm:hidden mb-4 flex items-center text-primary font-semibold"
+              >
+                ← Retour à la liste
+              </button>
+              <h2 className="text-xl sm:text-2xl font-bold text-onSurface">{selectedEmail.subject}</h2>
               <div className="mt-4 pb-4" style={{ borderBottom: '1px solid rgb(216, 194, 191)' }}>
                 <p><strong>De :</strong> SignEase (no-reply@signease.com)</p>
                 <p><strong>À :</strong> {selectedEmail.toName} &lt;{selectedEmail.toEmail}&gt;</p>

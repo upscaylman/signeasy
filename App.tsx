@@ -21,8 +21,11 @@ const App: React.FC = () => {
     <HashRouter>
       <ToastProvider>
         <div className="min-h-screen bg-background text-onBackground flex flex-col">
+          <a href="#main-content" className="skip-to-main">
+            Aller au contenu principal
+          </a>
           <Header />
-          <main className="flex-grow">
+          <main id="main-content" className="flex-grow animate-fade-in">
             <Routes>
               <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} />
               {/* A real app would have a login page */}

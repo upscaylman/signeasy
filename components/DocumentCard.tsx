@@ -28,12 +28,12 @@ const DocumentCard: React.FC<DocumentCardProps> = ({ document, onSign, onView, i
   return (
     <div className="relative h-full">
       {isSelectionMode && (
-        <div className="absolute top-3 right-3 z-10">
+        <div className="absolute top-2 right-2 sm:top-3 sm:right-3 z-10 bg-surface/90 rounded-md p-1.5 shadow-sm">
           <input
             type="checkbox"
             checked={isSelected}
             onChange={() => onSelect(document.id)}
-            className="h-5 w-5 rounded text-primary focus:ring-primary border-outlineVariant"
+            className="h-5 w-5 sm:h-6 sm:w-6 rounded text-primary focus:ring-primary border-outlineVariant cursor-pointer"
             onClick={(e) => e.stopPropagation()}
             aria-label={`Sélectionner le document ${document.name}`}
           />
@@ -41,7 +41,15 @@ const DocumentCard: React.FC<DocumentCardProps> = ({ document, onSign, onView, i
       )}
       <div 
         onClick={() => { if (isSelectionMode) onSelect(document.id) }}
-        className={`bg-surfaceVariant/30 rounded-2xl shadow-sm border border-outlineVariant/30 transition-all duration-300 flex flex-col h-full ${isSelectionMode ? 'cursor-pointer' : ''} ${isSelected ? 'ring-2 ring-primary border-primary' : 'hover:shadow-md hover:border-outlineVariant/50'}`}
+        className={`
+          bg-surfaceVariant/30 rounded-2xl border border-outlineVariant/30
+          card-transition elevation-0 flex flex-col h-full
+          ${isSelectionMode ? 'cursor-pointer' : ''}
+          ${isSelected 
+            ? 'ring-2 ring-primary border-primary elevation-3' 
+            : 'hover:elevation-2 hover:border-outlineVariant/50'
+          }
+        `.trim().replace(/\s+/g, ' ')}
       >
         <div className="p-5 flex-grow">
           <div className="flex items-start justify-between">
@@ -53,7 +61,12 @@ const DocumentCard: React.FC<DocumentCardProps> = ({ document, onSign, onView, i
                 {document.name}
               </h3>
             </div>
-            <span className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${bg} ${text} flex-shrink-0`}>
+            <span className={`
+              px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full
+              flex-shrink-0 animate-fade-in-scale
+              ${bg} ${text}
+              ${needsAction ? 'animate-pulse' : ''}
+            `.trim().replace(/\s+/g, ' ')}>
               {document.status}
             </span>
           </div>
@@ -98,12 +111,28 @@ const DocumentCard: React.FC<DocumentCardProps> = ({ document, onSign, onView, i
           <div className="border-t border-outlineVariant/30 bg-surfaceVariant/20 px-5 py-3 rounded-b-2xl">
             <div className="flex items-center justify-end space-x-4">
               {needsAction && onSign && (
-                 <button onClick={() => onSign(document.id)} className="inline-flex items-center text-sm font-bold text-primary hover:underline">
+                 <button 
+                   onClick={() => onSign(document.id)} 
+                   className="
+                     inline-flex items-center min-h-[40px] px-3 py-2
+                     text-sm font-bold text-primary rounded-lg
+                     state-layer state-layer-primary
+                     transition-colors
+                   "
+                 >
                     Signer maintenant <PenSquare className="ml-1.5 h-4 w-4" />
                  </button>
               )}
               {!needsAction && onView && (
-                 <button onClick={() => onView(document.id)} className="inline-flex items-center text-sm font-bold text-secondary hover:underline">
+                 <button 
+                   onClick={() => onView(document.id)} 
+                   className="
+                     inline-flex items-center min-h-[40px] px-3 py-2
+                     text-sm font-bold text-secondary rounded-lg
+                     state-layer state-layer-secondary
+                     transition-colors
+                   "
+                 >
                     Voir <Eye className="ml-1.5 h-4 w-4" />
                  </button>
               )}

@@ -31,8 +31,8 @@ const Tooltip: React.FC<TooltipProps> = ({ content, children, position = 'bottom
     >
       {children}
       {isVisible && (
-        <div className={`absolute z-50 ${positionClasses[position]}`}>
-          <div className="bg-inverseSurface text-inverseOnSurface text-xs font-medium px-3 py-2 rounded-lg shadow-lg whitespace-nowrap">
+        <div className={`absolute z-50 ${positionClasses[position]} animate-fade-in-scale`}>
+          <div className="bg-inverseSurface text-inverseOnSurface text-xs font-medium px-3 py-2 rounded-lg elevation-3 whitespace-nowrap">
             {content}
           </div>
           <div className={`absolute w-0 h-0 border-4 ${arrowClasses[position]}`} />
