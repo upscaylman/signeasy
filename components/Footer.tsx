@@ -21,10 +21,10 @@ const Footer: React.FC = () => {
 
   return (
     <footer className="relative overflow-hidden" style={{ backgroundColor: 'rgb(69, 58, 56)' }}>
-      {/* Effet de mesh gradient décoratif */}
+      {/* Effet de mesh gradient décoratif animé */}
       <div className="absolute inset-0 opacity-20">
-        <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-white/10 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-0 left-0 w-1/3 h-1/3 bg-white/5 rounded-full blur-3xl"></div>
+        <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-white/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-0 left-0 w-1/3 h-1/3 bg-white/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
       </div>
       
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
@@ -38,7 +38,7 @@ const Footer: React.FC = () => {
               <a 
                 key={link.name} 
                 href={link.href} 
-                className="text-sm text-white/90 hover:text-white hover:underline transition-all state-layer"
+                className="text-sm text-white/90 hover:text-white hover:underline transition-all state-layer link-enhanced"
                 target={link.href.startsWith('http') ? '_blank' : undefined}
                 rel={link.href.startsWith('http') ? 'noopener noreferrer' : undefined}
               >
@@ -62,9 +62,9 @@ const Footer: React.FC = () => {
                     className="
                       text-white/80 hover:text-white
                       min-h-[40px] min-w-[40px] p-2
-                      rounded-full state-layer
+                      rounded-full state-layer press-effect
                       transition-all duration-200
-                      hover:bg-white/10
+                      hover:bg-white/10 hover:scale-110
                     "
                     aria-label={social.name}
                   >

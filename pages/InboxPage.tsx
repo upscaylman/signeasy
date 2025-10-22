@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getEmails, markEmailAsRead, deleteEmails } from '../services/firebaseApi';
 import type { MockEmail } from '../types';
-import { Loader2, Inbox as InboxIcon, FileText, Trash2 } from 'lucide-react';
+import { Loader2, Inbox as InboxIcon, FileText, Trash2, CheckSquare, Square, X } from 'lucide-react';
 import Button from '../components/Button';
 import { useToast } from '../components/Toast';
 
@@ -70,7 +70,7 @@ const InboxPage: React.FC = () => {
   };
 
   const handleSelectAllClick = () => {
-    if (selectedEmails.length === emails.length) {
+    if (emails.length > 0 && selectedEmails.length === emails.length) {
       setSelectedEmails([]);
     } else {
       setSelectedEmails(emails.map(e => e.id));
@@ -110,49 +110,69 @@ const InboxPage: React.FC = () => {
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8">
       {isSelectionMode ? (
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between mb-8 gap-3 sm:gap-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
-                <h2 className="text-lg sm:text-xl font-bold text-onSurface">{selectedEmails.length} sélectionné(s)</h2>
-                <Button 
-                  variant="text" 
-                  onClick={handleSelectAllClick} 
-                  disabled={emails.length === 0}
-                  size="small"
-                  className="w-full sm:w-auto"
-                >
-                  {emails.length > 0 && selectedEmails.length === emails.length
-                    ? 'Tout désélectionner'
-                    : 'Tout sélectionner'}
-                </Button>
+        <div className="bg-primaryContainer/30 backdrop-blur-sm rounded-2xl p-4 elevation-1 border border-primary/20 animate-slide-down mb-8">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="bg-primary text-onPrimary px-4 py-2 rounded-full font-bold text-sm elevation-2">
+                {selectedEmails.length} / {emails.length}
+              </div>
+              <h2 className="text-lg font-bold text-onSurface">
+                {selectedEmails.length === 0 ? 'Aucune sélection' : 
+                 selectedEmails.length === 1 ? '1 email sélectionné' : 
+                 `${selectedEmails.length} emails sélectionnés`}
+              </h2>
             </div>
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-                <Button 
-                  variant="danger" 
-                  icon={Trash2} 
-                  disabled={selectedEmails.length === 0} 
-                  onClick={handleDeleteEmails}
-                  size="small"
-                  className="flex-1 sm:flex-initial"
-                >
-                    Supprimer
-                </Button>
-                <Button 
-                  variant="text" 
-                  onClick={handleExitSelectionMode}
-                  size="small"
-                  className="flex-1 sm:flex-initial"
-                >
-                    Annuler
-                </Button>
+            <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto">
+              <Button 
+                variant="filled" 
+                icon={CheckSquare}
+                onClick={handleSelectAllClick} 
+                disabled={emails.length === 0}
+                size="small"
+                className="flex-1 sm:flex-initial min-w-[140px] max-w-[160px]"
+              >
+                <span className="truncate">
+                  {(() => {
+                    const allSelected = emails.length > 0 && selectedEmails.length === emails.length;
+                    console.log('Inbox - emails.length:', emails.length, 'selectedEmails.length:', selectedEmails.length, 'allSelected:', allSelected);
+                    return allSelected ? 'Tout désélectionner' : 'Tout sélectionner';
+                  })()}
+                </span>
+              </Button>
+              <Button 
+                variant="outlined"
+                icon={Trash2} 
+                disabled={selectedEmails.length === 0} 
+                onClick={handleDeleteEmails}
+                size="small"
+                className="flex-1 sm:flex-initial min-w-[110px] !text-error !border-error state-layer-error [&:hover]:!bg-transparent"
+              >
+                Supprimer
+              </Button>
+              <Button 
+                variant="text" 
+                icon={X}
+                onClick={handleExitSelectionMode}
+                size="small"
+                className="flex-1 sm:flex-initial"
+              >
+                Annuler
+              </Button>
             </div>
+          </div>
         </div>
       ) : (
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
-            <div>
-              <h1 className="text-4xl font-bold text-onSurface">Boîte de réception</h1>
-              <p className="mt-1 text-md text-onSurfaceVariant">Consultez ici toutes vos demandes de signature reçues.</p>
+            <div className="flex items-center gap-4">
+              <div className="bg-secondaryContainer inline-block p-4 rounded-full progressive-glow">
+                <InboxIcon className="h-12 w-12 text-onSecondaryContainer" />
+              </div>
+              <div>
+                <h1 className="text-4xl font-bold text-onSurface">Boîte de réception</h1>
+                <p className="mt-1 text-md text-onSurfaceVariant">Consultez ici toutes vos demandes de signature reçues.</p>
+              </div>
             </div>
-            <Button variant="text" onClick={() => setIsSelectionMode(true)}>Sélectionner</Button>
+            <Button variant="outlined" onClick={() => setIsSelectionMode(true)}>Sélectionner</Button>
         </div>
       )}
 
@@ -174,21 +194,43 @@ const InboxPage: React.FC = () => {
                     style={{ borderBottom: '1px solid rgb(216, 194, 191)' }}
                 >
                   <div className="flex items-start gap-3">
-                    {isSelectionMode && (
-                      <input
-                        type="checkbox"
-                        checked={selectedEmails.includes(email.id)}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          handleEmailSelect(email.id);
-                        }}
-                        className="mt-1 h-5 w-5 accent-primary"
-                      />
-                    )}
                     <div className="flex-1 min-w-0">
-                      <div className={`flex justify-between items-start ${!email.read ? 'font-bold' : ''}`}>
-                        <p className="text-onSurface truncate">{email.toName}</p>
-                        <span className="text-xs text-onSurfaceVariant flex-shrink-0 ml-2">{new Date(email.sentAt).toLocaleDateString()}</span>
+                      <div className={`flex justify-between items-start gap-2 ${!email.read ? 'font-bold' : ''}`}>
+                        <p className="text-onSurface truncate flex-1">{email.toName}</p>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="text-xs text-onSurfaceVariant whitespace-nowrap">{new Date(email.sentAt).toLocaleDateString()}</span>
+                          {isSelectionMode && (
+                            <label className="cursor-pointer group animate-fade-in-scale" onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                checked={selectedEmails.includes(email.id)}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  handleEmailSelect(email.id);
+                                }}
+                                className="sr-only peer"
+                                aria-label={`Sélectionner l'email de ${email.toName}`}
+                              />
+                              <div className="
+                                w-5 h-5 sm:w-6 sm:h-6
+                                rounded-full border-2
+                                bg-surface elevation-1
+                                flex items-center justify-center
+                                transition-all duration-200
+                                peer-checked:bg-primary peer-checked:border-primary peer-checked:elevation-2
+                                peer-focus:ring-2 peer-focus:ring-primary
+                                group-hover:elevation-2 group-hover:scale-105
+                                border-outlineVariant
+                              ">
+                                {selectedEmails.includes(email.id) && (
+                                  <svg className="w-3 h-3 text-onPrimary animate-expand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                )}
+                              </div>
+                            </label>
+                          )}
+                        </div>
                       </div>
                       <p className={`text-sm mt-1 truncate ${!email.read ? 'text-onSurface' : 'text-onSurfaceVariant'}`}>{email.subject}</p>
                     </div>
@@ -200,32 +242,35 @@ const InboxPage: React.FC = () => {
         </div>
 
         {/* Email Content - Visible sur mobile quand showEmailContent est true */}
-        <div className={`w-full sm:w-2/3 p-4 sm:p-6 overflow-y-auto ${showEmailContent ? 'block' : 'hidden sm:block'}`}>
+        <div className={`w-full sm:w-2/3 p-4 sm:p-6 overflow-y-auto overflow-x-hidden ${showEmailContent ? 'block' : 'hidden sm:block'}`}>
           {selectedEmail ? (
-            <div>
+            <div className="max-w-full">
               {/* Bouton retour pour mobile */}
               <button 
                 onClick={() => setShowEmailContent(false)}
-                className="sm:hidden mb-4 flex items-center text-primary font-semibold"
+                className="sm:hidden mb-4 flex items-center text-primary font-semibold press-effect transition-all hover:scale-105"
               >
                 ← Retour à la liste
               </button>
-              <h2 className="text-xl sm:text-2xl font-bold text-onSurface">{selectedEmail.subject}</h2>
+              <h2 className="text-xl sm:text-2xl font-bold text-onSurface break-words">{selectedEmail.subject}</h2>
               <div className="mt-4 pb-4" style={{ borderBottom: '1px solid rgb(216, 194, 191)' }}>
-                <p><strong>De :</strong> SignEase (no-reply@signease.com)</p>
-                <p><strong>À :</strong> {selectedEmail.toName} &lt;{selectedEmail.toEmail}&gt;</p>
-                <p><strong>Date :</strong> {new Date(selectedEmail.sentAt).toLocaleString('fr-FR')}</p>
+                <p className="break-words"><strong>De :</strong> SignEase (no-reply@signease.com)</p>
+                <p className="break-words"><strong>À :</strong> {selectedEmail.toName} &lt;{selectedEmail.toEmail}&gt;</p>
+                <p className="break-words"><strong>Date :</strong> {new Date(selectedEmail.sentAt).toLocaleString('fr-FR')}</p>
               </div>
-              <div className="mt-6 prose max-w-none text-onSurface">
-                <p>{selectedEmail.body.split('\n').map((line, i) => <span key={i}>{line}<br/></span>)}</p>
+              <div className="mt-6 prose max-w-none text-onSurface break-words">
+                <p className="break-words">{selectedEmail.body.split('\n').map((line, i) => <span key={i}>{line}<br/></span>)}</p>
               </div>
-               <div className="mt-8 pt-6 text-center" style={{ borderTop: '1px solid rgb(216, 194, 191)' }}>
+               <div className="mt-8 pt-6 text-center px-4" style={{ borderTop: '1px solid rgb(216, 194, 191)' }}>
                    <p className="text-sm text-onSurfaceVariant mb-4">Cliquez sur le bouton ci-dessous pour examiner et signer le document.</p>
-                   <div className="flex justify-center">
-                     <Button icon={FileText} onClick={handleSignClick} className="max-w-full">
-                       <span className="truncate">Examiner &amp; Signer {selectedEmail.documentName}</span>
-                     </Button>
-                   </div>
+                  <button
+                      onClick={handleSignClick}
+                      className="w-full sm:w-auto max-w-full inline-flex items-center justify-center gap-2 min-h-[44px] btn-premium-shine btn-premium-extended text-sm focus:outline-none focus:ring-4 focus:ring-primary/30"
+                      title={`Examiner & Signer ${selectedEmail.documentName}`}
+                  >
+                      <FileText className="h-5 w-5 flex-shrink-0" />
+                      <span className="truncate min-w-0">Examiner &amp; Signer {selectedEmail.documentName}</span>
+                  </button>
                </div>
             </div>
           ) : (

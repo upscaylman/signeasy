@@ -34,10 +34,10 @@ const CookieBanner: React.FC = () => {
 
   return (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-2xl z-50">
-        <div className="glass-effect-strong rounded-2xl elevation-5 p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4 border border-outline/20 animate-slide-up">
+        <div className="glass-effect-strong rounded-2xl elevation-5 p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4 border border-outline/20 animate-slide-up modal-content">
             <p className="text-sm text-center sm:text-left flex-grow text-onSurface">
             🍪 Nous utilisons des cookies pour améliorer votre expérience. En continuant, vous acceptez notre{' '}
-            <a href="#" className="font-semibold text-primary hover:underline transition-colors">
+            <a href="#" className="font-semibold text-primary hover:underline transition-colors link-enhanced">
                 Politique de confidentialité
             </a>.
             </p>

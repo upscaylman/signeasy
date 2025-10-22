@@ -78,7 +78,7 @@ const Toast: React.FC<ToastProps> = ({ toast, onDismiss }) => {
       max-w-sm w-full ${bgColors[toast.type]}
       elevation-3 rounded-xl pointer-events-auto
       ring-1 ring-black ring-opacity-5 overflow-hidden
-      animate-slide-in-right
+      notification-enter
     `.trim().replace(/\s+/g, ' ')}>
       <div className="p-4">
         <div className="flex items-start">
@@ -92,8 +92,9 @@ const Toast: React.FC<ToastProps> = ({ toast, onDismiss }) => {
               className="
                 inline-flex rounded-md min-h-[40px] min-w-[40px] items-center justify-center
                 text-current/70 hover:text-current/100
-                state-layer
+                state-layer press-effect transition-all
                 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary
+                hover:scale-110
               "
               aria-label="Fermer la notification"
             >

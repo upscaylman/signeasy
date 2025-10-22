@@ -37,8 +37,8 @@ const RejectModal: React.FC<{
 }> = ({ onConfirm, onCancel, isLoading }) => {
     const [reason, setReason] = useState('');
     return (
-        <div className="fixed inset-0 bg-scrim/50 flex items-center justify-center z-50 p-4" onClick={onCancel}>
-            <div className="bg-surface rounded-3xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-scrim/50 flex items-center justify-center z-50 p-4 modal-backdrop" onClick={onCancel}>
+            <div className="bg-surface rounded-3xl shadow-xl w-full max-w-md p-6 modal-content" onClick={e => e.stopPropagation()}>
                 <h2 className="text-xl font-bold text-onSurface">Refuser de signer</h2>
                 <p className="text-sm text-onSurfaceVariant my-2">Veuillez indiquer la raison de votre refus. L'expéditeur en sera informé.</p>
                 <textarea
@@ -49,8 +49,25 @@ const RejectModal: React.FC<{
                     className="w-full p-2 mt-2 bg-surfaceVariant/60 border border-outlineVariant rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary focus:bg-surface"
                 />
                 <div className="flex justify-end space-x-3 mt-6">
-                    <Button variant="outlined" onClick={onCancel}>Annuler</Button>
-                    <Button variant="danger" onClick={() => onConfirm(reason)} isLoading={isLoading} disabled={!reason.trim()}>Confirmer le refus</Button>
+                    <Button variant="text" onClick={onCancel}>Annuler</Button>
+                    <button 
+                        onClick={() => onConfirm(reason)}
+                        disabled={isLoading || !reason.trim()}
+                        className="btn-premium-shine btn-premium-extended h-11 text-sm focus:outline-none focus:ring-4 focus:ring-primary/30 inline-flex items-center justify-center gap-2"
+                        aria-busy={isLoading}
+                    >
+                        {isLoading ? (
+                            <>
+                                <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span>Envoi...</span>
+                            </>
+                        ) : (
+                            <span>Confirmer le refus</span>
+                        )}
+                    </button>
                 </div>
             </div>
         </div>
@@ -195,8 +212,8 @@ const SignaturePad: React.FC<{
         `px-4 py-2 text-sm font-semibold rounded-full transition-colors w-full ${activeTab === tabName ? 'bg-primaryContainer text-onPrimaryContainer' : 'hover:bg-surfaceVariant'}`;
 
     return (
-      <div className="fixed inset-0 bg-scrim/50 flex items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto" onClick={onCancel}>
-        <div className="bg-surface rounded-3xl shadow-xl w-full max-w-lg p-4 sm:p-6 my-auto max-h-[95vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+      <div className="fixed inset-0 bg-scrim/50 flex items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto modal-backdrop" onClick={onCancel}>
+        <div className="bg-surface rounded-3xl shadow-xl w-full max-w-lg p-4 sm:p-6 my-auto max-h-[95vh] overflow-y-auto modal-content" onClick={e => e.stopPropagation()}>
           <div className="flex justify-between items-center mb-4">
              <h2 className="text-lg sm:text-xl font-bold text-onSurface">Créer une signature</h2>
              <button onClick={onCancel} className="p-1 rounded-full hover:bg-surfaceVariant" aria-label="Fermer"><X size={20} /></button>
@@ -292,11 +309,14 @@ const SignaturePad: React.FC<{
               {activeTab === 'draw' && <Button variant="text" onClick={clearCanvas} className="w-full sm:w-auto">Effacer</Button>}
             </div>
             <div className="flex gap-3 flex-wrap sm:flex-nowrap">
-              <Button variant="outlined" onClick={onCancel} className="flex-1 sm:flex-initial">Annuler</Button>
-              <Button variant="filled" onClick={handleSave} className="flex-1 sm:flex-initial">
+              <Button variant="text" onClick={onCancel} className="flex-1 sm:flex-initial">Annuler</Button>
+              <button 
+                onClick={handleSave}
+                className="btn-premium-shine btn-premium-extended h-11 text-sm focus:outline-none focus:ring-4 focus:ring-primary/30 flex-1 sm:flex-initial inline-flex items-center justify-center"
+              >
                 <span className="hidden sm:inline">Appliquer la signature</span>
                 <span className="sm:hidden">Appliquer</span>
-              </Button>
+              </button>
             </div>
           </div>
         </div>
@@ -888,7 +908,7 @@ const SignDocumentPage: React.FC = () => {
                  <AlertTriangle className="mx-auto h-12 w-12 text-error" />
                  <h2 className="mt-4 text-2xl font-bold">Impossible de charger le document</h2>
                  <p className="mt-2 text-onSurfaceVariant">{error}</p>
-                 <Button onClick={() => navigate('/dashboard')} className="mt-6">Aller au tableau de bord</Button>
+                 <Button variant="gradient" withGlow withShine onClick={() => navigate('/dashboard')} className="mt-6">Aller au tableau de bord</Button>
              </div>
         )
     }
@@ -1199,7 +1219,7 @@ const SignDocumentPage: React.FC = () => {
                          )}
                     </div>
                     <div className="flex items-center gap-4 flex-wrap w-full sm:w-auto">
-                        {!isCompleted && !readOnly && <Button variant="outlined" icon={XCircle} onClick={() => setIsRejectModalOpen(true)}>Refuser de signer</Button>}
+                        {!isCompleted && !readOnly && <Button variant="text" icon={XCircle} onClick={() => setIsRejectModalOpen(true)}>Refuser de signer</Button>}
                         <div className="flex-grow sm:flex-grow-0">
                             <label htmlFor="signerName" className="sr-only">Confirmez votre nom</label>
                             <input
@@ -1213,15 +1233,25 @@ const SignDocumentPage: React.FC = () => {
                             />
                         </div>
                         {readOnly ? 
-                          <Button onClick={() => navigate('/dashboard')} className="w-full sm:w-auto flex-shrink-0">Fermer</Button> :
-                          <Button 
-                            onClick={handleSubmit} 
-                            isLoading={isSubmitting} 
-                            variant={allManualFieldsFilled ? 'danger' : 'filled'}
-                            className="w-full sm:w-auto flex-shrink-0"
+                          <Button variant="text" onClick={() => navigate('/dashboard')} className="w-full sm:w-auto flex-shrink-0">Fermer</Button> :
+                          <button
+                            onClick={handleSubmit}
+                            disabled={isSubmitting}
+                            className="btn-premium-shine btn-premium-extended h-11 text-sm focus:outline-none focus:ring-4 focus:ring-primary/30 w-full sm:w-auto flex-shrink-0 inline-flex items-center justify-center gap-2"
+                            aria-busy={isSubmitting}
                           >
-                            Terminer la signature
-                          </Button>
+                            {isSubmitting ? (
+                              <>
+                                <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span>Envoi en cours...</span>
+                              </>
+                            ) : (
+                              <span>Terminer la signature</span>
+                            )}
+                          </button>
                         }
                     </div>
                 </div>

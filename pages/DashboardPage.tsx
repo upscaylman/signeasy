@@ -5,7 +5,7 @@ import type { Document } from '../types';
 import { DocumentStatus } from '../types';
 import DocumentCard from '../components/DocumentCard';
 import { getDocuments, deleteDocuments, getTokenForDocumentSigner } from '../services/firebaseApi';
-import { PlusCircle, Inbox, Search, Trash2, X, AlertTriangle, Upload } from 'lucide-react';
+import { PlusCircle, Inbox, Search, Trash2, X, AlertTriangle, Upload, CheckSquare, Square, LayoutDashboard } from 'lucide-react';
 import Button from '../components/Button';
 import { useToast } from '../components/Toast';
 import Tooltip from '../components/Tooltip';
@@ -20,8 +20,8 @@ const ConfirmationModal: React.FC<{
 }> = ({ isOpen, onClose, onConfirm, title, message }) => {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 bg-scrim/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-surface rounded-3xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-scrim/50 flex items-center justify-center z-50 p-4 modal-backdrop" onClick={onClose}>
+      <div className="bg-surface rounded-3xl shadow-xl w-full max-w-md p-6 modal-content" onClick={e => e.stopPropagation()}>
         <div className="flex">
             <div className="bg-errorContainer p-3 rounded-full mr-4 h-fit">
               <AlertTriangle className="h-6 w-6 text-onErrorContainer" />
@@ -32,8 +32,13 @@ const ConfirmationModal: React.FC<{
             </div>
         </div>
         <div className="flex justify-end space-x-3 mt-8">
-          <Button variant="outlined" onClick={onClose}>Annuler</Button>
-          <Button variant="danger" onClick={onConfirm}>Confirmer</Button>
+          <Button variant="text" onClick={onClose}>Annuler</Button>
+          <button 
+            onClick={onConfirm}
+            className="btn-premium-shine btn-premium-extended h-11 text-sm focus:outline-none focus:ring-4 focus:ring-primary/30 inline-flex items-center justify-center"
+          >
+            Confirmer
+          </button>
         </div>
       </div>
     </div>
@@ -217,58 +222,76 @@ const DashboardPage: React.FC = () => {
       {/* En-tête de la page */}
       <div className="container mx-auto mb-8">
         {isSelectionMode ? (
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 min-h-[68px]">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
-                  <h2 className="text-lg sm:text-xl font-bold text-onSurface">{selectedDocuments.length} sélectionné(s)</h2>
-                  <Button 
-                    variant="text" 
-                    onClick={handleSelectAllClick} 
-                    disabled={filteredDocuments.length === 0}
-                    size="small"
-                    className="w-full sm:w-auto"
-                  >
+          <div className="bg-primaryContainer/30 backdrop-blur-sm rounded-2xl p-4 elevation-1 border border-primary/20 animate-slide-down">
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="bg-primary text-onPrimary px-4 py-2 rounded-full font-bold text-sm elevation-2">
+                  {selectedDocuments.length} / {filteredDocuments.length}
+                </div>
+                <h2 className="text-lg font-bold text-onSurface">
+                  {selectedDocuments.length === 0 ? 'Aucune sélection' : 
+                   selectedDocuments.length === 1 ? '1 document sélectionné' : 
+                   `${selectedDocuments.length} documents sélectionnés`}
+                </h2>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto">
+                <Button 
+                  variant="filled" 
+                  icon={CheckSquare}
+                  onClick={handleSelectAllClick} 
+                  disabled={filteredDocuments.length === 0}
+                  size="small"
+                  className="flex-1 sm:flex-initial min-w-[140px] max-w-[160px]"
+                >
+                  <span className="truncate">
                     {filteredDocuments.length > 0 && selectedDocuments.length === filteredDocuments.length
                       ? 'Tout désélectionner'
                       : 'Tout sélectionner'}
-                  </Button>
+                  </span>
+                </Button>
+                <Button 
+                  variant="outlined"
+                  icon={Trash2} 
+                  disabled={selectedDocuments.length === 0} 
+                  onClick={() => setIsConfirmDeleteOpen(true)}
+                  size="small"
+                  className="flex-1 sm:flex-initial min-w-[110px] !text-error !border-error state-layer-error [&:hover]:!bg-transparent"
+                >
+                  Supprimer
+                </Button>
+                <Button 
+                  variant="text" 
+                  icon={X}
+                  onClick={handleExitSelectionMode}
+                  size="small"
+                  className="flex-1 sm:flex-initial"
+                >
+                  Annuler
+                </Button>
               </div>
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <Button 
-                    variant="danger" 
-                    icon={Trash2} 
-                    disabled={selectedDocuments.length === 0} 
-                    onClick={() => setIsConfirmDeleteOpen(true)}
-                    size="small"
-                    className="flex-1 sm:flex-initial"
-                  >
-                      Supprimer
-                  </Button>
-                  <Button 
-                    variant="text" 
-                    onClick={handleExitSelectionMode}
-                    size="small"
-                    className="flex-1 sm:flex-initial"
-                  >
-                      Annuler
-                  </Button>
-              </div>
+            </div>
           </div>
         ) : (
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div>
-                <h1 className="text-4xl font-bold text-onSurface">Tableau de bord</h1>
-                <p className="mt-1 text-md text-onSurfaceVariant">Gérez vos documents et vos demandes de signature.</p>
+              <div className="flex items-center gap-4">
+                <div className="bg-primaryContainer inline-block p-4 rounded-full progressive-glow">
+                  <LayoutDashboard className="h-12 w-12 text-onPrimaryContainer" />
+                </div>
+                <div>
+                  <h1 className="text-4xl font-bold text-onSurface">Tableau de bord</h1>
+                  <p className="mt-1 text-md text-onSurfaceVariant">Gérez vos documents et vos demandes de signature.</p>
+                </div>
               </div>
               <div className="flex items-center gap-2">
-                  {/* Bouton Ajouter un fichier - Desktop uniquement, dans le header, avant la recherche */}
+                    {/* Bouton Ajouter un fichier - Desktop uniquement, dans le header, avant la recherche */}
                   {filteredDocuments.length > 0 && (
                     <button
                       onClick={handleEmptyStateClick}
-                      className="hidden lg:flex items-center justify-center h-14 px-6 bg-primary text-onPrimary rounded-full shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-primary/30 transition-all duration-300 transform hover:scale-[1.02] ease-in-out whitespace-nowrap"
+                      className="hidden lg:flex items-center justify-center h-14 btn-premium-shine btn-premium-extended focus:outline-none focus:ring-4 focus:ring-primary/30 whitespace-nowrap"
                       aria-label="Ajouter un fichier"
                     >
-                      <PlusCircle className="h-6 w-6 mr-2 flex-shrink-0" />
-                      <span className="font-bold tracking-wide text-base">Ajouter un fichier</span>
+                      <PlusCircle className="h-6 w-6 flex-shrink-0" />
+                      <span className="tracking-wide text-base">Ajouter un fichier</span>
                     </button>
                   )}
                   <div className="relative w-full sm:w-64">
@@ -281,7 +304,7 @@ const DashboardPage: React.FC = () => {
                           className="w-full p-2.5 pl-11 border border-outline bg-surface rounded-full focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
                       />
                   </div>
-                  <Button variant="text" onClick={() => setIsSelectionMode(true)}>Sélectionner</Button>
+                  <Button variant="outlined" onClick={() => setIsSelectionMode(true)}>Sélectionner</Button>
               </div>
           </div>
         )}
@@ -293,25 +316,25 @@ const DashboardPage: React.FC = () => {
           {/* Bouton Ajouter un fichier - Full width en mobile/tablette, dans container - Masqué si aucun document */}
           {!isSelectionMode && filteredDocuments.length > 0 && (
             <div className="mb-6 lg:hidden">
-              <button
-                  onClick={handleEmptyStateClick}
-                  className="w-full flex items-center justify-center h-12 sm:h-14 px-4 sm:px-6 bg-primary text-onPrimary rounded-full shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-primary/30 transition-all duration-300 transform hover:scale-[1.02] ease-in-out"
-                  aria-label="Ajouter un fichier"
-              >
-                  <PlusCircle className="h-5 w-5 sm:h-6 sm:w-6 mr-2 flex-shrink-0" />
-                  <span className="font-bold tracking-wide text-sm sm:text-base whitespace-nowrap">Ajouter un fichier</span>
-              </button>
+                  <button
+                      onClick={handleEmptyStateClick}
+                      className="w-full flex items-center justify-center h-12 sm:h-14 btn-premium-shine btn-premium-extended focus:outline-none focus:ring-4 focus:ring-primary/30"
+                      aria-label="Ajouter un fichier"
+                  >
+                      <PlusCircle className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0" />
+                      <span className="tracking-wide text-sm sm:text-base whitespace-nowrap">Ajouter un fichier</span>
+                  </button>
             </div>
           )}
 
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
           {[...Array(8)].map((_, i) => (
-            <div key={i} className="bg-surfaceVariant/30 rounded-2xl elevation-0 border border-outlineVariant/30 h-44 stagger-item">
+            <div key={i} className="bg-surfaceVariant/30 rounded-2xl elevation-0 border border-outlineVariant/30 h-44 cascade-item loading-shimmer">
                 <div className="p-5 h-full space-y-3">
-                    <div className="h-8 skeleton w-3/4"></div>
-                    <div className="h-5 skeleton w-1/2"></div>
-                    <div className="h-4 skeleton w-2/3"></div>
+                    <div className="h-8 skeleton-enhanced w-3/4"></div>
+                    <div className="h-5 skeleton-enhanced w-1/2"></div>
+                    <div className="h-4 skeleton-enhanced w-2/3"></div>
                 </div>
             </div>
           ))}
@@ -375,11 +398,11 @@ const DashboardPage: React.FC = () => {
               e.stopPropagation(); // Empêcher le double déclenchement
               handleEmptyStateClick();
             }}
-            className="inline-flex items-center justify-center h-12 sm:h-14 px-4 sm:px-6 bg-primary text-onPrimary rounded-full shadow-lg hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-primary/30 transition-all duration-300 transform hover:scale-[1.02] ease-in-out text-sm sm:text-base"
+            className="inline-flex items-center justify-center h-12 sm:h-14 btn-premium-shine btn-premium-extended focus:outline-none focus:ring-4 focus:ring-primary/30 text-sm sm:text-base"
             aria-label="Ajouter un fichier"
           >
-            <PlusCircle className="h-5 w-5 sm:h-6 sm:w-6 mr-2 flex-shrink-0" />
-            <span className="font-bold tracking-wide whitespace-nowrap">Ajouter un fichier</span>
+            <PlusCircle className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0" />
+            <span className="tracking-wide whitespace-nowrap">Ajouter un fichier</span>
           </button>
         </div>
       )}

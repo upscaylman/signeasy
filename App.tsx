@@ -25,7 +25,7 @@ const App: React.FC = () => {
             Aller au contenu principal
           </a>
           <Header />
-          <main id="main-content" className="flex-grow animate-fade-in">
+          <main id="main-content" className="flex-grow animate-fade-in page-transition">
             <Routes>
               <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} />
               {/* A real app would have a login page */}

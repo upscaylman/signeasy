@@ -1,10 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SignEase by FO Metaux</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="SignEase by FO Metaux - Solution professionnelle de signature électronique sécurisée pour vos documents." />
+    <meta name="theme-color" content="#B71C1C" />
+    <title>SignEase by FO Metaux - Signature Électronique</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -86,7 +88,15 @@
 <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <link rel="stylesheet" href="/index.css">
 </head>
-  <body class="bg-background text-onSurface font-sans">
+  <body class="bg-background text-onSurface font-sans antialiased">
+    <noscript>
+      <div style="display: flex; align-items: center; justify-content: center; height: 100vh; text-align: center; padding: 2rem; font-family: system-ui, -apple-system, sans-serif;">
+        <div>
+          <h1 style="font-size: 2rem; font-weight: bold; margin-bottom: 1rem;">SignEase by FO Metaux</h1>
+          <p style="color: #666;">Veuillez activer JavaScript pour utiliser cette application.</p>
+        </div>
+      </div>
+    </noscript>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

@@ -26,34 +26,22 @@ const DocumentCard: React.FC<DocumentCardProps> = ({ document, onSign, onView, i
   const needsAction = document.status === DocumentStatus.SENT;
 
   return (
-    <div className="relative h-full">
-      {isSelectionMode && (
-        <div className="absolute top-2 right-2 sm:top-3 sm:right-3 z-10 bg-surface/90 rounded-md p-1.5 shadow-sm">
-          <input
-            type="checkbox"
-            checked={isSelected}
-            onChange={() => onSelect(document.id)}
-            className="h-5 w-5 sm:h-6 sm:w-6 rounded text-primary focus:ring-primary border-outlineVariant cursor-pointer"
-            onClick={(e) => e.stopPropagation()}
-            aria-label={`Sélectionner le document ${document.name}`}
-          />
-        </div>
-      )}
+    <div className="relative h-full cascade-item">
       <div 
         onClick={() => { if (isSelectionMode) onSelect(document.id) }}
         className={`
           bg-surfaceVariant/30 rounded-2xl border border-outlineVariant/30
-          card-transition elevation-0 flex flex-col h-full
-          ${isSelectionMode ? 'cursor-pointer' : ''}
+          card-transition card-depth elevation-0 flex flex-col h-full
+          ${isSelectionMode ? 'cursor-pointer press-effect' : ''}
           ${isSelected 
-            ? 'ring-2 ring-primary border-primary elevation-3' 
+            ? 'ring-2 ring-primary border-primary elevation-3 success-pop' 
             : 'hover:elevation-2 hover:border-outlineVariant/50'
           }
         `.trim().replace(/\s+/g, ' ')}
       >
         <div className="p-5 flex-grow">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center space-x-3 pr-2 min-w-0">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center space-x-3 min-w-0 flex-1">
               <div className="bg-primaryContainer p-2 rounded-full flex-shrink-0">
                 <FileText className="h-5 w-5 text-onPrimaryContainer" />
               </div>
@@ -61,14 +49,44 @@ const DocumentCard: React.FC<DocumentCardProps> = ({ document, onSign, onView, i
                 {document.name}
               </h3>
             </div>
-            <span className={`
-              px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full
-              flex-shrink-0 animate-fade-in-scale
-              ${bg} ${text}
-              ${needsAction ? 'animate-pulse' : ''}
-            `.trim().replace(/\s+/g, ' ')}>
-              {document.status}
-            </span>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <span className={`
+                px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full
+                animate-fade-in-scale
+                ${bg} ${text}
+                ${needsAction ? 'badge-pulse' : ''}
+              `.trim().replace(/\s+/g, ' ')}>
+                {document.status}
+              </span>
+              {isSelectionMode && (
+                <label className="cursor-pointer group animate-fade-in-scale" onClick={(e) => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => onSelect(document.id)}
+                    className="sr-only peer"
+                    aria-label={`Sélectionner le document ${document.name}`}
+                  />
+                  <div className="
+                    w-6 h-6 sm:w-7 sm:h-7
+                    rounded-full border-2
+                    bg-surface elevation-1
+                    flex items-center justify-center
+                    transition-all duration-200
+                    peer-checked:bg-primary peer-checked:border-primary peer-checked:elevation-2
+                    peer-focus:ring-2 peer-focus:ring-primary
+                    group-hover:elevation-2 group-hover:scale-105
+                    border-outlineVariant
+                  ">
+                    {isSelected && (
+                      <svg className="w-3 h-3 sm:w-4 sm:h-4 text-onPrimary animate-expand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </div>
+                </label>
+              )}
+            </div>
           </div>
           <div className="mt-4 space-y-2">
             <div className="flex items-center text-sm text-onSurfaceVariant">
@@ -116,9 +134,10 @@ const DocumentCard: React.FC<DocumentCardProps> = ({ document, onSign, onView, i
                    className="
                      inline-flex items-center min-h-[40px] px-3 py-2
                      text-sm font-bold text-primary rounded-lg
-                     state-layer state-layer-primary
-                     transition-colors
+                     state-layer state-layer-primary press-effect
+                     transition-all hover:scale-[1.02]
                    "
+                   aria-label={`Signer le document ${document.name}`}
                  >
                     Signer maintenant <PenSquare className="ml-1.5 h-4 w-4" />
                  </button>
@@ -129,9 +148,10 @@ const DocumentCard: React.FC<DocumentCardProps> = ({ document, onSign, onView, i
                    className="
                      inline-flex items-center min-h-[40px] px-3 py-2
                      text-sm font-bold text-secondary rounded-lg
-                     state-layer state-layer-secondary
-                     transition-colors
+                     state-layer state-layer-secondary press-effect
+                     transition-all hover:scale-[1.02]
                    "
+                   aria-label={`Voir le document ${document.name}`}
                  >
                     Voir <Eye className="ml-1.5 h-4 w-4" />
                  </button>

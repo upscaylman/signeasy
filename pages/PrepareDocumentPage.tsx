@@ -72,8 +72,8 @@ const SummaryModal: React.FC<{
     const selectedCount = selectedRecipients.length;
 
     return (
-        <div className="fixed inset-0 bg-scrim/50 flex items-center justify-center z-50 p-4" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="summary-modal-title">
-            <div className="bg-surface rounded-3xl shadow-xl w-full max-w-2xl" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-scrim/50 flex items-center justify-center z-50 p-4 modal-backdrop" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="summary-modal-title">
+            <div className="bg-surface rounded-3xl shadow-xl w-full max-w-2xl modal-content" onClick={e => e.stopPropagation()}>
                 <div className="p-6 border-b border-outlineVariant">
                     <div className="flex justify-between items-center">
                         <h2 id="summary-modal-title" className="text-xl font-bold text-onSurface">Confirmer et envoyer</h2>
@@ -158,10 +158,25 @@ const SummaryModal: React.FC<{
                         {creatorEmail.trim() && selectedCount > 0 && `📧 ${selectedCount} email${selectedCount > 1 ? 's' : ''} sera${selectedCount > 1 ? 'ont' : ''} envoyé${selectedCount > 1 ? 's' : ''}`}
                     </p>
                     <div className="flex space-x-3">
-                        <Button variant="outlined" onClick={onClose}>Annuler</Button>
-                        <Button variant="filled" onClick={() => onConfirm(selectedRecipients)} isLoading={isSubmitting} disabled={selectedCount === 0 || !creatorEmail.trim()}>
-                            Envoyer {selectedCount > 0 && `(${selectedCount})`}
-                        </Button>
+                        <Button variant="text" onClick={onClose}>Annuler</Button>
+                        <button 
+                            onClick={() => onConfirm(selectedRecipients)}
+                            disabled={isSubmitting || selectedCount === 0 || !creatorEmail.trim()}
+                            className="btn-premium-shine btn-premium-extended h-11 text-sm focus:outline-none focus:ring-4 focus:ring-primary/30 inline-flex items-center justify-center gap-2"
+                            aria-busy={isSubmitting}
+                        >
+                            {isSubmitting ? (
+                                <>
+                                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <span>Envoi...</span>
+                                </>
+                            ) : (
+                                <span>Envoyer {selectedCount > 0 && `(${selectedCount})`}</span>
+                            )}
+                        </button>
                     </div>
                 </div>
             </div>
@@ -868,15 +883,18 @@ const PrepareDocumentPage: React.FC = () => {
                  <div className="bg-surface/80 backdrop-blur-sm p-3 shadow-sm sticky top-16 z-30 border-b border-outlineVariant">
                     <div className="container mx-auto flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
                         <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
-                            <Button variant="outlined" onClick={() => navigate('/dashboard')} icon={ArrowLeft} size="small" className="flex-shrink-0">
+                            <Button variant="text" onClick={() => navigate('/dashboard')} icon={ArrowLeft} size="small" className="flex-shrink-0">
                                 <span className="hidden sm:inline">Retour</span>
                             </Button>
                             <h1 className="text-sm sm:text-lg font-bold truncate text-onSurface min-w-0" title={file.name}>{file.name}</h1>
                         </div>
-                        <Button onClick={handleSend} size="small" className="w-full sm:w-auto flex-shrink-0">
+                        <button 
+                            onClick={handleSend}
+                            className="btn-premium-shine btn-premium-extended h-10 text-sm focus:outline-none focus:ring-4 focus:ring-primary/30 w-full sm:w-auto flex-shrink-0 inline-flex items-center justify-center"
+                        >
                             <span className="hidden sm:inline">Envoyer la demande de signature</span>
                             <span className="sm:hidden">Envoyer</span>
-                        </Button>
+                        </button>
                     </div>
                 </div>
                 <div className="flex-grow flex overflow-hidden relative">
@@ -917,7 +935,7 @@ const PrepareDocumentPage: React.FC = () => {
                                         </div>
                                     ))}
                                 </div>
-                                <Button variant="outlined" icon={UserPlus} onClick={addRecipient} className="w-full mt-4">
+                                <Button variant="glass" icon={UserPlus} onClick={addRecipient} className="w-full mt-4">
                                     Ajouter un destinataire
                                 </Button>
 

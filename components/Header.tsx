@@ -40,15 +40,15 @@ const Header: React.FC = () => {
   }, [location.pathname]);
 
   return (
-    <header className="glass-effect-strong border-b border-outlineVariant/50 sticky top-0 z-40 animate-slide-down">
+    <header className="glass-effect-strong border-b border-outlineVariant/50 sticky top-0 z-40 animate-slide-down backdrop-blur-xl">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-16 sm:h-18">
           <div className="flex items-center space-x-3">
-            <div className="bg-gradient-primary p-2 rounded-lg flex items-center justify-center h-10 w-10 elevation-2 glow-primary">
+            <div className="bg-gradient-primary p-2 rounded-lg flex items-center justify-center h-10 w-10 elevation-2 progressive-glow transition-transform hover:scale-110">
               <span className="text-xl font-extrabold text-onPrimary">FO</span>
             </div>
-            <span className="text-xl font-bold text-gradient-primary whitespace-nowrap hidden sm:inline">SignEase by FO Metaux</span>
-            <span className="text-xl font-bold text-gradient-primary whitespace-nowrap sm:hidden">SignEase</span>
+                <span className="text-xl font-bold whitespace-nowrap hidden sm:inline"><span className="text-gradient-primary">SignEase</span> <span className="text-onSurface">by FO Metaux</span></span>
+                <span className="text-xl font-bold text-gradient-primary whitespace-nowrap sm:hidden">SignEase</span>
           </div>
           {/* Navigation Desktop - avec labels */}
           <nav className="hidden lg:flex items-center space-x-2">
@@ -77,7 +77,7 @@ const Header: React.FC = () => {
                  <span className="
                    absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center
                    rounded-full bg-primary text-onPrimary text-xs font-bold
-                   animate-fade-in-scale elevation-2
+                   animate-fade-in-scale elevation-2 badge-pulse
                  ">
                     {unreadCount}
                  </span>
@@ -126,7 +126,7 @@ const Header: React.FC = () => {
                    <span className="
                      absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center
                      rounded-full bg-primary text-onPrimary text-xs font-bold
-                     animate-fade-in-scale elevation-2
+                     animate-fade-in-scale elevation-2 badge-pulse
                    ">
                       {unreadCount}
                    </span>
@@ -156,8 +156,9 @@ const Header: React.FC = () => {
                   bg-primaryContainer text-onPrimaryContainer
                   rounded-full flex items-center justify-center
                   font-bold text-lg
-                  state-layer state-layer-primary
-                  elevation-0 hover:elevation-1
+                  state-layer state-layer-primary press-effect
+                  elevation-0 hover:elevation-1 transition-all
+                  hover:scale-110
                 "
                 aria-label="Profil utilisateur"
               >

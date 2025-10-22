@@ -140,6 +140,7 @@ html {
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
 }
 
 body {
@@ -148,6 +149,8 @@ body {
   color: var(--md-sys-color-on-background);
   line-height: 1.6;
   overflow-x: hidden;
+  min-height: 100vh;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* ============================================
@@ -1415,5 +1418,593 @@ img {
 /* Font Caveat pour les signatures tapées */
 .font-signature {
   font-family: 'Caveat', cursive;
+}
+
+/* ============================================
+   AMÉLIORATIONS UX/UI AVANCÉES
+   ============================================ */
+
+/* Sélection de texte personnalisée */
+::selection {
+  background-color: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+}
+
+::-moz-selection {
+  background-color: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+}
+
+/* Amélioration des transitions de page */
+.page-transition {
+  animation: pageEnter var(--md-sys-motion-duration-medium-4) var(--md-sys-motion-easing-emphasized);
+}
+
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Animation de chargement améliorée */
+.loading-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.loading-shimmer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0,
+    rgba(255, 255, 255, 0.2) 20%,
+    rgba(255, 255, 255, 0.5) 60%,
+    rgba(255, 255, 255, 0)
+  );
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Amélioration des cartes avec effet de profondeur */
+.card-depth {
+  position: relative;
+  transition: all var(--md-sys-motion-duration-medium-2) var(--md-sys-motion-easing-emphasized);
+}
+
+.card-depth::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.5), transparent);
+  opacity: 0;
+  transition: opacity var(--md-sys-motion-duration-medium-2) var(--md-sys-motion-easing-emphasized);
+}
+
+.card-depth:hover::before {
+  opacity: 1;
+}
+
+/* Amélioration des inputs avec animation */
+.input-focus-grow {
+  position: relative;
+}
+
+.input-focus-grow::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 0;
+  height: 2px;
+  background: var(--md-sys-color-primary);
+  transition: all var(--md-sys-motion-duration-medium-2) var(--md-sys-motion-easing-emphasized);
+  transform: translateX(-50%);
+}
+
+.input-focus-grow:focus-within::after {
+  width: 100%;
+}
+
+/* ============================================
+   BOUTON FLAT MATERIAL DESIGN 3 + EFFET SHINE
+   Basé sur : https://m3.material.io/components/buttons/overview
+   ============================================ */
+
+/* Bouton flat avec effet de brillance */
+.btn-premium-shine {
+  position: relative;
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  box-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 1px 3px rgba(0, 0, 0, 0.15);
+  transition: all var(--md-sys-motion-duration-medium-2) var(--md-sys-motion-easing-emphasized);
+  overflow: hidden;
+}
+
+/* Effet de brillance qui traverse le bouton */
+.btn-premium-shine::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    rgba(255, 255, 255, 0.6),
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  transform: skewX(-20deg);
+  animation: shine 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Overlay subtil pour légère profondeur sans relief */
+.btn-premium-shine::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    transparent 50%,
+    rgba(0, 0, 0, 0.05) 100%
+  );
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.btn-premium-shine:hover {
+  background: var(--md-sys-color-primary);
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.3),
+    0 4px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+}
+
+.btn-premium-shine:hover::before {
+  animation: shine 1.5s ease-in-out infinite;
+}
+
+.btn-premium-shine:active {
+  transform: translateY(0);
+  box-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+@keyframes shine {
+  0% {
+    left: -100%;
+  }
+  20% {
+    left: 120%;
+  }
+  100% {
+    left: 120%;
+  }
+}
+
+/* Variante pour les boutons étendus */
+.btn-premium-extended {
+  min-width: auto;
+  width: auto;
+  padding: 0 24px;
+  border-radius: 28px;
+  gap: 8px;
+  font-weight: 700;
+  letter-spacing: 0.25px;
+}
+
+/* État disabled */
+.btn-premium-shine:disabled {
+  background: rgba(31, 31, 31, 0.12);
+  color: rgba(31, 31, 31, 0.38);
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-premium-shine:disabled::before,
+.btn-premium-shine:disabled::after {
+  display: none;
+}
+
+/* Effet de lueur progressive (legacy - conservé pour compatibilité) */
+.progressive-glow {
+  animation: progressiveGlow 3s ease-in-out infinite;
+}
+
+@keyframes progressiveGlow {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(183, 28, 28, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(183, 28, 28, 0.5), 0 0 40px rgba(183, 28, 28, 0.3);
+  }
+}
+
+/* Badge animé avec pulse amélioré */
+.badge-pulse {
+  animation: badgePulseEnhanced 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes badgePulseEnhanced {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.05);
+  }
+}
+
+/* Séparateur animé */
+.divider-animated {
+  position: relative;
+  overflow: hidden;
+}
+
+.divider-animated::after {
+  content: '';
+  position: absolute;
+  left: -100%;
+  width: 30%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--md-sys-color-primary),
+    transparent
+  );
+  animation: dividerSlide 3s ease-in-out infinite;
+}
+
+@keyframes dividerSlide {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+/* Amélioration du focus pour l'accessibilité */
+.focus-visible-enhanced:focus-visible {
+  outline: 3px solid var(--md-sys-color-primary);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px rgba(183, 28, 28, 0.1);
+}
+
+/* Animation d'apparition en cascade */
+@keyframes cascadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.cascade-item {
+  animation: cascadeIn 0.6s ease-out backwards;
+}
+
+.cascade-item:nth-child(1) { animation-delay: 0.05s; }
+.cascade-item:nth-child(2) { animation-delay: 0.1s; }
+.cascade-item:nth-child(3) { animation-delay: 0.15s; }
+.cascade-item:nth-child(4) { animation-delay: 0.2s; }
+.cascade-item:nth-child(5) { animation-delay: 0.25s; }
+.cascade-item:nth-child(6) { animation-delay: 0.3s; }
+.cascade-item:nth-child(7) { animation-delay: 0.35s; }
+.cascade-item:nth-child(8) { animation-delay: 0.4s; }
+
+/* Skeleton loader amélioré avec gradient */
+.skeleton-enhanced {
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 0%,
+    #e0e0e0 20%,
+    #f0f0f0 40%,
+    #f0f0f0 100%
+  );
+  background-size: 200% 100%;
+  animation: skeletonEnhanced 1.5s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+@keyframes skeletonEnhanced {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Amélioration de l'effet hover pour les liens */
+.link-enhanced {
+  position: relative;
+  display: inline-block;
+}
+
+.link-enhanced::after {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 2px;
+  bottom: -2px;
+  left: 0;
+  background-color: var(--md-sys-color-primary);
+  transform: scaleX(0);
+  transform-origin: bottom right;
+  transition: transform var(--md-sys-motion-duration-medium-2) var(--md-sys-motion-easing-emphasized);
+}
+
+.link-enhanced:hover::after {
+  transform: scaleX(1);
+  transform-origin: bottom left;
+}
+
+/* Animation de succès avec confetti */
+@keyframes confettiPop {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.success-pop {
+  animation: confettiPop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Amélioration du drag & drop */
+.dropzone {
+  transition: all var(--md-sys-motion-duration-medium-2) var(--md-sys-motion-easing-emphasized);
+  position: relative;
+}
+
+.dropzone::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border: 3px dashed transparent;
+  border-radius: inherit;
+  transition: border-color var(--md-sys-motion-duration-short-4) var(--md-sys-motion-easing-standard);
+  pointer-events: none;
+}
+
+.dropzone.dragging::before {
+  border-color: var(--md-sys-color-primary);
+  animation: dashedBorder 1s linear infinite;
+}
+
+@keyframes dashedBorder {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+/* Amélioration des modales avec backdrop blur progressif */
+.modal-backdrop {
+  animation: backdropFadeIn var(--md-sys-motion-duration-medium-3) var(--md-sys-motion-easing-emphasized);
+}
+
+@keyframes backdropFadeIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(8px);
+  }
+}
+
+.modal-content {
+  animation: modalSlideUp var(--md-sys-motion-duration-medium-3) var(--md-sys-motion-easing-emphasized-decelerate);
+}
+
+@keyframes modalSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(32px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Amélioration des tooltips */
+.tooltip-enhanced {
+  animation: tooltipEnter var(--md-sys-motion-duration-short-4) var(--md-sys-motion-easing-emphasized);
+}
+
+@keyframes tooltipEnter {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* États disabled améliorés */
+.disabled-enhanced {
+  opacity: 0.4;
+  cursor: not-allowed;
+  filter: grayscale(0.3);
+  transition: all var(--md-sys-motion-duration-short-4) var(--md-sys-motion-easing-standard);
+}
+
+/* Amélioration des scrollbars personnalisées */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--md-sys-color-surface-variant);
+  border-radius: 10px;
+  margin: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--md-sys-color-outline);
+  border-radius: 10px;
+  border: 2px solid var(--md-sys-color-surface-variant);
+  transition: background var(--md-sys-motion-duration-short-4) var(--md-sys-motion-easing-standard);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--md-sys-color-primary);
+  border: 2px solid var(--md-sys-color-primary-container);
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: var(--md-sys-color-primary);
+}
+
+/* Support Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--md-sys-color-outline) var(--md-sys-color-surface-variant);
+}
+
+/* Amélioration de l'effet de presse pour les éléments interactifs */
+.press-effect {
+  transition: transform var(--md-sys-motion-duration-short-2) var(--md-sys-motion-easing-emphasized);
+}
+
+.press-effect:active {
+  transform: scale(0.97);
+}
+
+/* Animation pour les notifications d'apparition */
+.notification-enter {
+  animation: notificationSlideIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes notificationSlideIn {
+  from {
+    transform: translateX(100%) scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Amélioration progressive du contraste */
+@media (prefers-contrast: more) {
+  * {
+    border-width: 2px;
+  }
+  
+  .text-onSurfaceVariant {
+    color: var(--md-sys-color-on-surface);
+  }
+}
+
+/* Amélioration pour les petits écrans */
+@media (max-width: 640px) {
+  /* Augmenter légèrement les zones tactiles sur mobile */
+  button, a, input, select, textarea {
+    min-height: 44px;
+  }
+  
+  /* Optimiser les espacements sur mobile */
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+/* Amélioration pour les écrans larges */
+@media (min-width: 1920px) {
+  .container {
+    max-width: 1600px;
+  }
+}
+
+/* Optimisation pour les appareils avec pointeur précis */
+@media (pointer: fine) {
+  .press-effect:active {
+    transform: scale(0.98);
+  }
+  
+  /* Réduire légèrement les zones tactiles sur desktop */
+  button, a {
+    min-height: 40px;
+  }
+}
+
+/* Animation de chargement avec points */
+.loading-dots {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.loading-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: currentColor;
+  animation: loadingDots 1.4s infinite ease-in-out both;
+}
+
+.loading-dots span:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.loading-dots span:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+@keyframes loadingDots {
+  0%, 80%, 100% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
 }
 

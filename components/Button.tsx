@@ -65,10 +65,10 @@ const Button: React.FC<ButtonProps> = ({
   const baseClasses = `
     inline-flex items-center justify-center
     font-bold rounded-full
-    focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background
-    disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none
+    focus:outline-none focus-ring focus:ring-2 focus:ring-offset-2 focus:ring-offset-background
+    disabled:disabled-enhanced
     whitespace-nowrap
-    relative overflow-hidden
+    relative overflow-hidden press-effect
     ${sizeClasses[size]}
   `.trim().replace(/\s+/g, ' ');
 
@@ -145,6 +145,7 @@ const Button: React.FC<ButtonProps> = ({
       className={`${baseClasses} ${variantClasses[variant]} ${effectClasses} ${props.className || ''}`}
       disabled={isLoading || props.disabled}
       onClick={handleClick}
+      aria-busy={isLoading}
       {...props}
     >
       {/* Effet Ripple */}
@@ -168,7 +169,7 @@ const Button: React.FC<ButtonProps> = ({
         ) : (
           <>
             {Icon && <Icon className="h-5 w-5 flex-shrink-0" />}
-            <span className="flex-shrink-0">{children}</span>
+            {children}
           </>
         )}
       </span>
