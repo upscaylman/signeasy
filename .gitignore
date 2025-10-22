@@ -48,3 +48,6 @@ firebase-debug.log
 # Other
 *.bak
 *.old
+
+# Local Netlify folder
+.netlify

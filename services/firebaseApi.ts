@@ -23,6 +23,123 @@ import { db, storage } from '../config/firebase';
 import type { Document, Envelope, Recipient, Field, MockEmail, AuditEvent } from '../types';
 import { DocumentStatus, FieldType } from '../types';
 
+// ===== WHITELISTING & AUTHORIZATION =====
+
+// Liste prédéfinie d'emails autorisés FO Metaux
+const PREDEFINED_AUTHORIZED_EMAILS = [
+  'marie-helenegl@fo-metaux.fr',
+  'corinnel@fo-metaux.fr',
+  'contact@fo-metaux.fr',
+  'vrodriguez@fo-metaux.fr',
+  'aguillermin@fo-metaux.fr',
+  'bouvier.jul@gmail.com' // Admin
+];
+
+// Email admin
+const ADMIN_EMAIL = 'bouvier.jul@gmail.com';
+
+export const checkEmailAccess = async (email: string): Promise<boolean> => {
+  try {
+    const emailLower = email.toLowerCase();
+    
+    // Vérifier si dans la liste prédéfinie
+    if (PREDEFINED_AUTHORIZED_EMAILS.includes(emailLower)) {
+      return true;
+    }
+
+    // Vérifier si a reçu un fichier à signer (destinataire d'une enveloppe)
+    const envelopesSnapshot = await getDocs(collection(db, 'envelopes'));
+    for (const env of envelopesSnapshot.docs) {
+      const envelopeData = env.data() as Envelope;
+      const isRecipient = envelopeData.recipients.some(r => r.email.toLowerCase() === emailLower);
+      if (isRecipient) {
+        return true;
+      }
+    }
+
+    // Vérifier si dans la whitelist dynamique (ajoutée par admin)
+    const whitelistSnapshot = await getDocs(
+      query(collection(db, 'authorizedUsers'), where('email', '==', emailLower))
+    );
+    return whitelistSnapshot.size > 0;
+  } catch (error) {
+    console.error('Erreur checkEmailAccess:', error);
+    return false;
+  }
+};
+
+export const isAdmin = (email: string): boolean => {
+  return email.toLowerCase() === ADMIN_EMAIL;
+};
+
+export const getAuthorizedUsers = async (): Promise<{id: string, email: string, addedAt: string}[]> => {
+  try {
+    const snapshot = await getDocs(
+      query(collection(db, 'authorizedUsers'), orderBy('addedAt', 'desc'))
+    );
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as {id: string, email: string, addedAt: string}));
+  } catch (error) {
+    console.error('Erreur getAuthorizedUsers:', error);
+    return [];
+  }
+};
+
+export const addAuthorizedUser = async (email: string): Promise<{success: boolean, message: string}> => {
+  try {
+    const emailLower = email.toLowerCase();
+    
+    // Vérifier si déjà autorisé
+    if (PREDEFINED_AUTHORIZED_EMAILS.includes(emailLower)) {
+      return { success: false, message: 'Cet email est déjà dans la liste FO Metaux' };
+    }
+
+    const existing = await getDocs(
+      query(collection(db, 'authorizedUsers'), where('email', '==', emailLower))
+    );
+    if (existing.size > 0) {
+      return { success: false, message: 'Cet email est déjà autorisé' };
+    }
+
+    // Ajouter l'email
+    await setDoc(doc(collection(db, 'authorizedUsers')), {
+      email: emailLower,
+      addedAt: new Date().toISOString()
+    });
+
+    return { success: true, message: 'Email ajouté avec succès' };
+  } catch (error) {
+    console.error('Erreur addAuthorizedUser:', error);
+    return { success: false, message: 'Erreur lors de l\'ajout' };
+  }
+};
+
+export const removeAuthorizedUser = async (email: string): Promise<{success: boolean, message: string}> => {
+  try {
+    const emailLower = email.toLowerCase();
+    
+    // Ne pas supprimer les emails prédéfinis
+    if (PREDEFINED_AUTHORIZED_EMAILS.includes(emailLower)) {
+      return { success: false, message: 'Impossible de supprimer les emails FO Metaux' };
+    }
+
+    const snapshot = await getDocs(
+      query(collection(db, 'authorizedUsers'), where('email', '==', emailLower))
+    );
+    
+    for (const doc of snapshot.docs) {
+      await deleteDoc(doc.ref);
+    }
+
+    return { success: true, message: 'Email supprimé avec succès' };
+  } catch (error) {
+    console.error('Erreur removeAuthorizedUser:', error);
+    return { success: false, message: 'Erreur lors de la suppression' };
+  }
+};
+
 // ===== DOCUMENTS =====
 
 export const getExistingRecipients = async (userEmail?: string): Promise<{id: string, name: string, email: string}[]> => {
@@ -275,6 +392,7 @@ export const createEnvelope = async (
           id: emailId,
           from: "noreply@signeasyfo.com",
           to: recipient.email,
+          toEmail: recipient.email,
           subject: `Signature requise : ${fileData.name}`,
           body: `Bonjour ${recipient.name},\n\nVous avez un document à signer : "${fileData.name}".\n\nCliquez sur le bouton ci-dessous pour le signer.`,
           signatureLink: `${window.location.origin}/#/sign/${token}`,
@@ -479,7 +597,25 @@ export const submitSignature = async (
         isViewOnly: true // Flag pour indiquer que c'est un token de lecture seule
       });
       
-      // Envoyer l'email de confirmation
+      // 📧 Créer un email Firestore pour le créateur du document
+      const confirmationEmailId = `email-signed-${envelope.document.id}-${Date.now()}`;
+      const confirmationEmail: MockEmail = {
+        id: confirmationEmailId,
+        from: "noreply@signeasyfo.com",
+        to: envelope.document.creatorEmail,
+        toEmail: envelope.document.creatorEmail,
+        subject: `✅ Document signé : ${envelope.document.name}`,
+        body: `Bonjour,\n\nLe document "${envelope.document.name}" a été complètement signé par ${signer.name} (${signer.email}).\n\nDate de signature : ${new Date().toLocaleString('fr-FR')}\n\nCliquez sur le lien ci-dessous pour consulter le document signé.`,
+        signatureLink: `${window.location.origin}/#/sign/${viewToken}`,
+        documentName: envelope.document.name,
+        sentAt: new Date().toISOString(),
+        read: false
+      };
+      
+      await setDoc(doc(db, 'emails', confirmationEmailId), confirmationEmail);
+      console.log('   ✅ Email de confirmation créé dans Firestore');
+      
+      // Envoyer l'email de confirmation externe
       const confirmationResult = await sendSignatureConfirmationEmail(
         envelope.document.id,
         envelope.document.name,
@@ -490,7 +626,7 @@ export const submitSignature = async (
       );
       
       if (!confirmationResult.success) {
-        console.warn('⚠️ Email de confirmation non envoyé, mais la signature est enregistrée');
+        console.warn('⚠️ Email externe de confirmation non envoyé, mais email interne est enregistré');
       }
     }
 

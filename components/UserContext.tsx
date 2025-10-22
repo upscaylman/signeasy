@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { isAdmin as checkIsAdmin } from '../services/firebaseApi';
 
 interface User {
   email: string;
+  isAdmin?: boolean;
 }
 
 interface UserContextType {
@@ -22,20 +24,31 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     const storedEmail = localStorage.getItem('currentUserEmail');
     if (storedEmail) {
-      setCurrentUserState({ email: storedEmail });
+      setCurrentUserState({ 
+        email: storedEmail,
+        isAdmin: checkIsAdmin(storedEmail)
+      });
     }
     setIsLoading(false);
   }, []);
 
   // Sauvegarder l'email dans localStorage quand il change (pour login normal)
   const handleSetCurrentUser = (user: User) => {
-    setCurrentUserState(user);
+    const userWithAdmin = {
+      ...user,
+      isAdmin: checkIsAdmin(user.email)
+    };
+    setCurrentUserState(userWithAdmin);
     localStorage.setItem('currentUserEmail', user.email);
   };
 
   // Auto-login sans localStorage (pour signataires via token)
   const handleSetCurrentUserSilent = (user: User) => {
-    setCurrentUserState(user);
+    const userWithAdmin = {
+      ...user,
+      isAdmin: checkIsAdmin(user.email)
+    };
+    setCurrentUserState(userWithAdmin);
     // NE PAS sauvegarder dans localStorage - session temporaire
   };
 

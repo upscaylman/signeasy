@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Mail, AlertCircle } from 'lucide-react';
+import { Mail, AlertCircle, Loader2 } from 'lucide-react';
 import Button from './Button';
+import { checkEmailAccess } from '../services/firebaseApi';
 
 interface EmailLoginModalProps {
   onSubmit: (email: string) => void;
@@ -10,10 +11,11 @@ interface EmailLoginModalProps {
 const EmailLoginModal: React.FC<EmailLoginModalProps> = ({ onSubmit, isOpen }) => {
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     
@@ -27,7 +29,20 @@ const EmailLoginModal: React.FC<EmailLoginModalProps> = ({ onSubmit, isOpen }) =
       return;
     }
 
-    onSubmit(email.trim());
+    setIsLoading(true);
+    try {
+      const hasAccess = await checkEmailAccess(email.trim());
+      if (hasAccess) {
+        onSubmit(email.trim());
+      } else {
+        setError('Vous n\'êtes pas autorisé à accéder à cette plateforme. Vous devez être destinataire d\'un document ou figurez sur la liste d\'accès.');
+      }
+    } catch (err) {
+      console.error('Erreur lors de la vérification:', err);
+      setError('Une erreur est survenue lors de la vérification. Veuillez réessayer.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -60,6 +75,7 @@ const EmailLoginModal: React.FC<EmailLoginModalProps> = ({ onSubmit, isOpen }) =
               placeholder="exemple@votreentreprise.fr"
               className="w-full p-3 bg-surfaceVariant/60 border border-outlineVariant rounded-lg focus:ring-2 focus:ring-primary focus:border-primary focus:bg-surface transition-colors"
               autoFocus
+              disabled={isLoading}
             />
           </div>
 
@@ -70,13 +86,20 @@ const EmailLoginModal: React.FC<EmailLoginModalProps> = ({ onSubmit, isOpen }) =
             </div>
           )}
 
-          <Button type="submit" className="w-full" variant="filled">
-            Continuer
+          <Button type="submit" className="w-full" variant="filled" disabled={isLoading}>
+            {isLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin inline" />
+                Vérification...
+              </>
+            ) : (
+              'Continuer'
+            )}
           </Button>
         </form>
 
         <p className="text-xs text-onSurfaceVariant text-center mt-4">
-          Aucune authentification requise pour cette démo. Votre email est stocké localement.
+          Vous devez être destinataire d'un document ou autorisé pour accéder.
         </p>
       </div>
     </div>

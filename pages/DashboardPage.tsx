@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import type { Document } from '../types';
 import { DocumentStatus } from '../types';
 import DocumentCard from '../components/DocumentCard';
+import AdminPanel from '../components/AdminPanel';
 import { getDocuments, deleteDocuments, getTokenForDocumentSigner } from '../services/firebaseApi';
 import { useUser } from '../components/UserContext';
 import { PlusCircle, Inbox, Search, Trash2, X, AlertTriangle, Upload, CheckSquare, Square, LayoutDashboard } from 'lucide-react';
@@ -410,6 +411,13 @@ const DashboardPage: React.FC = () => {
       )}
         </div>
       </div>
+
+      {/* Section Admin - visible seulement pour l'admin */}
+      {currentUser?.isAdmin && (
+        <div className="container mx-auto mt-8 mb-8">
+          <AdminPanel />
+        </div>
+      )}
     </div>
   );
 };

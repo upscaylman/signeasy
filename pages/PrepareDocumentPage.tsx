@@ -460,15 +460,25 @@ const PrepareDocumentPage: React.FC = () => {
             return;
         }
 
+        // Trouver le premier index vide dans recipients (ordre de signature)
+        let targetIndex = 0;
+        for (let i = 0; i < recipients.length + 1; i++) {
+            const isSlotTaken = recipients.some(r => r.signingOrder === i + 1);
+            if (!isSlotTaken) {
+                targetIndex = i + 1;
+                break;
+            }
+        }
+
         const newId = tempRecipientId++;
         const newRecipient: TempRecipient = {
             id: newId,
             name: existingRecipient.name,
             email: existingRecipient.email,
-            signingOrder: recipients.length + 1
+            signingOrder: targetIndex
         };
         setRecipients([...recipients, newRecipient]);
-        addToast(`${existingRecipient.name} a été ajouté aux destinataires.`, 'success');
+        addToast(`${existingRecipient.name} a été ajouté en tant que Destinataire ${targetIndex}.`, 'success');
     };
 
     const updateRecipient = (id: number, field: 'name' | 'email', value: string) => {
@@ -980,30 +990,50 @@ const PrepareDocumentPage: React.FC = () => {
                                 {/* Section Destinataires Existants - TOUJOURS visible */}
                                 <div className="mt-6 border-t border-outlineVariant pt-4">
                                     <h3 className="font-bold text-onSurface mb-3">Destinataires Existants</h3>
-                                    <p className="text-xs text-onSurfaceVariant mb-3">Cliquez sur + pour ajouter rapidement un destinataire précédent.</p>
-                                    <div className="space-y-2 max-h-48 overflow-y-auto bg-surfaceVariant/30 rounded-lg p-2">
-                                        {isLoadingExisting ? (
-                                            <p className="text-xs text-onSurfaceVariant text-center py-2">Chargement...</p>
-                                        ) : existingRecipients.length === 0 ? (
-                                            <p className="text-xs text-onSurfaceVariant text-center py-4">Aucun destinataire existant. Une fois que vous aurez envoyé un document, les destinataires apparaîtront ici.</p>
-                                        ) : (
-                                            existingRecipients.map((recipient) => (
-                                                <div key={recipient.email} className="flex items-center justify-between p-2 bg-surface rounded-lg border border-outlineVariant/50 hover:border-outlineVariant transition-colors">
-                                                    <div className="min-w-0 flex-1">
-                                                        <p className="text-xs font-medium text-onSurface truncate">{recipient.name}</p>
-                                                        <p className="text-xs text-onSurfaceVariant truncate">{recipient.email}</p>
-                                                    </div>
-                                                    <button
-                                                        onClick={() => addExistingRecipient(recipient)}
-                                                        className="ml-2 flex-shrink-0 p-1.5 rounded-full bg-primary text-onPrimary hover:bg-primary/90 transition-colors"
-                                                        aria-label={`Ajouter ${recipient.name}`}
-                                                    >
-                                                        <UserPlus size={14} />
-                                                    </button>
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
+                                    <p className="text-xs text-onSurfaceVariant mb-3">Sélectionnez un destinataire pour l'ajouter au premier slot disponible.</p>
+                                    {isLoadingExisting ? (
+                                        <div className="relative">
+                                            <select disabled className="w-full p-3 pr-10 bg-surfaceVariant/60 border border-outlineVariant rounded-lg text-onSurfaceVariant appearance-none">
+                                                <option>Chargement...</option>
+                                            </select>
+                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-onSurfaceVariant">
+                                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 9l6 6 6-6" /></svg>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="relative">
+                                            <select
+                                                onChange={(e) => {
+                                                    const selectedEmail = e.target.value;
+                                                    if (selectedEmail) {
+                                                        const selectedRecipient = existingRecipients.find(r => r.email === selectedEmail);
+                                                        if (selectedRecipient) {
+                                                            addExistingRecipient(selectedRecipient);
+                                                            e.target.value = ''; // Réinitialiser le select
+                                                        }
+                                                    }
+                                                }}
+                                                className="w-full p-3 pr-10 bg-surfaceVariant/60 border border-outlineVariant rounded-lg focus:ring-2 focus:ring-primary focus:border-primary focus:bg-surface transition-colors text-onSurface appearance-none cursor-pointer"
+                                                defaultValue=""
+                                            >
+                                                {existingRecipients.length === 0 ? (
+                                                    <option value="" disabled>Aucun destinataire existant. Une fois que vous aurez envoyé un document, les destinataires apparaîtront ici.</option>
+                                                ) : (
+                                                    <>
+                                                        <option value="" disabled>-- Sélectionner un destinataire --</option>
+                                                        {existingRecipients.map((recipient) => (
+                                                            <option key={recipient.email} value={recipient.email}>
+                                                                {recipient.name} ({recipient.email})
+                                                            </option>
+                                                        ))}
+                                                    </>
+                                                )}
+                                            </select>
+                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-onSurface">
+                                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 9l6 6 6-6" /></svg>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="mt-6 border-t border-outlineVariant pt-4">
@@ -1093,30 +1123,40 @@ const PrepareDocumentPage: React.FC = () => {
                                     {/* Section Destinataires Existants - TOUJOURS visible */}
                                     <div className="mt-6 border-t border-outlineVariant pt-4">
                                         <h3 className="font-bold text-onSurface mb-3">Destinataires Existants</h3>
-                                        <p className="text-xs text-onSurfaceVariant mb-3">Cliquez sur + pour ajouter rapidement un destinataire précédent.</p>
-                                        <div className="space-y-2 max-h-48 overflow-y-auto bg-surfaceVariant/30 rounded-lg p-2">
-                                            {isLoadingExisting ? (
-                                                <p className="text-xs text-onSurfaceVariant text-center py-2">Chargement...</p>
-                                            ) : existingRecipients.length === 0 ? (
-                                                <p className="text-xs text-onSurfaceVariant text-center py-4">Aucun destinataire existant. Une fois que vous aurez envoyé un document, les destinataires apparaîtront ici.</p>
-                                            ) : (
-                                                existingRecipients.map((recipient) => (
-                                                    <div key={recipient.email} className="flex items-center justify-between p-2 bg-surface rounded-lg border border-outlineVariant/50 hover:border-outlineVariant transition-colors">
-                                                        <div className="min-w-0 flex-1">
-                                                            <p className="text-xs font-medium text-onSurface truncate">{recipient.name}</p>
-                                                            <p className="text-xs text-onSurfaceVariant truncate">{recipient.email}</p>
-                                                        </div>
-                                                        <button
-                                                            onClick={() => addExistingRecipient(recipient)}
-                                                            className="ml-2 flex-shrink-0 p-1.5 rounded-full bg-primary text-onPrimary hover:bg-primary/90 transition-colors"
-                                                            aria-label={`Ajouter ${recipient.name}`}
-                                                        >
-                                                            <UserPlus size={14} />
-                                                        </button>
-                                                    </div>
-                                                ))
-                                            )}
-                                        </div>
+                                        <p className="text-xs text-onSurfaceVariant mb-3">Sélectionnez un destinataire pour l'ajouter au premier slot disponible.</p>
+                                        {isLoadingExisting ? (
+                                            <select disabled className="w-full p-3 bg-surfaceVariant/60 border border-outlineVariant rounded-lg text-onSurfaceVariant">
+                                                <option>Chargement...</option>
+                                            </select>
+                                        ) : (
+                                            <select
+                                                onChange={(e) => {
+                                                    const selectedEmail = e.target.value;
+                                                    if (selectedEmail) {
+                                                        const selectedRecipient = existingRecipients.find(r => r.email === selectedEmail);
+                                                        if (selectedRecipient) {
+                                                            addExistingRecipient(selectedRecipient);
+                                                            e.target.value = ''; // Réinitialiser le select
+                                                        }
+                                                    }
+                                                }}
+                                                className="w-full p-3 bg-surfaceVariant/60 border border-outlineVariant rounded-lg focus:ring-2 focus:ring-primary focus:border-primary focus:bg-surface transition-colors text-onSurface"
+                                                defaultValue=""
+                                            >
+                                                {existingRecipients.length === 0 ? (
+                                                    <option value="" disabled>Aucun destinataire existant. Une fois que vous aurez envoyé un document, les destinataires apparaîtront ici.</option>
+                                                ) : (
+                                                    <>
+                                                        <option value="" disabled>-- Sélectionner un destinataire --</option>
+                                                        {existingRecipients.map((recipient) => (
+                                                            <option key={recipient.email} value={recipient.email}>
+                                                                {recipient.name} ({recipient.email})
+                                                            </option>
+                                                        ))}
+                                                    </>
+                                                )}
+                                            </select>
+                                        )}
                                     </div>
 
                                     <div className="mt-6 border-t border-outlineVariant pt-4">

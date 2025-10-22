@@ -605,13 +605,26 @@ const SignDocumentPage: React.FC = () => {
         const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
         const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
         
+        // 🔧 FIX POSITIONNEMENT : Convertir les coordonnées relatives au page wrapper
+        const pageWrapper = pageRefs.current[field.page - 1];
+        const pageRect = pageWrapper?.getBoundingClientRect();
+        const viewerRect = viewerRef.current?.getBoundingClientRect();
+        
+        let adjustedX = clientX;
+        let adjustedY = clientY;
+        
+        if (pageRect && viewerRect) {
+            adjustedX = clientX - viewerRect.left;
+            adjustedY = clientY - viewerRect.top;
+        }
+        
         setInitialDimensions({
             width: customDims?.width || defaultWidth,
             height: customDims?.height || defaultHeight,
             x: customDims?.x || field.x,
             y: customDims?.y || field.y,
-            mouseX: clientX,
-            mouseY: clientY
+            mouseX: adjustedX,
+            mouseY: adjustedY
         });
     };
 
@@ -627,13 +640,23 @@ const SignDocumentPage: React.FC = () => {
         const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
         const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
         
+        // 🔧 FIX POSITIONNEMENT : Convertir les coordonnées relatives au page wrapper
+        const viewerRect = viewerRef.current?.getBoundingClientRect();
+        let adjustedX = clientX;
+        let adjustedY = clientY;
+        
+        if (viewerRect) {
+            adjustedX = clientX - viewerRect.left;
+            adjustedY = clientY - viewerRect.top;
+        }
+        
         setInitialDimensions({
             width: customDims?.width || defaultWidth,
             height: customDims?.height || defaultHeight,
             x: customDims?.x || field.x,
             y: customDims?.y || field.y,
-            mouseX: clientX,
-            mouseY: clientY
+            mouseX: adjustedX,
+            mouseY: adjustedY
         });
     };
 
@@ -1081,7 +1104,7 @@ const SignDocumentPage: React.FC = () => {
                             <div
                                 onMouseDown={(e) => handleResizeMouseDown(e, field.id, field)}
                                 onTouchStart={(e) => handleResizeMouseDown(e, field.id, field)}
-                                className="absolute bottom-0 right-0 w-8 h-8 sm:w-4 sm:h-4 bg-primary cursor-nwse-resize rounded-tl-lg opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity touch-none"
+                                className="hidden sm:block absolute bottom-0 right-0 sm:w-4 sm:h-4 bg-primary cursor-nwse-resize rounded-tl-lg sm:opacity-0 sm:group-hover:opacity-100 transition-opacity touch-none"
                                 style={{transform: 'translate(50%, 50%)'}}
                                 aria-label="Redimensionner le champ"
                             />
@@ -1109,7 +1132,7 @@ const SignDocumentPage: React.FC = () => {
                             <div
                                 onMouseDown={(e) => handleResizeMouseDown(e, field.id, field)}
                                 onTouchStart={(e) => handleResizeMouseDown(e, field.id, field)}
-                                className="absolute bottom-0 right-0 w-8 h-8 sm:w-4 sm:h-4 bg-primary cursor-nwse-resize rounded-tl-lg opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity touch-none"
+                                className="hidden sm:block absolute bottom-0 right-0 sm:w-4 sm:h-4 bg-primary cursor-nwse-resize rounded-tl-lg sm:opacity-0 sm:group-hover:opacity-100 transition-opacity touch-none"
                                 style={{transform: 'translate(50%, 50%)'}}
                                 aria-label="Redimensionner le champ"
                             />
@@ -1181,7 +1204,7 @@ const SignDocumentPage: React.FC = () => {
                             <div
                                 onMouseDown={(e) => handleResizeMouseDown(e, field.id, field)}
                                 onTouchStart={(e) => handleResizeMouseDown(e, field.id, field)}
-                                className="absolute bottom-0 right-0 w-8 h-8 sm:w-4 sm:h-4 bg-primary cursor-nwse-resize rounded-tl-lg opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity touch-none"
+                                className="hidden sm:block absolute bottom-0 right-0 sm:w-4 sm:h-4 bg-primary cursor-nwse-resize rounded-tl-lg sm:opacity-0 sm:group-hover:opacity-100 transition-opacity touch-none"
                                 style={{transform: 'translate(50%, 50%)'}}
                                 aria-label="Redimensionner le champ"
                             />
@@ -1212,7 +1235,7 @@ const SignDocumentPage: React.FC = () => {
                             <div
                                 onMouseDown={(e) => handleResizeMouseDown(e, field.id, field)}
                                 onTouchStart={(e) => handleResizeMouseDown(e, field.id, field)}
-                                className="absolute bottom-0 right-0 w-8 h-8 sm:w-4 sm:h-4 bg-primary cursor-nwse-resize rounded-tl-lg opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity touch-none"
+                                className="hidden sm:block absolute bottom-0 right-0 sm:w-4 sm:h-4 bg-primary cursor-nwse-resize rounded-tl-lg sm:opacity-0 sm:group-hover:opacity-100 transition-opacity touch-none"
                                 style={{transform: 'translate(50%, 50%)'}}
                                 aria-label="Redimensionner le champ"
                             />
