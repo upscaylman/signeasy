@@ -1,0 +1,13 @@
+<svg viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="600" height="600" fill="#FF3B30"/>
+  
+  <!-- FO text -->
+  <text x="150" y="350" font-family="Arial, sans-serif" font-size="200" font-weight="bold" fill="white" letter-spacing="-10">FO</text>
+  
+  <!-- Metaux text -->
+  <text x="80" y="450" font-family="Arial, sans-serif" font-size="80" font-style="italic" fill="white" font-weight="300" letter-spacing="5">Metaux</text>
+  
+  <!-- Tagline -->
+  <text x="100" y="520" font-family="Arial, sans-serif" font-size="32" fill="white" font-style="italic">Notre industrie, nos emplois!</text>
+</svg>
