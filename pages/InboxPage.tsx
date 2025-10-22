@@ -132,11 +132,9 @@ const InboxPage: React.FC = () => {
                 className="flex-1 sm:flex-initial min-w-[140px] max-w-[160px]"
               >
                 <span className="truncate">
-                  {(() => {
-                    const allSelected = emails.length > 0 && selectedEmails.length === emails.length;
-                    console.log('Inbox - emails.length:', emails.length, 'selectedEmails.length:', selectedEmails.length, 'allSelected:', allSelected);
-                    return allSelected ? 'Tout désélectionner' : 'Tout sélectionner';
-                  })()}
+                  {emails.length > 0 && selectedEmails.length === emails.length
+                    ? 'Tout désélectionner'
+                    : 'Tout sélectionner'}
                 </span>
               </Button>
               <Button 
