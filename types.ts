@@ -1,0 +1,80 @@
+
+export enum DocumentStatus {
+  DRAFT = 'Brouillon',
+  SENT = 'Envoyé',
+  SIGNED = 'Signé',
+  REJECTED = 'Rejeté',
+}
+
+export interface Document {
+  id: string;
+  name: string;
+  status: DocumentStatus;
+  createdAt: string;
+  updatedAt: string;
+  totalPages: number;
+  rejectionReason?: string;
+  expiresAt: string; // Date d'expiration (7 jours après création)
+  creatorEmail: string; // Email de l'expéditeur (pour notifications)
+}
+
+export enum FieldType {
+  SIGNATURE = 'Signature',
+  INITIAL = 'Paraphe',
+  DATE = 'Date',
+  TEXT = 'Texte',
+  CHECKBOX = 'Case à cocher',
+}
+
+export interface Field {
+  id: string;
+  type: FieldType;
+  page: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  recipientId: string;
+  value?: string | boolean | null;
+}
+
+export interface Recipient {
+  id:string;
+  name: string;
+  email: string;
+  signingOrder: number;
+}
+
+export interface Envelope {
+  id: string;
+  document: Document;
+  recipients: Recipient[];
+  fields: Field[];
+}
+
+export interface MockEmail {
+  id: string;
+  from: string;
+  to: string;
+  toName?: string;
+  toEmail?: string;
+  subject: string;
+  body: string;
+  sentAt: string;
+  read: boolean;
+  signatureLink: string;
+  documentName: string;
+}
+
+export interface AuditEvent {
+  timestamp: string;
+  action: string;
+  user?: string;
+  ip?: string;
+  type: 'CREATE' | 'SEND' | 'SIGN' | 'REJECT' | 'COMPLETE' | 'TIMESTAMP';
+  reason?: string;
+  recipients?: string[];
+  // Fix: Add missing optional properties for timestamping authority and final document hash.
+  tsa?: string;
+  finalHash?: string;
+}

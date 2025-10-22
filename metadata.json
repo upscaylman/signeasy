@@ -1,0 +1,5 @@
+{
+  "name": "SignEase by FO Metaux - E-Signature Platform",
+  "description": "An e-signature application branded for FO Metaux, built with React and TypeScript, featuring a document preparation workflow, a signature pad, and a dashboard to manage documents.",
+  "requestFramePermissions": []
+}
