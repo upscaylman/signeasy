@@ -250,7 +250,14 @@ const PrepareDocumentPage: React.FC = () => {
     const [selectedFieldType, setSelectedFieldType] = useState<FieldType | null>(null);
     const [selectedFieldIndex, setSelectedFieldIndex] = useState<number | null>(null);
     
-    const [zoomLevel, setZoomLevel] = useState(1);
+    // 📱 Zoom adaptatif : 0.5 sur mobile, 0.75 sur tablette, 1 sur desktop
+    const getInitialZoom = () => {
+        const width = window.innerWidth;
+        if (width < 640) return 0.5; // mobile
+        if (width < 1024) return 0.75; // tablette
+        return 1; // desktop
+    };
+    const [zoomLevel, setZoomLevel] = useState(getInitialZoom());
     const [currentPage, setCurrentPage] = useState(1);
     const [goToPageInput, setGoToPageInput] = useState("1");
 
@@ -268,6 +275,9 @@ const PrepareDocumentPage: React.FC = () => {
     const [emailSubject, setEmailSubject] = useState('');
     const [emailMessage, setEmailMessage] = useState('');
     const [creatorEmail, setCreatorEmail] = useState(''); // Email de l'expéditeur
+    
+    // 📱 Mobile drawer state
+    const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
 
     const recipientColors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
 
@@ -856,17 +866,22 @@ const PrepareDocumentPage: React.FC = () => {
             />
             <div className="flex flex-col h-[calc(100vh-8rem)]">
                  <div className="bg-surface/80 backdrop-blur-sm p-3 shadow-sm sticky top-16 z-30 border-b border-outlineVariant">
-                    <div className="container mx-auto flex flex-wrap justify-between items-center gap-4">
-                        <div className="flex items-center gap-4">
-                            <Button variant="outlined" onClick={() => navigate('/dashboard')} icon={ArrowLeft}>Retour</Button>
-                            <h1 className="text-lg font-bold truncate text-onSurface" title={file.name}>{file.name}</h1>
+                    <div className="container mx-auto flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+                        <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+                            <Button variant="outlined" onClick={() => navigate('/dashboard')} icon={ArrowLeft} size="small" className="flex-shrink-0">
+                                <span className="hidden sm:inline">Retour</span>
+                            </Button>
+                            <h1 className="text-sm sm:text-lg font-bold truncate text-onSurface min-w-0" title={file.name}>{file.name}</h1>
                         </div>
-                        <Button onClick={handleSend}>Envoyer la demande de signature</Button>
+                        <Button onClick={handleSend} size="small" className="w-full sm:w-auto flex-shrink-0">
+                            <span className="hidden sm:inline">Envoyer la demande de signature</span>
+                            <span className="sm:hidden">Envoyer</span>
+                        </Button>
                     </div>
                 </div>
-                <div className="flex-grow flex overflow-hidden">
-                    {/* Left Panel: Recipients & Fields */}
-                    <div className="w-80 bg-surface flex-shrink-0 p-4 border-r border-outlineVariant overflow-y-auto">
+                <div className="flex-grow flex overflow-hidden relative">
+                    {/* Left Panel: Recipients & Fields - Hidden on mobile, shown as modal */}
+                    <div className="hidden lg:block w-80 bg-surface flex-shrink-0 p-4 border-r border-outlineVariant overflow-y-auto">
                         {selectedFieldIndex !== null && fields[selectedFieldIndex] ? (
                             <FieldPropertiesPanel
                                 field={fields[selectedFieldIndex]}
@@ -927,9 +942,94 @@ const PrepareDocumentPage: React.FC = () => {
                         )}
                     </div>
 
+                    {/* Mobile Drawer Overlay */}
+                    {isMobileDrawerOpen && (
+                        <div 
+                            className="lg:hidden fixed inset-0 bg-scrim/50 z-40"
+                            onClick={() => setIsMobileDrawerOpen(false)}
+                        />
+                    )}
+                    
+                    {/* Mobile Drawer */}
+                    <div className={`
+                        lg:hidden fixed bottom-0 left-0 right-0 bg-surface rounded-t-3xl shadow-2xl z-50
+                        transition-transform duration-300 ease-out max-h-[80vh] overflow-y-auto
+                        ${isMobileDrawerOpen ? 'translate-y-0' : 'translate-y-full'}
+                    `}>
+                        <div className="sticky top-0 bg-surface border-b border-outlineVariant px-4 py-3 flex items-center justify-between rounded-t-3xl">
+                            <h2 className="text-lg font-bold text-onSurface">Configuration</h2>
+                            <button 
+                                onClick={() => setIsMobileDrawerOpen(false)}
+                                className="p-2 rounded-full hover:bg-surfaceVariant"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+                        <div className="p-4">
+                            {selectedFieldIndex !== null && fields[selectedFieldIndex] ? (
+                                <FieldPropertiesPanel
+                                    field={fields[selectedFieldIndex]}
+                                    recipient={recipients.find(r => r.id === fields[selectedFieldIndex].tempRecipientId)}
+                                    onUpdate={(updatedField) => {
+                                        setFields(prevFields => prevFields.map((f, i) => i === selectedFieldIndex ? updatedField : f));
+                                    }}
+                                    onBack={() => setSelectedFieldIndex(null)}
+                                />
+                            ) : (
+                                <>
+                                    <div className="space-y-4">
+                                        {recipients.map((recipient, index) => (
+                                            <div key={recipient.id} onClick={() => setActiveRecipientId(recipient.id)} 
+                                                className={`p-3 rounded-xl border-2 transition-all cursor-pointer ${activeRecipientId === recipient.id ? 'border-primary bg-primaryContainer/30' : 'border-outlineVariant/50 hover:border-outlineVariant'}`}
+                                                style={{ borderColor: activeRecipientId === recipient.id ? recipientColors[recipient.id % recipientColors.length] : undefined }}
+                                                >
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: recipientColors[recipient.id % recipientColors.length] }}></div>
+                                                        <h3 className="font-bold text-sm text-onSurface">Destinataire {index + 1}</h3>
+                                                    </div>
+                                                    {recipients.length > 1 && (
+                                                        <button onClick={(e) => { e.stopPropagation(); removeRecipient(recipient.id); }} className="p-1 rounded-full text-onSurfaceVariant hover:bg-errorContainer hover:text-onErrorContainer">
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <input type="text" placeholder="Nom complet" value={recipient.name} onChange={(e) => updateRecipient(recipient.id, 'name', e.target.value)}
+                                                    className="w-full text-sm p-2 bg-surfaceVariant/60 border border-outlineVariant rounded-lg mb-2 focus:ring-1 focus:ring-primary focus:border-primary focus:bg-surface"/>
+                                                <input type="email" placeholder="Adresse e-mail" value={recipient.email} onChange={(e) => updateRecipient(recipient.id, 'email', e.target.value)}
+                                                    className="w-full text-sm p-2 bg-surfaceVariant/60 border border-outlineVariant rounded-lg focus:ring-1 focus:ring-primary focus:border-primary focus:bg-surface"/>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <Button variant="outlined" icon={UserPlus} onClick={addRecipient} className="w-full mt-4">
+                                        Ajouter un destinataire
+                                    </Button>
+
+                                    <div className="mt-6 border-t border-outlineVariant pt-4">
+                                        <h3 className="font-bold text-onSurface mb-2">Champs standards</h3>
+                                        <p className="text-xs text-onSurfaceVariant mb-3 leading-relaxed">
+                                            Sélectionnez un type de champ, puis cliquez sur le document pour le placer.
+                                        </p>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {fieldTypeButtons.map(({ type, icon: Icon }) => (
+                                                <button key={type} onClick={() => { handleFieldTypeSelect(type); setIsMobileDrawerOpen(false); }}
+                                                        className={`p-2 rounded-lg text-sm font-semibold flex flex-col items-center justify-center border-2 transition-colors ${selectedFieldType === type ? 'bg-primaryContainer border-primary text-onPrimaryContainer' : 'bg-surfaceVariant/50 border-transparent hover:border-outlineVariant'}`}
+                                                        disabled={activeRecipientId === null}>
+                                                    <Icon className="h-5 w-5 mb-1"/>
+                                                    {type}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        {activeRecipientId === null && <p className="text-xs text-onSurfaceVariant mt-2 text-center">Veuillez sélectionner un destinataire pour ajouter des champs.</p>}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </div>
+
                     {/* Right Panel: PDF Viewer */}
-                    <div ref={viewerRef} className="flex-grow bg-surfaceVariant/30 p-4 overflow-auto" onClick={() => setSelectedFieldIndex(null)}>
-                        <div className="overflow-x-auto">
+                    <div ref={viewerRef} className="flex-grow bg-surfaceVariant/30 p-2 sm:p-4 overflow-auto" onClick={() => setSelectedFieldIndex(null)}>
+                        <div className="w-full max-w-full overflow-x-hidden">
                             {pageDimensions.map((dim, index) => (
                                  <div 
                                     key={`page-wrapper-${index+1}`}
@@ -938,9 +1038,10 @@ const PrepareDocumentPage: React.FC = () => {
                                     onClick={(e) => { e.stopPropagation(); handlePageClick(e, index + 1); }}
                                     className="my-4 shadow-lg mx-auto relative bg-white"
                                     style={{ 
-                                        width: dim.width * zoomLevel, 
+                                        width: Math.min(dim.width * zoomLevel, window.innerWidth - 32), 
                                         height: dim.height * zoomLevel, 
-                                        cursor: selectedFieldType ? 'crosshair' : (editingField ? (editingField.action === 'move' ? 'grabbing' : 'se-resize') : 'default') 
+                                        cursor: selectedFieldType ? 'crosshair' : (editingField ? (editingField.action === 'move' ? 'grabbing' : 'se-resize') : 'default'),
+                                        maxWidth: '100%'
                                     }}
                                  >
                                     <PdfPageRenderer pageNum={index + 1} currentZoom={zoomLevel} />
@@ -951,19 +1052,30 @@ const PrepareDocumentPage: React.FC = () => {
                                  </div>
                             ))}
                         </div>
-                         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-fit max-w-full z-40">
-                            <div className="bg-surface/90 backdrop-blur-sm rounded-full shadow-lg border border-outlineVariant/50 flex items-center p-1 space-x-1 text-onSurface">
-                                 <button onClick={() => setZoomLevel(z => Math.max(0.25, z - 0.25))} className="p-2 rounded-full hover:bg-surfaceVariant transition-colors" disabled={zoomLevel <= 0.25}><ZoomOut className="h-5 w-5"/></button>
-                                 <span className="text-sm font-semibold w-12 text-center select-none">{Math.round(zoomLevel*100)}%</span>
-                                 <button onClick={() => setZoomLevel(z => Math.min(3, z + 0.25))} className="p-2 rounded-full hover:bg-surfaceVariant transition-colors" disabled={zoomLevel >= 3}><ZoomIn className="h-5 w-5"/></button>
-                                 <div className="w-px h-6 bg-outlineVariant mx-1"></div>
-                                 <form onSubmit={handleGoToPage} className="flex items-center">
+                         {/* Bouton flottant pour ouvrir le drawer sur mobile */}
+                         <button
+                            onClick={() => setIsMobileDrawerOpen(true)}
+                            className="lg:hidden fixed bottom-24 right-4 bg-primary text-onPrimary p-4 rounded-full shadow-2xl z-30 hover:scale-110 transition-transform"
+                            aria-label="Ouvrir les paramètres"
+                         >
+                            <UserPlus className="h-6 w-6" />
+                         </button>
+                         
+                         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-fit max-w-[calc(100vw-2rem)] z-40">
+                            <div className="bg-surface/90 backdrop-blur-sm rounded-full shadow-lg border border-outlineVariant/50 flex items-center p-1 gap-1 text-onSurface">
+                                 <button onClick={() => setZoomLevel(z => Math.max(0.25, z - 0.25))} className="p-1.5 sm:p-2 rounded-full hover:bg-surfaceVariant transition-colors flex-shrink-0" disabled={zoomLevel <= 0.25}><ZoomOut className="h-4 w-4 sm:h-5 sm:w-5"/></button>
+                                 <span className="text-xs sm:text-sm font-semibold w-10 sm:w-12 text-center select-none flex-shrink-0">{Math.round(zoomLevel*100)}%</span>
+                                 <button onClick={() => setZoomLevel(z => Math.min(3, z + 0.25))} className="p-1.5 sm:p-2 rounded-full hover:bg-surfaceVariant transition-colors flex-shrink-0" disabled={zoomLevel >= 3}><ZoomIn className="h-4 w-4 sm:h-5 sm:w-5"/></button>
+                                 <div className="w-px h-6 bg-outlineVariant mx-0.5 sm:mx-1 flex-shrink-0 hidden sm:block"></div>
+                                 <form onSubmit={handleGoToPage} className="hidden sm:flex items-center">
                                      <span className="text-sm font-medium px-2">Page</span>
                                      <input type="number" value={goToPageInput} onChange={e => setGoToPageInput(e.target.value)} onFocus={e => e.target.select()}
                                          className="w-12 text-center bg-surfaceVariant/60 rounded-md py-1 text-sm border border-outlineVariant focus:ring-1 focus:ring-primary focus:border-primary" min="1" max={totalPages} />
                                      <span className="text-sm text-onSurfaceVariant px-2"> sur {totalPages}</span>
                                      <button type="submit" className="p-2 rounded-full hover:bg-surfaceVariant transition-colors"><ArrowRight className="h-5 w-5"/></button>
                                  </form>
+                                 {/* Version mobile simplifiée */}
+                                 <span className="sm:hidden text-xs text-onSurfaceVariant px-2 flex-shrink-0">Page {currentPage}/{totalPages}</span>
                             </div>
                         </div>
                     </div>
