@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getEmails, markEmailAsRead, deleteEmails } from '../services/firebaseApi';
+import { useUser } from '../components/UserContext';
 import type { MockEmail } from '../types';
 import { Loader2, Inbox as InboxIcon, FileText, Trash2, CheckSquare, Square, X } from 'lucide-react';
 import Button from '../components/Button';
@@ -16,11 +17,12 @@ const InboxPage: React.FC = () => {
   const [showEmailContent, setShowEmailContent] = useState(false); // 📱 Pour mobile : afficher le contenu de l'email
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const { currentUser } = useUser();
 
   const fetchEmails = useCallback(async () => {
     setIsLoading(true);
     try {
-      const fetchedEmails = await getEmails();
+      const fetchedEmails = await getEmails(currentUser?.email);
       setEmails(fetchedEmails);
       if (fetchedEmails.length > 0 && !selectedEmail) {
         const firstEmail = fetchedEmails[0];
@@ -38,7 +40,7 @@ const InboxPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedEmail]);
+  }, [selectedEmail, currentUser?.email]);
 
   useEffect(() => {
     fetchEmails();

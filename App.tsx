@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import DashboardPage from './pages/DashboardPage';
 import PrepareDocumentPage from './pages/PrepareDocumentPage';
 import SignDocumentPage from './pages/SignDocumentPage';
@@ -10,35 +10,73 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import CookieBanner from './components/CookieBanner';
 import { ToastProvider } from './components/Toast';
+import { UserProvider, useUser } from './components/UserContext';
+import EmailLoginModal from './components/EmailLoginModal';
 // Vérification automatique de la configuration Firebase
 import './utils/firebaseCheck';
 
-const App: React.FC = () => {
-  // In a real app, this would be determined by an auth context
-  const isAuthenticated = true; 
+const AppContent: React.FC = () => {
+  const { currentUser, setCurrentUser, isLoading } = useUser();
+  const location = useLocation();
 
-  return (
-    <HashRouter>
-      <ToastProvider>
-        <div className="min-h-screen bg-background text-onBackground flex flex-col">
-          <Header />
-          <main className="flex-grow animate-fade-in page-transition">
-            <Routes>
-              <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} />
-              {/* A real app would have a login page */}
-              {/* <Route path="/login" element={<LoginPage />} /> */}
-              <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/prepare" element={<PrepareDocumentPage />} />
-              <Route path="/sign/:token" element={<SignDocumentPage />} />
-              <Route path="/inbox" element={<InboxPage />} />
-              <Route path="/verify" element={<VerifyPage />} />
-            </Routes>
-          </main>
-          <Footer />
+  // Vérifier si on est sur une route /sign/:token
+  const isSigningRoute = location.pathname.startsWith('/sign/');
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="inline-block">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          </div>
+          <p className="mt-4 text-onSurfaceVariant">Chargement...</p>
         </div>
-        <CookieBanner />
+      </div>
+    );
+  }
+
+  // Afficher le modal SEULEMENT si pas d'utilisateur ET pas sur une route /sign/:token
+  if (!currentUser && !isSigningRoute) {
+    return (
+      <EmailLoginModal 
+        isOpen={true}
+        onSubmit={(email) => setCurrentUser({ email })}
+      />
+    );
+  }
+
+  // Si utilisateur, afficher l'app
+  return (
+    <>
+      {currentUser && <Header />}
+      <main className="flex-grow animate-fade-in page-transition">
+        <Routes>
+          <Route path="/" element={currentUser ? <Navigate to="/dashboard" /> : <Navigate to="/" />} />
+          <Route path="/dashboard" element={currentUser ? <DashboardPage /> : <Navigate to="/" />} />
+          <Route path="/prepare" element={currentUser ? <PrepareDocumentPage /> : <Navigate to="/" />} />
+          {/* Route /sign/:token accessible SANS authentification - SignDocumentPage fera l'auto-login */}
+          <Route path="/sign/:token" element={<SignDocumentPage />} />
+          <Route path="/inbox" element={currentUser ? <InboxPage /> : <Navigate to="/" />} />
+          <Route path="/verify" element={currentUser ? <VerifyPage /> : <Navigate to="/" />} />
+        </Routes>
+      </main>
+      {currentUser && <Footer />}
+      {currentUser && <CookieBanner />}
+    </>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <UserProvider>
+      <ToastProvider>
+        <HashRouter>
+          <div className="min-h-screen bg-background text-onBackground flex flex-col">
+            <AppContent />
+          </div>
+        </HashRouter>
       </ToastProvider>
-    </HashRouter>
+    </UserProvider>
   );
 };
 

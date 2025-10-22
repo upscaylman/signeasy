@@ -3,18 +3,20 @@ import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { FileSignature, LayoutDashboard, ShieldCheck, Inbox } from 'lucide-react';
 import { getUnreadEmailCount } from '../services/firebaseApi';
+import { useUser } from './UserContext';
 import Tooltip from './Tooltip';
 
 const Header: React.FC = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const location = useLocation();
+  const { currentUser } = useUser();
 
   const activeLinkClass = "bg-secondaryContainer text-onSecondaryContainer elevation-1";
   const inactiveLinkClass = "text-onSurfaceVariant state-layer state-layer-primary";
 
   const fetchUnreadCount = async () => {
     try {
-      const count = await getUnreadEmailCount();
+      const count = await getUnreadEmailCount(currentUser?.email);
       setUnreadCount(count);
     } catch (error) {
       console.error("Failed to fetch unread email count:", error);

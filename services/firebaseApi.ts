@@ -25,17 +25,82 @@ import { DocumentStatus, FieldType } from '../types';
 
 // ===== DOCUMENTS =====
 
-export const getDocuments = async (): Promise<Document[]> => {
+export const getExistingRecipients = async (userEmail?: string): Promise<{id: string, name: string, email: string}[]> => {
   try {
+    if (!userEmail) {
+      return [];
+    }
+
+    // Récupérer toutes les enveloppes créées par cet utilisateur
+    const envelopesSnapshot = await getDocs(collection(db, 'envelopes'));
+    const existingRecipients = new Map<string, {id: string, name: string, email: string}>();
+
+    envelopesSnapshot.docs.forEach(env => {
+      const envelopeData = env.data() as Envelope;
+      // Vérifier si l'utilisateur est le créateur du document
+      if (envelopeData.document.creatorEmail === userEmail) {
+        // Ajouter tous les destinataires (sans doublon, par email)
+        envelopeData.recipients.forEach(recipient => {
+          const key = recipient.email.toLowerCase();
+          if (!existingRecipients.has(key)) {
+            existingRecipients.set(key, {
+              id: recipient.id,
+              name: recipient.name,
+              email: recipient.email
+            });
+          }
+        });
+      }
+    });
+
+    // Retourner sous forme de tableau, trié par nom
+    return Array.from(existingRecipients.values()).sort((a, b) => a.name.localeCompare(b.name));
+  } catch (error) {
+    console.error('Erreur getExistingRecipients:', error);
+    return [];
+  }
+};
+
+export const getDocuments = async (userEmail?: string): Promise<Document[]> => {
+  try {
+    // Si pas d'email fourni, retourner tableau vide (l'utilisateur doit être connecté)
+    if (!userEmail) {
+      return [];
+    }
+
+    // Récupérer tous les documents d'abord
     const q = query(
       collection(db, 'documents'),
       orderBy('updatedAt', 'desc')
     );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
+    const allDocuments = snapshot.docs.map(doc => ({
       ...doc.data(),
       id: doc.id
     } as Document));
+
+    // Filtrer : afficher uniquement les documents créés par l'utilisateur
+    const userCreatedDocs = allDocuments.filter(doc => doc.creatorEmail === userEmail);
+
+    // Récupérer aussi les enveloppes pour voir les documents où l'utilisateur est destinataire
+    const envelopesSnapshot = await getDocs(collection(db, 'envelopes'));
+    const userRecipientDocIds = new Set<string>();
+    
+    envelopesSnapshot.docs.forEach(env => {
+      const envelopeData = env.data() as Envelope;
+      // Vérifier si l'utilisateur est un des destinataires
+      const isRecipient = envelopeData.recipients.some(r => r.email === userEmail);
+      if (isRecipient) {
+        userRecipientDocIds.add(envelopeData.document.id);
+      }
+    });
+
+    // Combiner : documents créés + documents où on est destinataire
+    const visibleDocuments = allDocuments.filter(doc => 
+      doc.creatorEmail === userEmail || userRecipientDocIds.has(doc.id)
+    );
+
+    return visibleDocuments;
   } catch (error) {
     console.error('Erreur getDocuments:', error);
     return [];
@@ -118,8 +183,11 @@ export const createEnvelope = async (
   creatorEmail: string = 'creator@signeasyfo.com' // Email de l'expéditeur
 ): Promise<{ envelope: Envelope, tokens: { recipientId: string, token: string }[] }> => {
   try {
-    const newDocId = `doc${Date.now()}`;
-    const newEnvelopeId = `env${Date.now()}`;
+    // Générer des IDs uniques avec timestamp + random (évite les collisions)
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 9);
+    const newDocId = `doc${timestamp}-${random}`;
+    const newEnvelopeId = `env${timestamp}-${random}`;
 
     console.log('🔥 Création via Firebase...');
     console.log('   Document ID:', newDocId);
@@ -543,10 +611,15 @@ export const deleteDocuments = async (documentIds: string[]): Promise<{ success:
 
 // Note: Les fonctions getEmails, markEmailAsRead, etc. restent en localStorage
 // car ce sont des données locales à chaque utilisateur
-export const getEmails = async (): Promise<MockEmail[]> => {
+export const getEmails = async (userEmail?: string): Promise<MockEmail[]> => {
   try {
+    if (!userEmail) {
+      return [];
+    }
+    
     const emailsQuery = query(
       collection(db, 'emails'),
+      where('toEmail', '==', userEmail),
       orderBy('sentAt', 'desc')
     );
     const snapshot = await getDocs(emailsQuery);
@@ -568,10 +641,15 @@ export const markEmailAsRead = async (emailId: string): Promise<{ success: boole
   }
 };
 
-export const getUnreadEmailCount = async (): Promise<number> => {
+export const getUnreadEmailCount = async (userEmail?: string): Promise<number> => {
   try {
+    if (!userEmail) {
+      return 0;
+    }
+    
     const emailsQuery = query(
       collection(db, 'emails'),
+      where('toEmail', '==', userEmail),
       where('read', '==', false)
     );
     const snapshot = await getDocs(emailsQuery);

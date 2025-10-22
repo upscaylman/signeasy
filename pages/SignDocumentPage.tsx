@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import * as pdfjsLib from 'pdfjs-dist';
 import { useToast } from '../components/Toast';
+import { useUser } from '../components/UserContext';
 import Button from '../components/Button';
 import type { Envelope, Field } from '../types';
 import { FieldType, DocumentStatus } from '../types';
@@ -331,6 +332,7 @@ const SignDocumentPage: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { addToast } = useToast();
+    const { currentUser, setCurrentUserSilent, isLoading: userIsLoading } = useUser();
     
     // State
     const [envelope, setEnvelope] = useState<(Envelope & { currentSignerId: string }) | null>(null);
@@ -342,8 +344,9 @@ const SignDocumentPage: React.FC = () => {
     const [fieldValues, setFieldValues] = useState<{[key: string]: string | boolean | null}>({});
     const [activeField, setActiveField] = useState<Field | null>(null);
     const [signerName, setSignerName] = useState('');
-    const [alreadySigned, setAlreadySigned] = useState(false); // Nouveau state pour tracker si déjà signé
+    const [alreadySigned, setAlreadySigned] = useState(false);
     const [readOnly, setReadOnly] = useState(location.state?.readOnly === true);
+    const [autoAuthAttempted, setAutoAuthAttempted] = useState(false);
     // 📱 Zoom adaptatif : 50% sur mobile, 100% sur desktop
     const getInitialZoom = () => {
         return window.innerWidth < 768 ? 0.5 : 1;
@@ -406,6 +409,13 @@ const SignDocumentPage: React.FC = () => {
                 const currentSigner = env.recipients.find(r => r.id === env.currentSignerId);
                 setSignerName(currentSigner?.name || '');
                 
+                // 🚀 AUTO-AUTHENTIFICATION : Si pas encore loggé, auto-login via le token
+                if (!currentUser && currentSigner?.email && !autoAuthAttempted) {
+                    setAutoAuthAttempted(true);
+                    console.log('🔓 Auto-authentification du signataire:', currentSigner.email);
+                    setCurrentUserSilent({ email: currentSigner.email });
+                }
+                
                 const pdfDataB64 = await getPdfData(env.document.id);
                 if (!pdfDataB64) {
                      setError('Le fichier du document est introuvable.'); setIsLoading(false); return;
@@ -458,7 +468,11 @@ const SignDocumentPage: React.FC = () => {
                 setIsLoading(false);
             }
         };
-        loadData();
+        
+        // Seulement charger si on a un token
+        if (token && !autoAuthAttempted) {
+            loadData();
+        }
     }, [token]);
 
     useEffect(() => {
@@ -908,6 +922,17 @@ const SignDocumentPage: React.FC = () => {
                  <AlertTriangle className="mx-auto h-12 w-12 text-error" />
                  <h2 className="mt-4 text-2xl font-bold">Impossible de charger le document</h2>
                  <p className="mt-2 text-onSurfaceVariant">{error}</p>
+                 <Button variant="gradient" withGlow withShine onClick={() => navigate('/dashboard')} className="mt-6">Aller au tableau de bord</Button>
+             </div>
+        )
+    }
+
+    if (!token || token === ':token') {
+        return (
+             <div className="container mx-auto text-center py-20">
+                 <AlertTriangle className="mx-auto h-12 w-12 text-error" />
+                 <h2 className="mt-4 text-2xl font-bold">Lien de signature invalide</h2>
+                 <p className="mt-2 text-onSurfaceVariant">Le lien que vous avez utilisé n'est pas valide. Veuillez vérifier votre email de signature.</p>
                  <Button variant="gradient" withGlow withShine onClick={() => navigate('/dashboard')} className="mt-6">Aller au tableau de bord</Button>
              </div>
         )

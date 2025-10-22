@@ -3,11 +3,13 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import * as pdfjsLib from 'pdfjs-dist';
 import { useToast } from '../components/Toast';
+import { useUser } from '../components/UserContext';
 import Button from '../components/Button';
 import { Recipient, Field, FieldType } from '../types';
 import { createEnvelope } from '../services/firebaseApi';
 import { UploadCloud, UserPlus, Trash2, Signature, Calendar, Type as TypeIcon, CheckSquare, Loader2, X, ArrowLeft, ZoomIn, ZoomOut, ArrowRight, Move, GripVertical } from 'lucide-react';
 import { convertWordToPdf, isWordFile } from '../utils/wordToPdf';
+import { getExistingRecipients } from '../services/firebaseApi';
 
 // Configure PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs`;
@@ -250,6 +252,7 @@ const PrepareDocumentPage: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { addToast } = useToast();
+    const { currentUser } = useUser();
 
     // State
     const [file, setFile] = useState<File | null>(null);
@@ -294,6 +297,9 @@ const PrepareDocumentPage: React.FC = () => {
     // 📱 Mobile drawer state
     const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
 
+    const [existingRecipients, setExistingRecipients] = useState<{id: string, name: string, email: string}[]>([]);
+    const [isLoadingExisting, setIsLoadingExistingRecipients] = useState(false);
+
     const recipientColors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
 
     // --- Keyboard Shortcuts ---
@@ -308,6 +314,31 @@ const PrepareDocumentPage: React.FC = () => {
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, []);
+
+    // --- Initialiser l'email du créateur avec l'utilisateur connecté ---
+    useEffect(() => {
+        if (currentUser?.email && !creatorEmail) {
+            setCreatorEmail(currentUser.email);
+        }
+    }, [currentUser?.email]);
+
+    // --- Charger les destinataires existants ---
+    useEffect(() => {
+        const loadExistingRecipients = async () => {
+            if (currentUser?.email) {
+                setIsLoadingExistingRecipients(true);
+                try {
+                    const existing = await getExistingRecipients(currentUser.email);
+                    setExistingRecipients(existing);
+                } catch (error) {
+                    console.error('Erreur lors du chargement des destinataires existants:', error);
+                } finally {
+                    setIsLoadingExistingRecipients(false);
+                }
+            }
+        };
+        loadExistingRecipients();
+    }, [currentUser?.email]);
 
 
     const resetState = () => {
@@ -419,6 +450,25 @@ const PrepareDocumentPage: React.FC = () => {
         if (activeRecipientId === null) {
             setActiveRecipientId(newRecipient.id);
         }
+    };
+
+    const addExistingRecipient = (existingRecipient: {id: string, name: string, email: string}) => {
+        // Vérifier qu'il n'existe pas déjà dans la liste
+        const alreadyExists = recipients.some(r => r.email.toLowerCase() === existingRecipient.email.toLowerCase());
+        if (alreadyExists) {
+            addToast(`${existingRecipient.name} est déjà dans la liste des destinataires.`, 'info');
+            return;
+        }
+
+        const newId = tempRecipientId++;
+        const newRecipient: TempRecipient = {
+            id: newId,
+            name: existingRecipient.name,
+            email: existingRecipient.email,
+            signingOrder: recipients.length + 1
+        };
+        setRecipients([...recipients, newRecipient]);
+        addToast(`${existingRecipient.name} a été ajouté aux destinataires.`, 'success');
     };
 
     const updateRecipient = (id: number, field: 'name' | 'email', value: string) => {
@@ -546,34 +596,22 @@ const PrepareDocumentPage: React.FC = () => {
             custom_message: message,
         };
 
-        // Envoyer via les 2 services en parallèle
-        const results = await Promise.allSettled(
-            SERVICES.map(async (service) => {
-                try {
-                    // @ts-ignore
-                    await emailjs.send(service.id, TEMPLATE_ID, templateParams, PUBLIC_KEY);
-                    console.log(`✅ Email envoyé via ${service.name} à:`, recipient.email);
-                    return { service: service.name, success: true };
-                } catch (error) {
-                    console.warn(`⚠️ Échec via ${service.name} à ${recipient.email}:`, error);
-                    return { service: service.name, success: false, error };
-                }
-            })
-        );
-
-        // Au moins un service a réussi ?
-        const hasSuccess = results.some(r => r.status === 'fulfilled' && r.value.success);
-        
-        if (hasSuccess) {
-            const successfulServices = results
-                .filter(r => r.status === 'fulfilled' && r.value.success)
-                .map(r => r.status === 'fulfilled' ? r.value.service : '');
-            console.log(`📧 Email envoyé avec succès via: ${successfulServices.join(', ')}`);
-            return { success: true };
-        } else {
-            console.error(`❌ Échec d'envoi via TOUS les services à: ${recipient.email}`);
-            return { success: false, error: new Error('All services failed') };
+        // Essayer d'envoyer via Gmail d'abord, fallback sur Outlook
+        for (const service of SERVICES) {
+            try {
+                // @ts-ignore
+                await emailjs.send(service.id, TEMPLATE_ID, templateParams, PUBLIC_KEY);
+                console.log(`✅ Email envoyé via ${service.name} à:`, recipient.email);
+                return { success: true };
+            } catch (error) {
+                console.warn(`⚠️ Tentative via ${service.name} échouée à ${recipient.email}:`, error);
+                // Continuer avec le service suivant
+            }
         }
+
+        // Si tous les services ont échoué
+        console.error(`❌ Échec d'envoi via TOUS les services à: ${recipient.email}`);
+        return { success: false, error: new Error('All services failed') };
     };
 
     const handleConfirmSend = async (selectedRecipientIds: number[]) => {
@@ -939,6 +977,35 @@ const PrepareDocumentPage: React.FC = () => {
                                     Ajouter un destinataire
                                 </Button>
 
+                                {/* Section Destinataires Existants - TOUJOURS visible */}
+                                <div className="mt-6 border-t border-outlineVariant pt-4">
+                                    <h3 className="font-bold text-onSurface mb-3">Destinataires Existants</h3>
+                                    <p className="text-xs text-onSurfaceVariant mb-3">Cliquez sur + pour ajouter rapidement un destinataire précédent.</p>
+                                    <div className="space-y-2 max-h-48 overflow-y-auto bg-surfaceVariant/30 rounded-lg p-2">
+                                        {isLoadingExisting ? (
+                                            <p className="text-xs text-onSurfaceVariant text-center py-2">Chargement...</p>
+                                        ) : existingRecipients.length === 0 ? (
+                                            <p className="text-xs text-onSurfaceVariant text-center py-4">Aucun destinataire existant. Une fois que vous aurez envoyé un document, les destinataires apparaîtront ici.</p>
+                                        ) : (
+                                            existingRecipients.map((recipient) => (
+                                                <div key={recipient.email} className="flex items-center justify-between p-2 bg-surface rounded-lg border border-outlineVariant/50 hover:border-outlineVariant transition-colors">
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="text-xs font-medium text-onSurface truncate">{recipient.name}</p>
+                                                        <p className="text-xs text-onSurfaceVariant truncate">{recipient.email}</p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => addExistingRecipient(recipient)}
+                                                        className="ml-2 flex-shrink-0 p-1.5 rounded-full bg-primary text-onPrimary hover:bg-primary/90 transition-colors"
+                                                        aria-label={`Ajouter ${recipient.name}`}
+                                                    >
+                                                        <UserPlus size={14} />
+                                                    </button>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+
                                 <div className="mt-6 border-t border-outlineVariant pt-4">
                                     <h3 className="font-bold text-onSurface mb-2">Champs standards</h3>
                                     <p className="text-xs text-onSurfaceVariant mb-3 leading-relaxed">
@@ -1022,6 +1089,35 @@ const PrepareDocumentPage: React.FC = () => {
                                     <Button variant="outlined" icon={UserPlus} onClick={addRecipient} className="w-full mt-4">
                                         Ajouter un destinataire
                                     </Button>
+
+                                    {/* Section Destinataires Existants - TOUJOURS visible */}
+                                    <div className="mt-6 border-t border-outlineVariant pt-4">
+                                        <h3 className="font-bold text-onSurface mb-3">Destinataires Existants</h3>
+                                        <p className="text-xs text-onSurfaceVariant mb-3">Cliquez sur + pour ajouter rapidement un destinataire précédent.</p>
+                                        <div className="space-y-2 max-h-48 overflow-y-auto bg-surfaceVariant/30 rounded-lg p-2">
+                                            {isLoadingExisting ? (
+                                                <p className="text-xs text-onSurfaceVariant text-center py-2">Chargement...</p>
+                                            ) : existingRecipients.length === 0 ? (
+                                                <p className="text-xs text-onSurfaceVariant text-center py-4">Aucun destinataire existant. Une fois que vous aurez envoyé un document, les destinataires apparaîtront ici.</p>
+                                            ) : (
+                                                existingRecipients.map((recipient) => (
+                                                    <div key={recipient.email} className="flex items-center justify-between p-2 bg-surface rounded-lg border border-outlineVariant/50 hover:border-outlineVariant transition-colors">
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="text-xs font-medium text-onSurface truncate">{recipient.name}</p>
+                                                            <p className="text-xs text-onSurfaceVariant truncate">{recipient.email}</p>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => addExistingRecipient(recipient)}
+                                                            className="ml-2 flex-shrink-0 p-1.5 rounded-full bg-primary text-onPrimary hover:bg-primary/90 transition-colors"
+                                                            aria-label={`Ajouter ${recipient.name}`}
+                                                        >
+                                                            <UserPlus size={14} />
+                                                        </button>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
 
                                     <div className="mt-6 border-t border-outlineVariant pt-4">
                                         <h3 className="font-bold text-onSurface mb-2">Champs standards</h3>

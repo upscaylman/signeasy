@@ -5,6 +5,7 @@ import type { Document } from '../types';
 import { DocumentStatus } from '../types';
 import DocumentCard from '../components/DocumentCard';
 import { getDocuments, deleteDocuments, getTokenForDocumentSigner } from '../services/firebaseApi';
+import { useUser } from '../components/UserContext';
 import { PlusCircle, Inbox, Search, Trash2, X, AlertTriangle, Upload, CheckSquare, Square, LayoutDashboard } from 'lucide-react';
 import Button from '../components/Button';
 import { useToast } from '../components/Toast';
@@ -56,12 +57,13 @@ const DashboardPage: React.FC = () => {
   const { addToast } = useToast();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { currentUser } = useUser();
 
   useEffect(() => {
     const fetchDocuments = async () => {
       setIsLoading(true);
       try {
-        const docs = await getDocuments();
+        const docs = await getDocuments(currentUser?.email);
         setDocuments(docs);
       } catch (error) {
         console.error("Failed to fetch documents", error);
@@ -70,7 +72,7 @@ const DashboardPage: React.FC = () => {
       }
     };
     fetchDocuments();
-  }, []);
+  }, [currentUser?.email]);
 
   const filteredDocuments = useMemo(() => {
     return documents.filter(doc => 
