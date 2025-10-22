@@ -221,9 +221,11 @@ const InboxPage: React.FC = () => {
               </div>
                <div className="mt-8 pt-6 text-center" style={{ borderTop: '1px solid rgb(216, 194, 191)' }}>
                    <p className="text-sm text-onSurfaceVariant mb-4">Cliquez sur le bouton ci-dessous pour examiner et signer le document.</p>
-                   <Button icon={FileText} onClick={handleSignClick}>
-                       Examiner &amp; Signer {selectedEmail.documentName}
-                   </Button>
+                   <div className="flex justify-center">
+                     <Button icon={FileText} onClick={handleSignClick} className="max-w-full">
+                       <span className="truncate">Examiner &amp; Signer {selectedEmail.documentName}</span>
+                     </Button>
+                   </div>
                </div>
             </div>
           ) : (
