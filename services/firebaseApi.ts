@@ -918,6 +918,69 @@ export const cleanupExpiredDocuments = async (): Promise<{
 
 // 🔐 SIGNATURES NUMÉRIQUES eIDAS/PAdES CONFORMES
 /**
+ * Configuration des certificats de signature
+ * En développement: Certificat auto-signé
+ * En production: Certificat émis par une Autorité de Certification Qualifiée (QCA)
+ */
+interface SignatureConfig {
+    mode: 'development' | 'production';
+    certificate: string;      // Certificat PEM
+    privateKey: string;       // Clé privée PEM
+    publicKey: string;        // Clé publique PEM
+    issuer: string;          // Nom de l'émetteur (AC, QCA, etc.)
+    validFrom: Date;
+    validUntil: Date;
+}
+
+/**
+ * Charge la configuration de signature depuis les variables d'environnement
+ * ⚠️ EN PRODUCTION: Les certificats et clés DOIVENT être:
+ * 1. Émis par une QCA certifiée (ex: Certinomis, Thales, GlobalSign)
+ * 2. Stockés dans un gestionnaire de secrets (ex: AWS Secrets Manager, Azure Key Vault)
+ * 3. Jamais commités en clair dans le code
+ * 4. Rotatés régulièrement
+ */
+const getSignatureConfig = (): SignatureConfig => {
+    const nodeEnv = process.env.NODE_ENV || 'development';
+    
+    if (nodeEnv === 'production') {
+        // ✅ PRODUCTION: Charge depuis variables d'environnement sécurisées
+        const cert = process.env.SIGNING_CERTIFICATE;
+        const key = process.env.SIGNING_PRIVATE_KEY;
+        const pubKey = process.env.SIGNING_PUBLIC_KEY;
+        
+        if (!cert || !key || !pubKey) {
+            throw new Error('❌ ERREUR: Certificats de production manquants. ' +
+                'Configurez SIGNING_CERTIFICATE, SIGNING_PRIVATE_KEY, SIGNING_PUBLIC_KEY');
+        }
+        
+        return {
+            mode: 'production',
+            certificate: cert,
+            privateKey: key,
+            publicKey: pubKey,
+            issuer: process.env.SIGNING_CERTIFICATE_ISSUER || 'Autorité de Certification Qualifiée',
+            validFrom: new Date(process.env.SIGNING_CERT_VALID_FROM || ''),
+            validUntil: new Date(process.env.SIGNING_CERT_VALID_UNTIL || '')
+        };
+    } else {
+        // 🔧 DÉVELOPPEMENT: Génère un certificat auto-signé
+        console.log('🔧 Mode développement: Utilisation certificat auto-signé');
+        const devCert = generateSigningCertificate();
+        
+        return {
+            mode: 'development',
+            certificate: devCert.cert,
+            privateKey: devCert.privateKey,
+            publicKey: devCert.publicKey,
+            issuer: 'Development Auto-Signed (Non valide en production)',
+            validFrom: new Date(),
+            validUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+        };
+    }
+};
+
+/**
  * Génère un timestamp qualifié serveur pour audit trail
  * Conforme norme eIDAS: horodatage immuable avec preuve cryptographique
  */
@@ -934,8 +997,10 @@ export const generateQualifiedTimestamp = (): {
     const hash = md.digest().toHex();
     
     // Générer une preuve cryptographique (signature HMAC du hash)
+    // En production, utiliser une clé stockée de manière sécurisée
+    const signatureKey = process.env.SIGNATURE_KEY || 'default-dev-key';
     const hmac = forge.hmac.create();
-    hmac.start('sha256', process.env.SIGNATURE_KEY || 'default-dev-key');
+    hmac.start('sha256', signatureKey);
     hmac.update(hash);
     const proof = hmac.digest().toHex();
     
