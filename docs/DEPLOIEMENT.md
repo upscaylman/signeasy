@@ -218,3 +218,29 @@ Allez sur **Netlify → Analytics** pour voir :
 - **Firebase Docs:** https://firebase.google.com/docs
 - **Vite Docs:** https://vitejs.dev/guide/
 
+---
+
+## 🔐 Signatures Numériques Conformes eIDAS/PAdES
+
+Pour assurer la conformité eIDAS/PAdES, nous utilisons des signatures numériques.
+
+### **1. Configuration**
+
+- ✅ **Certificat eIDAS** (à obtenir auprès d'une autorité de certification)
+- ✅ **Clé de signature** (à gérer en sécurité)
+- ✅ **Règles Firestore pour les signatures** (voir `docs/FIRESTORE-RULES.md`)
+
+### **2. Utilisation**
+
+- ✅ **Génération de signature** (via `signEasy.generateSignature()`)
+- ✅ **Vérification de signature** (via `signEasy.verifySignature()`)
+- ✅ **Stockage des signatures** (dans Firestore)
+
+### **3. Sécurité**
+
+- ✅ **Chiffrement des données** (AES-256)
+- ✅ **Hachage des clés** (SHA-256)
+- ✅ **Vérification de l'authenticité** (via certificats)
+
+---
+

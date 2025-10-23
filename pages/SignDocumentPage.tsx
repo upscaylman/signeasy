@@ -87,6 +87,7 @@ const SignaturePad: React.FC<{
     const [isDrawing, setIsDrawing] = useState(false);
     const [typedName, setTypedName] = useState(signerName);
     const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+    const [scale, setScale] = useState(1); // Zoom pour redimensionnement proportionnel
 
     // Drawing tools state
     const [strokeColor, setStrokeColor] = useState('#000000');
@@ -228,38 +229,81 @@ const SignaturePad: React.FC<{
           
           <div className="bg-surfaceVariant/50 rounded-2xl p-2">
             {activeTab === 'draw' && (
-                <canvas 
-                    ref={canvasRef} 
-                    width="450" 
-                    height="200" 
-                    className="bg-white rounded-xl cursor-crosshair w-full touch-none"
-                    style={{ touchAction: 'none' }}
-                    onMouseDown={startDrawing}
-                    onMouseMove={draw}
-                    onMouseUp={stopDrawing}
-                    onMouseLeave={stopDrawing}
-                    onTouchStart={startDrawing}
-                    onTouchMove={draw}
-                    onTouchEnd={stopDrawing}
-                />
+                <>
+                  <div className="flex items-center gap-3 mb-3 px-2">
+                    <label className="text-xs font-semibold text-onSurfaceVariant">Taille:</label>
+                    <input 
+                      type="range" 
+                      min="0.8" 
+                      max="1.4" 
+                      step="0.1" 
+                      value={scale}
+                      onChange={(e) => setScale(parseFloat(e.target.value))}
+                      className="flex-1"
+                    />
+                    <span className="text-xs text-onSurfaceVariant font-medium">{Math.round(scale * 100)}%</span>
+                  </div>
+                  <canvas 
+                      ref={canvasRef} 
+                      width={Math.round(600 * scale)} 
+                      height={Math.round(300 * scale)} 
+                      className="bg-white rounded-xl cursor-crosshair w-full touch-none"
+                      style={{ touchAction: 'none' }}
+                      onMouseDown={startDrawing}
+                      onMouseMove={draw}
+                      onMouseUp={stopDrawing}
+                      onMouseLeave={stopDrawing}
+                      onTouchStart={startDrawing}
+                      onTouchMove={draw}
+                      onTouchEnd={stopDrawing}
+                  />
+                </>
             )}
             {activeTab === 'type' && (
-                <div className="h-[200px] flex items-center justify-center bg-white rounded-xl p-4">
+                <div className="h-[280px] flex flex-col items-center justify-center bg-white rounded-xl p-4 gap-2">
+                    <label className="text-xs font-semibold text-onSurfaceVariant">Taille:</label>
+                    <input 
+                      type="range" 
+                      min="0.8" 
+                      max="1.4" 
+                      step="0.1" 
+                      value={scale}
+                      onChange={(e) => setScale(parseFloat(e.target.value))}
+                      className="w-32"
+                    />
+                    <span className="text-xs text-onSurfaceVariant font-medium mb-2">{Math.round(scale * 100)}%</span>
                     <input 
                         type="text" 
                         value={typedName} 
                         onChange={(e) => setTypedName(e.target.value)}
-                        className="text-5xl font-['Caveat',_cursive] text-center w-full bg-transparent outline-none border-b-2 border-solid border-outline focus:border-primary transition-colors"
+                        className="text-6xl font-['Caveat',_cursive] text-center w-full bg-transparent outline-none border-b-2 border-solid border-outline focus:border-primary transition-colors"
+                        style={{ transform: `scale(${scale})`, transformOrigin: 'center', fontSize: `${48 * scale}px` }}
                         placeholder="Tapez votre nom"
                     />
                 </div>
             )}
             {activeTab === 'upload' && (
-                <div className="h-[200px] flex flex-col items-center justify-center bg-white rounded-xl p-4">
+                <div className="h-[280px] flex flex-col items-center justify-center bg-white rounded-xl p-4 gap-3">
                     {uploadedImage ? (
                         <>
-                           <img src={uploadedImage} alt="Aperçu de la signature" className="max-h-36 object-contain border border-outlineVariant/50 rounded-lg p-1"/>
-                           <Button variant="text" onClick={() => setUploadedImage(null)} className="mt-2">Changer l'image</Button>
+                           <label className="text-xs font-semibold text-onSurfaceVariant">Taille:</label>
+                           <input 
+                             type="range" 
+                             min="0.8" 
+                             max="1.4" 
+                             step="0.1" 
+                             value={scale}
+                             onChange={(e) => setScale(parseFloat(e.target.value))}
+                             className="w-32"
+                           />
+                           <span className="text-xs text-onSurfaceVariant font-medium">{Math.round(scale * 100)}%</span>
+                           <img 
+                             src={uploadedImage} 
+                             alt="Aperçu de la signature" 
+                             className="max-h-40 object-contain border border-outlineVariant/50 rounded-lg p-1"
+                             style={{ transform: `scale(${scale})`, transformOrigin: 'center' }}
+                           />
+                           <Button variant="text" onClick={() => setUploadedImage(null)} className="mt-1">Changer l'image</Button>
                         </>
                     ) : (
                         <label className="cursor-pointer text-center w-full h-full flex flex-col items-center justify-center border-2 border-dashed border-outlineVariant rounded-lg hover:bg-surfaceVariant transition-colors">
