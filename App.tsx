@@ -51,13 +51,13 @@ const AppContent: React.FC = () => {
       {currentUser && <Header />}
       <main className="flex-grow animate-fade-in page-transition">
         <Routes>
-          <Route path="/" element={currentUser ? <Navigate to="/dashboard" /> : <Navigate to="/" />} />
-          <Route path="/dashboard" element={currentUser ? <DashboardPage /> : <Navigate to="/" />} />
-          <Route path="/prepare" element={currentUser ? <PrepareDocumentPage /> : <Navigate to="/" />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/prepare" element={<PrepareDocumentPage />} />
           {/* Route /sign/:token accessible SANS authentification - SignDocumentPage fera l'auto-login */}
           <Route path="/sign/:token" element={<SignDocumentPage />} />
-          <Route path="/inbox" element={currentUser ? <InboxPage /> : <Navigate to="/" />} />
-          <Route path="/verify" element={currentUser ? <VerifyPage /> : <Navigate to="/" />} />
+          <Route path="/inbox" element={<InboxPage />} />
+          <Route path="/verify" element={<VerifyPage />} />
+          <Route path="*" element={<Navigate to="/dashboard" />} />
         </Routes>
       </main>
       {currentUser && <Footer />}

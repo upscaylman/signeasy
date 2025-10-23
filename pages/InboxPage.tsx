@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { getEmails, markEmailAsRead, deleteEmails } from '../services/firebaseApi';
 import { useUser } from '../components/UserContext';
 import type { MockEmail } from '../types';
-import { Loader2, Inbox as InboxIcon, FileText, Trash2, CheckSquare, Square, X } from 'lucide-react';
+import { Loader2, Inbox as InboxIcon, FileText, Trash2, CheckSquare, Square, X, ArrowLeft, Mail, CheckCircle2 } from 'lucide-react';
 import Button from '../components/Button';
 import { useToast } from '../components/Toast';
 
@@ -18,6 +18,34 @@ const InboxPage: React.FC = () => {
   const navigate = useNavigate();
   const { addToast } = useToast();
   const { currentUser } = useUser();
+
+  const renderSubjectWithIcon = (subject: string) => {
+    // Remplacer ✅ par une icone CheckCircle2
+    if (subject.includes('✅')) {
+      const parts = subject.split('✅');
+      return (
+        <div className="flex items-center gap-1.5">
+          <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+          <span>{parts[1]?.trim()}</span>
+        </div>
+      );
+    }
+    return <span>{subject}</span>;
+  };
+
+  const renderDetailSubjectWithIcon = (subject: string) => {
+    // Icone plus grande pour le détail
+    if (subject.includes('✅')) {
+      const parts = subject.split('✅');
+      return (
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className="h-6 w-6 text-green-600 flex-shrink-0" />
+          <span>{parts[1]?.trim()}</span>
+        </div>
+      );
+    }
+    return <span>{subject}</span>;
+  };
 
   const fetchEmails = useCallback(async () => {
     setIsLoading(true);
@@ -232,7 +260,7 @@ const InboxPage: React.FC = () => {
                           )}
                         </div>
                       </div>
-                      <p className={`text-sm mt-1 truncate ${!email.read ? 'text-onSurface' : 'text-onSurfaceVariant'}`}>{email.subject}</p>
+                      <p className={`text-sm mt-1 truncate ${!email.read ? 'text-onSurface' : 'text-onSurfaceVariant'}`}>{renderSubjectWithIcon(email.subject)}</p>
                     </div>
                   </div>
                 </li>
@@ -250,9 +278,9 @@ const InboxPage: React.FC = () => {
                 onClick={() => setShowEmailContent(false)}
                 className="sm:hidden mb-4 flex items-center text-primary font-semibold press-effect transition-all hover:scale-105"
               >
-                ← Retour à la liste
+                <ArrowLeft className="h-5 w-5 mr-2" /> Retour à la liste
               </button>
-              <h2 className="text-xl sm:text-2xl font-bold text-onSurface break-words">{selectedEmail.subject}</h2>
+              <h2 className="text-xl sm:text-2xl font-bold text-onSurface break-words">{renderDetailSubjectWithIcon(selectedEmail.subject)}</h2>
               <div className="mt-4 pb-4" style={{ borderBottom: '1px solid rgb(216, 194, 191)' }}>
                 <p className="break-words"><strong>De :</strong> SignEase (no-reply@signease.com)</p>
                 <p className="break-words"><strong>À :</strong> {selectedEmail.toName} &lt;{selectedEmail.toEmail}&gt;</p>

@@ -7,7 +7,7 @@ import { useUser } from '../components/UserContext';
 import Button from '../components/Button';
 import { Recipient, Field, FieldType } from '../types';
 import { createEnvelope } from '../services/firebaseApi';
-import { UploadCloud, UserPlus, Trash2, Signature, Calendar, Type as TypeIcon, CheckSquare, Loader2, X, ArrowLeft, ZoomIn, ZoomOut, ArrowRight, Move, GripVertical } from 'lucide-react';
+import { UploadCloud, UserPlus, Trash2, Signature, Calendar, Type as TypeIcon, CheckSquare, Loader2, X, ArrowLeft, ZoomIn, ZoomOut, ArrowRight, Move, GripVertical, Mail, Info, AlertCircle } from 'lucide-react';
 import { convertWordToPdf, isWordFile } from '../utils/wordToPdf';
 import { getExistingRecipients } from '../services/firebaseApi';
 
@@ -44,14 +44,12 @@ const SummaryModal: React.FC<{
     onConfirm: (selectedRecipientIds: number[]) => void;
     documentName: string;
     recipients: TempRecipient[];
-    emailSubject: string;
-    setEmailSubject: (s: string) => void;
     emailMessage: string;
     setEmailMessage: (s: string) => void;
     creatorEmail: string;
     setCreatorEmail: (s: string) => void;
     isSubmitting: boolean;
-}> = ({ isOpen, onClose, onConfirm, documentName, recipients, emailSubject, setEmailSubject, emailMessage, setEmailMessage, creatorEmail, setCreatorEmail, isSubmitting }) => {
+}> = ({ isOpen, onClose, onConfirm, documentName, recipients, emailMessage, setEmailMessage, creatorEmail, setCreatorEmail, isSubmitting }) => {
     const [selectedRecipients, setSelectedRecipients] = React.useState<number[]>([]);
 
     React.useEffect(() => {
@@ -107,11 +105,11 @@ const SummaryModal: React.FC<{
                         </div>
                     </div>
                     
-                    {/* Right side: recap and subject */}
+                    {/* Right side: recap and sender email */}
                     <div className="space-y-4">
-                        <div>
-                            <h3 className="text-sm font-semibold text-onSurfaceVariant">DOCUMENT</h3>
-                            <p className="font-medium text-onSurface truncate mt-1" title={documentName}>{documentName}</p>
+                        <div className="p-4 bg-surfaceVariant/20 rounded-lg border border-outlineVariant">
+                            <h3 className="text-sm font-semibold text-onSurfaceVariant mb-2">DOCUMENT</h3>
+                            <p className="font-medium text-onSurface truncate" title={documentName}>{documentName}</p>
                         </div>
                         
                         <div>
@@ -127,37 +125,37 @@ const SummaryModal: React.FC<{
                                 placeholder="votre.email@exemple.com"
                                 required
                             />
-                            <p className="text-xs text-onSurfaceVariant mt-1">
-                                📧 Vous recevrez une notification quand le document sera signé
+                            <p className="text-xs text-onSurfaceVariant mt-2 flex items-center gap-1">
+                                <Mail className="h-4 w-4 flex-shrink-0" /> Vous recevrez une notification quand le document sera signé
                             </p>
                         </div>
-                        
-                        <div>
-                            <label htmlFor="emailSubject" className="text-sm font-semibold text-onSurfaceVariant block mb-2">Sujet de l'e-mail</label>
-                            <input
-                                id="emailSubject"
-                                type="text"
-                                value={emailSubject}
-                                onChange={e => setEmailSubject(e.target.value)}
-                                className="w-full text-sm p-3 bg-surfaceVariant/60 border border-outlineVariant rounded-lg focus:ring-2 focus:ring-primary focus:border-primary focus:bg-surface"
-                                placeholder="Signature requise"
-                            />
-                        </div>
 
-                        <div className="bg-primaryContainer/20 border border-primary/30 rounded-lg p-4">
-                            <p className="text-xs text-onSurfaceVariant mb-2">ℹ️ Information</p>
-                            <p className="text-sm text-onSurface">
-                                Le message est géré automatiquement par le système EmailJS. Les destinataires recevront un email avec le lien pour signer le document.
+                        <div className="bg-primaryContainer/20 border border-primary/30 rounded-lg p-3">
+                            <p className="text-xs text-onSurfaceVariant mb-1 flex items-center gap-1"><Info className="h-4 w-4 flex-shrink-0" /> Information</p>
+                            <p className="text-xs text-onSurface">
+                                Les destinataires recevront automatiquement un email avec le lien pour signer.
                             </p>
                         </div>
                     </div>
                 </div>
 
                 <div className="flex justify-between items-center p-6 bg-surfaceVariant/30 rounded-b-3xl">
-                    <p className="text-sm text-onSurfaceVariant">
-                        {selectedCount === 0 && '⚠️ Aucun destinataire sélectionné'}
-                        {!creatorEmail.trim() && selectedCount > 0 && '⚠️ Veuillez entrer votre e-mail'}
-                        {creatorEmail.trim() && selectedCount > 0 && `📧 ${selectedCount} email${selectedCount > 1 ? 's' : ''} sera${selectedCount > 1 ? 'ont' : ''} envoyé${selectedCount > 1 ? 's' : ''}`}
+                    <p className="text-sm text-onSurfaceVariant flex items-center gap-1">
+                        {selectedCount === 0 && (
+                          <>
+                            <AlertCircle className="h-4 w-4 text-orange-600 flex-shrink-0" /> Aucun destinataire sélectionné
+                          </>
+                        )}
+                        {!creatorEmail.trim() && selectedCount > 0 && (
+                          <>
+                            <AlertCircle className="h-4 w-4 text-orange-600 flex-shrink-0" /> Veuillez entrer votre e-mail
+                          </>
+                        )}
+                        {creatorEmail.trim() && selectedCount > 0 && (
+                          <>
+                            <Mail className="h-4 w-4 text-blue-600 flex-shrink-0" /> {selectedCount} email{selectedCount > 1 ? 's' : ''} sera{selectedCount > 1 ? 'ont' : ''} envoyé{selectedCount > 1 ? 's' : ''}
+                          </>
+                        )}
                     </p>
                     <div className="flex space-x-3">
                         <Button variant="text" onClick={onClose}>Annuler</Button>
@@ -460,15 +458,8 @@ const PrepareDocumentPage: React.FC = () => {
             return;
         }
 
-        // Trouver le premier index vide dans recipients (ordre de signature)
-        let targetIndex = 0;
-        for (let i = 0; i < recipients.length + 1; i++) {
-            const isSlotTaken = recipients.some(r => r.signingOrder === i + 1);
-            if (!isSlotTaken) {
-                targetIndex = i + 1;
-                break;
-            }
-        }
+        // Chercher le DERNIER slot libre (pas le premier)
+        let targetIndex = recipients.length > 0 ? Math.max(...recipients.map(r => r.signingOrder)) + 1 : 1;
 
         const newId = tempRecipientId++;
         const newRecipient: TempRecipient = {
@@ -684,8 +675,8 @@ const PrepareDocumentPage: React.FC = () => {
             addToast('Veuillez ajouter au moins un destinataire.', 'error');
             return;
         }
-
-        for (const recipient of recipients) {
+  
+          for (const recipient of recipients) {
             if (!recipient.name.trim()) {
                 addToast('Veuillez renseigner le nom pour tous les destinataires.', 'error');
                 return;
@@ -919,8 +910,6 @@ const PrepareDocumentPage: React.FC = () => {
                 onConfirm={handleConfirmSend}
                 documentName={file.name}
                 recipients={recipients}
-                emailSubject={emailSubject}
-                setEmailSubject={setEmailSubject}
                 emailMessage={emailMessage}
                 setEmailMessage={setEmailMessage}
                 creatorEmail={creatorEmail}
@@ -938,7 +927,8 @@ const PrepareDocumentPage: React.FC = () => {
                         </div>
                         <button 
                             onClick={handleSend}
-                            className="btn-premium-shine btn-premium-extended h-10 text-sm focus:outline-none focus:ring-4 focus:ring-primary/30 w-full sm:w-auto flex-shrink-0 inline-flex items-center justify-center"
+                            disabled={!file || recipients.length === 0 || fields.filter(f => f.type === FieldType.SIGNATURE).length === 0 || recipients.some(r => !r.name.trim() || !r.email.trim())}
+                            className="btn-premium-shine btn-premium-extended h-10 text-sm focus:outline-none focus:ring-4 focus:ring-primary/30 w-full sm:w-auto flex-shrink-0 inline-flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <span className="hidden sm:inline">Envoyer la demande de signature</span>
                             <span className="sm:hidden">Envoyer</span>

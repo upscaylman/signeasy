@@ -2,7 +2,7 @@
 import React from 'react';
 import type { Document } from '../types';
 import { DocumentStatus } from '../types';
-import { FileText, Clock, PenSquare, Eye } from 'lucide-react';
+import { FileText, Clock, PenSquare, Eye, AlertCircle, Calendar } from 'lucide-react';
 
 interface DocumentCardProps {
   document: Document;
@@ -102,20 +102,20 @@ const DocumentCard: React.FC<DocumentCardProps> = ({ document, onSign, onView, i
                   
                   if (daysLeft < 0) {
                     return (
-                      <span className="text-error font-semibold">
-                        ⏰ Expiré le {expiresAt.toLocaleDateString('fr-FR')}
+                      <span className="text-error font-semibold flex items-center gap-1">
+                        <Clock className="h-4 w-4 flex-shrink-0" /> Expiré le {expiresAt.toLocaleDateString('fr-FR')}
                       </span>
                     );
                   } else if (daysLeft <= 2) {
                     return (
-                      <span className="text-error font-semibold">
-                        ⚠️ Expire dans {daysLeft} jour{daysLeft > 1 ? 's' : ''} ({expiresAt.toLocaleDateString('fr-FR')})
+                      <span className="text-error font-semibold flex items-center gap-1">
+                        <AlertCircle className="h-4 w-4 flex-shrink-0" /> Expire dans {daysLeft} jour{daysLeft > 1 ? 's' : ''} ({expiresAt.toLocaleDateString('fr-FR')})
                       </span>
                     );
                   } else {
                     return (
-                      <span className="text-onSurfaceVariant">
-                        📅 Expire le {expiresAt.toLocaleDateString('fr-FR')} ({daysLeft} jours restants)
+                      <span className="text-onSurfaceVariant flex items-center gap-1">
+                        <Calendar className="h-4 w-4 flex-shrink-0" /> Expire le {expiresAt.toLocaleDateString('fr-FR')} ({daysLeft} jours restants)
                       </span>
                     );
                   }

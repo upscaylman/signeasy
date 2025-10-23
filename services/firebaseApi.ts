@@ -154,8 +154,8 @@ export const getExistingRecipients = async (userEmail?: string): Promise<{id: st
 
     envelopesSnapshot.docs.forEach(env => {
       const envelopeData = env.data() as Envelope;
-      // Vérifier si l'utilisateur est le créateur du document
-      if (envelopeData.document.creatorEmail === userEmail) {
+      // Vérifier si l'utilisateur est le créateur du document (normaliser en minuscules)
+      if (envelopeData.document.creatorEmail === userEmail.toLowerCase()) {
         // Ajouter tous les destinataires (sans doublon, par email)
         envelopeData.recipients.forEach(recipient => {
           const key = recipient.email.toLowerCase();
@@ -196,26 +196,10 @@ export const getDocuments = async (userEmail?: string): Promise<Document[]> => {
       id: doc.id
     } as Document));
 
-    // Filtrer : afficher uniquement les documents créés par l'utilisateur
-    const userCreatedDocs = allDocuments.filter(doc => doc.creatorEmail === userEmail);
-
-    // Récupérer aussi les enveloppes pour voir les documents où l'utilisateur est destinataire
-    const envelopesSnapshot = await getDocs(collection(db, 'envelopes'));
-    const userRecipientDocIds = new Set<string>();
-    
-    envelopesSnapshot.docs.forEach(env => {
-      const envelopeData = env.data() as Envelope;
-      // Vérifier si l'utilisateur est un des destinataires
-      const isRecipient = envelopeData.recipients.some(r => r.email === userEmail);
-      if (isRecipient) {
-        userRecipientDocIds.add(envelopeData.document.id);
-      }
-    });
-
-    // Combiner : documents créés + documents où on est destinataire
-    const visibleDocuments = allDocuments.filter(doc => 
-      doc.creatorEmail === userEmail || userRecipientDocIds.has(doc.id)
-    );
+    // 🔒 SÉCURITÉ: Afficher UNIQUEMENT les documents créés par l'utilisateur
+    // Les destinataires voient leurs demandes de signature dans /inbox (via emails)
+    // Pas dans le dashboard pour éviter la faille de sécurité
+    const visibleDocuments = allDocuments.filter(doc => doc.creatorEmail === userEmail);
 
     return visibleDocuments;
   } catch (error) {
@@ -391,8 +375,8 @@ export const createEnvelope = async (
         const mockEmail: MockEmail = {
           id: emailId,
           from: "noreply@signeasyfo.com",
-          to: recipient.email,
-          toEmail: recipient.email,
+          to: recipient.email.toLowerCase(),
+          toEmail: recipient.email.toLowerCase(),
           subject: `Signature requise : ${fileData.name}`,
           body: `Bonjour ${recipient.name},\n\nVous avez un document à signer : "${fileData.name}".\n\nCliquez sur le bouton ci-dessous pour le signer.`,
           signatureLink: `${window.location.origin}/#/sign/${token}`,
@@ -602,8 +586,8 @@ export const submitSignature = async (
       const confirmationEmail: MockEmail = {
         id: confirmationEmailId,
         from: "noreply@signeasyfo.com",
-        to: envelope.document.creatorEmail,
-        toEmail: envelope.document.creatorEmail,
+        to: envelope.document.creatorEmail.toLowerCase(),
+        toEmail: envelope.document.creatorEmail.toLowerCase(),
         subject: `✅ Document signé : ${envelope.document.name}`,
         body: `Bonjour,\n\nLe document "${envelope.document.name}" a été complètement signé par ${signer.name} (${signer.email}).\n\nDate de signature : ${new Date().toLocaleString('fr-FR')}\n\nCliquez sur le lien ci-dessous pour consulter le document signé.`,
         signatureLink: `${window.location.origin}/#/sign/${viewToken}`,
@@ -742,13 +726,16 @@ export const getEmails = async (userEmail?: string): Promise<MockEmail[]> => {
       return [];
     }
     
+    // 🔒 Récupérer les emails filtrés (sans orderBy pour éviter l'index composite manquant)
     const emailsQuery = query(
       collection(db, 'emails'),
-      where('toEmail', '==', userEmail),
-      orderBy('sentAt', 'desc')
+      where('toEmail', '==', userEmail.toLowerCase())
     );
     const snapshot = await getDocs(emailsQuery);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MockEmail));
+    const emails = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MockEmail));
+    
+    // Trier côté client par date décroissante
+    return emails.sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime());
   } catch (error) {
     console.error('❌ Erreur getEmails Firebase:', error);
     return [];

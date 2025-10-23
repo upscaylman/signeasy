@@ -401,7 +401,7 @@ const DashboardPage: React.FC = () => {
               e.stopPropagation(); // Empêcher le double déclenchement
               handleEmptyStateClick();
             }}
-            className="inline-flex items-center justify-center h-12 sm:h-14 btn-premium-shine btn-premium-extended focus:outline-none focus:ring-4 focus:ring-primary/30 text-sm sm:text-base"
+            className="flex items-center justify-center h-12 sm:h-14 w-full sm:w-4/5 md:w-3/4 lg:w-1/2 btn-premium-shine btn-premium-extended focus:outline-none focus:ring-4 focus:ring-primary/30 text-sm sm:text-base mx-auto"
             aria-label="Ajouter un fichier"
           >
             <PlusCircle className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0" />

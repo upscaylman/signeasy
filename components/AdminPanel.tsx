@@ -91,7 +91,7 @@ const AdminPanel: React.FC = () => {
       <div className="mb-8">
         <h3 className="text-lg font-semibold text-onSurface mb-4">Ajouter un utilisateur</h3>
         <form onSubmit={handleAddUser} className="space-y-4">
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <input
               type="email"
               value={newEmail}
@@ -107,7 +107,7 @@ const AdminPanel: React.FC = () => {
               type="submit"
               variant="filled"
               disabled={isAdding}
-              className="min-w-fit"
+              className="w-full sm:w-auto sm:min-w-fit"
             >
               {isAdding ? (
                 <>

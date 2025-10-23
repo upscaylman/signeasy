@@ -5,10 +5,10 @@ import Tooltip from './Tooltip';
 const Footer: React.FC = () => {
   const footerLinks = [
     { name: 'A propos de nous', href: 'https://www.fo-metaux.org/pages/organisation-fo-metaux' },
-    { name: 'Contact', href: '#' },
+    { name: 'Contact', href: 'https://www.fo-metaux.fr/nous-contacter' },
     { name: 'Mentions Légales', href: 'https://www.fo-metaux.org/mentions-legales' },
     { name: 'Politique de confidentialité', href: 'https://www.fo-metaux.org/politique-de-confidentialite' },
-    { name: 'Site internet', href: 'https://www.fo-metaux.fr/' },
+    { name: 'fo-metaux.fr', href: 'https://www.fo-metaux.fr/' },
   ];
 
   const socialLinks = [
@@ -38,7 +38,7 @@ const Footer: React.FC = () => {
               <a 
                 key={link.name} 
                 href={link.href} 
-                className="text-sm text-white/90 hover:text-white hover:underline transition-all state-layer link-enhanced"
+                className="text-sm text-white/90 underline"
                 target={link.href.startsWith('http') ? '_blank' : undefined}
                 rel={link.href.startsWith('http') ? 'noopener noreferrer' : undefined}
               >
@@ -59,13 +59,7 @@ const Footer: React.FC = () => {
                     href={social.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="
-                      text-white/80 hover:text-white
-                      min-h-[40px] min-w-[40px] p-2
-                      rounded-full state-layer press-effect
-                      transition-all duration-200
-                      hover:bg-white/10 hover:scale-110
-                    "
+                    className="text-white/80 min-h-[40px] min-w-[40px] p-2 rounded-full"
                     aria-label={social.name}
                   >
                     <Icon className="h-5 w-5" />
