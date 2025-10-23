@@ -97,7 +97,10 @@ const Header: React.FC = () => {
             <div className="bg-gradient-primary p-2 rounded-lg flex items-center justify-center h-10 w-10 elevation-2 progressive-glow transition-transform hover:scale-110">
               <span className="text-xl font-extrabold text-onPrimary">FO</span>
             </div>
-                <span className="text-xl font-bold whitespace-nowrap"><span className="text-gradient-primary">SignEase</span> <span className="text-onSurface">by FO Metaux</span></span>
+            {/* Desktop: SignEase by FO Metaux */}
+            <span className="hidden sm:inline text-xl font-bold whitespace-nowrap"><span className="text-gradient-primary">SignEase</span> <span className="text-onSurface">by FO Metaux</span></span>
+            {/* Mobile: juste SignEase */}
+            <span className="sm:hidden text-xl font-bold whitespace-nowrap"><span className="text-gradient-primary">SignEase</span></span>
           </div>
           {/* Navigation Desktop - avec labels */}
           <nav className="hidden lg:flex items-center space-x-2">
