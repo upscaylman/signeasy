@@ -162,8 +162,16 @@ const DashboardPage: React.FC = () => {
     // Trouver le document
     const doc = documents.find(d => d.id === id);
     
+    // 🔒 SÉCURITÉ : Si l'utilisateur est l'expéditeur (source='sent'), 
+    // il ne peut pas signer, seulement consulter en lecture seule
+    if (doc?.source === 'sent') {
+      console.log('🔒 Expéditeur ne peut pas signer son propre document - Redirection vers consultation');
+      await handleView(id);
+      return;
+    }
+    
     if (doc?.source === 'received' && doc.originalEmail) {
-      // Pour les emails reçus, extraire le token du signatureLink
+      // Pour les emails reçus (destinataire), extraire le token du signatureLink
       const token = doc.originalEmail.signatureLink.split('/').pop();
       if (token) {
         navigate(`/sign/${token}`);
@@ -171,7 +179,7 @@ const DashboardPage: React.FC = () => {
         addToast("Lien de signature invalide.", "error");
       }
     } else {
-      // Pour les documents envoyés, utiliser la méthode classique
+      // Fallback (ne devrait normalement pas arriver ici pour 'sent')
       const token = await getTokenForDocumentSigner(id);
       if (token) {
         navigate(`/sign/${token}`);
@@ -489,6 +497,7 @@ const DashboardPage: React.FC = () => {
                               isSelectionMode={isSelectionMode}
                               isSelected={selectedDocuments.includes(doc.id)}
                               onSelect={handleDocumentSelect}
+                              documentSource="received"
                           />
                         ))}
                       </div>
@@ -529,6 +538,7 @@ const DashboardPage: React.FC = () => {
                               isSelectionMode={isSelectionMode}
                               isSelected={selectedDocuments.includes(doc.id)}
                               onSelect={handleDocumentSelect}
+                              documentSource="sent"
                           />
                         ))}
                       </div>

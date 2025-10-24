@@ -2,7 +2,7 @@
 import React from 'react';
 import type { Document } from '../types';
 import { DocumentStatus } from '../types';
-import { FileText, Clock, PenSquare, Eye, AlertCircle, Calendar } from 'lucide-react';
+import { FileText, Clock, PenSquare, Eye, AlertCircle, Calendar, CheckCircle } from 'lucide-react';
 
 interface DocumentCardProps {
   document: Document;
@@ -11,6 +11,7 @@ interface DocumentCardProps {
   isSelectionMode: boolean;
   isSelected: boolean;
   onSelect: (id: string) => void;
+  documentSource?: 'sent' | 'received'; // Pour différencier expéditeur/destinataire
 }
 
 const statusStyles: { [key in DocumentStatus]: { bg: string, text: string } } = {
@@ -21,9 +22,11 @@ const statusStyles: { [key in DocumentStatus]: { bg: string, text: string } } = 
 };
 
 
-const DocumentCard: React.FC<DocumentCardProps> = ({ document, onSign, onView, isSelectionMode, isSelected, onSelect }) => {
+const DocumentCard: React.FC<DocumentCardProps> = ({ document, onSign, onView, isSelectionMode, isSelected, onSelect, documentSource }) => {
   const { bg, text } = statusStyles[document.status];
-  const needsAction = document.status === DocumentStatus.SENT;
+  // 🔒 needsAction uniquement si destinataire (received) et statut SENT
+  // Si expéditeur (sent), toujours en lecture seule
+  const needsAction = documentSource === 'received' && document.status === DocumentStatus.SENT;
 
   return (
     <div className="relative h-full cascade-item">
@@ -143,18 +146,26 @@ const DocumentCard: React.FC<DocumentCardProps> = ({ document, onSign, onView, i
                  </button>
               )}
               {!needsAction && onView && (
-                 <button 
-                   onClick={() => onView(document.id)} 
-                   className="
-                     inline-flex items-center min-h-[40px] px-3 py-2
-                     text-sm font-bold text-secondary rounded-lg
-                     state-layer state-layer-secondary press-effect
-                     transition-all hover:scale-[1.02]
-                   "
-                   aria-label={`Voir le document ${document.name}`}
-                 >
-                    Voir <Eye className="ml-1.5 h-4 w-4" />
-                 </button>
+                 <>
+                   {documentSource === 'sent' && (
+                     <div className="bg-tertiaryContainer text-onTertiaryContainer px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5">
+                       <CheckCircle className="h-3.5 w-3.5" />
+                       Document en lecture seule
+                     </div>
+                   )}
+                   <button 
+                     onClick={() => onView(document.id)} 
+                     className="
+                       inline-flex items-center min-h-[40px] px-3 py-2
+                       text-sm font-bold text-secondary rounded-lg
+                       state-layer state-layer-secondary press-effect
+                       transition-all hover:scale-[1.02]
+                     "
+                     aria-label={`Voir le document ${document.name}`}
+                   >
+                      Voir <Eye className="ml-1.5 h-4 w-4" />
+                   </button>
+                 </>
               )}
             </div>
           </div>

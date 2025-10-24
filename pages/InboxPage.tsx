@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { getEmails, getDocuments, markEmailAsRead, deleteEmails, getPdfData, getDocumentIdFromToken } from '../services/firebaseApi';
 import { useUser } from '../components/UserContext';
 import type { MockEmail, Document } from '../types';
-import { Loader2, Inbox as InboxIcon, FileText, Trash2, CheckSquare, Square, X, ArrowLeft, Mail, Send, Clock, AlertCircle, CheckCircle, FolderOpen, ZoomIn, ZoomOut } from 'lucide-react';
+import { Loader2, Inbox as InboxIcon, FileText, Trash2, CheckSquare, Square, X, ArrowLeft, Mail, Send, Clock, AlertCircle, CheckCircle, FolderOpen, ZoomIn, ZoomOut, Eye } from 'lucide-react';
 import Button from '../components/Button';
 import { useToast } from '../components/Toast';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -251,8 +251,9 @@ const InboxPage: React.FC = () => {
 
   // Calculate folder counts
   const folders = useMemo(() => {
-    // Si l'inbox est vide, afficher tous les onglets (rôle "both")
-    const effectiveRole = unifiedItems.length === 0 ? 'both' : userRole;
+    // 🎨 Toujours afficher TOUS les onglets peu importe le rôle
+    // (même si certains sont vides, pour une meilleure cohérence UX)
+    const effectiveRole = 'both'; // Forcer "both" pour afficher tous les onglets
     const folderList = getFolders(effectiveRole);
     
     return folderList.map(folder => {
@@ -262,7 +263,7 @@ const InboxPage: React.FC = () => {
       ).length;
       return { ...folder, count: folder.id === 'all' ? unifiedItems.length : count, unread };
     });
-  }, [unifiedItems, userRole]);
+  }, [unifiedItems]);
 
   const handleSelectItem = (item: UnifiedItem) => {
     setSelectedItem(item);
@@ -320,9 +321,18 @@ const InboxPage: React.FC = () => {
   
   const handleSignClick = () => {
     if (selectedItem?.type === 'email' && selectedItem?.signatureLink) {
+      // Pour les emails reçus (destinataire), permettre la signature
       const token = selectedItem.signatureLink.split('/').pop();
-          navigate(`/sign/${token}`);
+      navigate(`/sign/${token}`);
+    } else if (selectedItem?.type === 'document') {
+      // 🔒 SÉCURITÉ : Pour les documents envoyés (expéditeur), 
+      // consultation en lecture seule uniquement
+      const token = selectedItem.signatureLink?.split('/').pop();
+      if (token) {
+        console.log('🔒 Expéditeur ne peut pas signer son propre document - Mode lecture seule');
+        navigate(`/sign/${token}`, { state: { readOnly: true } });
       }
+    }
   };
 
   const handleItemSelect = (itemId: string) => {
@@ -442,16 +452,14 @@ const InboxPage: React.FC = () => {
             <h2 className="font-semibold text-onSurface truncate">Tous</h2>
             {!isSelectionMode ? (
               <Button 
-                variant="text" 
-                size="small"
+                variant="outlined"
                 onClick={() => setIsSelectionMode(true)}
               >
                 Sélectionner
               </Button>
             ) : (
               <Button 
-                variant="text" 
-                size="small"
+                variant="outlined"
                 onClick={() => {
                   setIsSelectionMode(false);
                   setSelectedItems([]);
@@ -620,17 +628,24 @@ const InboxPage: React.FC = () => {
             </div>
 
             {/* Boutons d'action */}
-            {selectedItem.type === 'email' && (
-              <div className="p-4 border-t border-outlineVariant flex justify-end">
-                <button
-                  onClick={handleSignClick}
-                  className="inline-flex items-center justify-center gap-2 min-h-[44px] btn-premium-shine btn-premium-extended text-sm"
-                >
-                  <FileText className="h-5 w-5" />
-                  Examiner & Signer
-                </button>
-              </div>
-            )}
+            <div className="p-4 border-t border-outlineVariant flex justify-end">
+              <button
+                onClick={handleSignClick}
+                className="inline-flex items-center justify-center gap-2 min-h-[44px] btn-premium-shine btn-premium-extended text-sm"
+              >
+                {selectedItem.type === 'email' ? (
+                  <>
+                    <FileText className="h-5 w-5" />
+                    Examiner & Signer
+                  </>
+                ) : (
+                  <>
+                    <Eye className="h-5 w-5" />
+                    Consulter
+                  </>
+                )}
+              </button>
+            </div>
           </>
         ) : (
           <div className="flex items-center justify-center h-full text-center text-onSurfaceVariant">

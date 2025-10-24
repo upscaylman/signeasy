@@ -7,8 +7,21 @@ import { getUnreadEmailCount } from '../services/firebaseApi';
 const MobileMenu: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [menuHeight, setMenuHeight] = useState('calc(100dvh - 64px)');
   const location = useLocation();
   const { currentUser, logout } = useUser();
+
+  // Calculer la hauteur du menu en fonction de la taille de l'écran
+  useEffect(() => {
+    const updateMenuHeight = () => {
+      const isSmallScreen = window.innerWidth < 640;
+      setMenuHeight(isSmallScreen ? 'calc(100dvh - 64px)' : 'calc(100dvh - 72px)');
+    };
+
+    updateMenuHeight();
+    window.addEventListener('resize', updateMenuHeight);
+    return () => window.removeEventListener('resize', updateMenuHeight);
+  }, []);
 
   // Bloquer le scroll quand le menu est ouvert
   React.useEffect(() => {
@@ -73,12 +86,15 @@ const MobileMenu: React.FC = () => {
 
       {/* Slide-in Menu from LEFT (below header) - Material Design 3 Expressive */}
       <div
-        className={`fixed left-0 top-16 sm:top-18 h-[calc(100vh-64px)] sm:h-[calc(100vh-72px)] w-full bg-[#fffbff] z-40 transform transition-all duration-300 ease-in-out flex flex-col overflow-y-auto ${
+        className={`fixed left-0 top-16 sm:top-18 w-full bg-[#fffbff] z-40 transform transition-all duration-300 ease-in-out flex flex-col ${
           isOpen ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0 pointer-events-none'
         }`}
+        style={{ 
+          height: menuHeight, // dvh = dynamic viewport height (prend en compte la barre du navigateur mobile)
+        }}
       >
         {/* Navigation Links - Match Desktop Header Styles */}
-        <nav className="flex-1 flex flex-col gap-1 p-6">
+        <nav className="flex-1 flex flex-col gap-1 p-6 overflow-y-auto pb-2">
           <NavLink
             to="/dashboard"
             onClick={() => setIsOpen(false)}
@@ -137,7 +153,7 @@ const MobileMenu: React.FC = () => {
         </nav>
 
         {/* Logout Button at Bottom */}
-        <div className="p-6 border-t border-outlineVariant/20 mt-auto">
+        <div className="p-6 pb-8 sm:pb-6 border-t border-outlineVariant/20 flex-shrink-0">
           <button
             onClick={handleLogout}
             className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-full text-white font-medium transition-all btn-premium-shine btn-premium-extended focus:outline-none focus:ring-4 focus:ring-primary/30"
