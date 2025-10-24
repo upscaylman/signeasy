@@ -1630,6 +1630,20 @@ img {
   }
 }
 
+/* Animation de lueur bleue pour l'inbox */
+.progressive-glow-blue {
+  animation: progressiveGlowBlue 3s ease-in-out infinite;
+}
+
+@keyframes progressiveGlowBlue {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(37, 99, 235, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 24px rgba(37, 99, 235, 0.482), 0 0 37.35px rgba(37, 99, 235, 0.282);
+  }
+}
+
 /* Badge animé avec pulse amélioré */
 .badge-pulse {
   animation: badgePulseEnhanced 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;

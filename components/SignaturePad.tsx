@@ -1,27 +1,78 @@
-import React, { useState, useRef } from 'react';
-import SignatureCanvas from 'react-signature-canvas';
+import React, { useState, useRef, useEffect } from 'react';
+import SignaturePad from 'signature_pad';
 import { useToast } from './Toast';
 import Button from './Button';
-import { Signature, Type as TypeIcon, Upload, X } from 'lucide-react';
+import { Signature, Type as TypeIcon, Upload, X, Undo2, Eraser } from 'lucide-react';
 
-interface SignaturePadProps {
+interface SignaturePadComponentProps {
   onSave: (dataUrl: string) => void;
   onCancel: () => void;
   signerName: string;
 }
 
-const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onCancel, signerName }) => {
+const SignaturePadComponent: React.FC<SignaturePadComponentProps> = ({ onSave, onCancel, signerName }) => {
   const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState<'draw' | 'type' | 'upload'>('draw');
-  const signatureCanvasRef = useRef<any>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const signaturePadRef = useRef<SignaturePad | null>(null);
   const [typedName, setTypedName] = useState(signerName);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [scale, setScale] = useState(1);
+  const [penColor, setPenColor] = useState('#000000');
+  const [penWidth, setPenWidth] = useState(2);
 
-  // Mode DESSINER : Utiliser react-signature-canvas
+  // 🎨 Initialiser signature_pad quand le canvas est monté
+  useEffect(() => {
+    if (canvasRef.current && !signaturePadRef.current) {
+      const canvas = canvasRef.current;
+      
+      // Adapter taille canvas à son conteneur
+      const resizeCanvas = () => {
+        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * ratio;
+        canvas.height = rect.height * ratio;
+        canvas.getContext('2d')!.scale(ratio, ratio);
+        
+        // Restaurer les données après resize si elles existent
+        if (signaturePadRef.current && !signaturePadRef.current.isEmpty()) {
+          const data = signaturePadRef.current.toData();
+          signaturePadRef.current.clear();
+          signaturePadRef.current.fromData(data);
+        }
+      };
+      
+      resizeCanvas();
+      
+      // Créer instance SignaturePad
+      signaturePadRef.current = new SignaturePad(canvas, {
+        penColor: penColor,
+        minWidth: penWidth * 0.5,
+        maxWidth: penWidth * 1.5,
+        velocityFilterWeight: 0.7,
+        throttle: 16, // 60fps
+        backgroundColor: 'rgb(255, 255, 255)',
+      });
+      
+      // Resize listener
+      window.addEventListener('resize', resizeCanvas);
+      return () => window.removeEventListener('resize', resizeCanvas);
+    }
+  }, [canvasRef]);
+
+  // 🎨 Mettre à jour les options quand elles changent
+  useEffect(() => {
+    if (signaturePadRef.current) {
+      signaturePadRef.current.penColor = penColor;
+      signaturePadRef.current.minWidth = penWidth * 0.5;
+      signaturePadRef.current.maxWidth = penWidth * 1.5;
+    }
+  }, [penColor, penWidth]);
+
+  // Mode DESSINER : Utiliser signature_pad (30k⭐)
   const handleSaveDraw = () => {
-    if (signatureCanvasRef.current && !signatureCanvasRef.current.isEmpty()) {
-      const dataUrl = signatureCanvasRef.current.getTrimmedCanvas().toDataURL('image/png');
+    if (signaturePadRef.current && !signaturePadRef.current.isEmpty()) {
+      const dataUrl = signaturePadRef.current.toDataURL('image/png', 1.0);
       onSave(dataUrl);
     } else {
       addToast('Veuillez dessiner votre signature avant de l\'appliquer.', 'info');
@@ -73,8 +124,18 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onCancel, signerNam
   };
 
   const handleClear = () => {
-    if (signatureCanvasRef.current) {
-      signatureCanvasRef.current.clear();
+    if (signaturePadRef.current) {
+      signaturePadRef.current.clear();
+    }
+  };
+
+  const handleUndo = () => {
+    if (signaturePadRef.current) {
+      const data = signaturePadRef.current.toData();
+      if (data.length > 0) {
+        data.pop(); // Retirer le dernier trait
+        signaturePadRef.current.fromData(data);
+      }
     }
   };
 
@@ -114,32 +175,40 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onCancel, signerNam
         <div className="bg-surfaceVariant/50 rounded-2xl p-2 mb-4">
           {activeTab === 'draw' && (
             <div>
-              <div className="flex items-center gap-3 mb-3 px-2">
-                <label className="text-xs font-semibold text-onSurfaceVariant">Taille:</label>
-                <input
-                  type="range"
-                  min="0.8"
-                  max="1.4"
-                  step="0.1"
-                  value={scale}
-                  onChange={(e) => setScale(parseFloat(e.target.value))}
-                  className="flex-1"
-                />
-                <span className="text-xs text-onSurfaceVariant font-medium">{Math.round(scale * 100)}%</span>
+              {/* Contrôles améliorés */}
+              <div className="flex flex-wrap items-center gap-2 mb-3 px-2">
+                {/* Épaisseur */}
+                <div className="flex items-center gap-2 flex-1 min-w-[120px]">
+                  <label className="text-xs font-semibold text-onSurfaceVariant whitespace-nowrap">Épaisseur:</label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="5"
+                    step="0.5"
+                    value={penWidth}
+                    onChange={(e) => setPenWidth(parseFloat(e.target.value))}
+                    className="flex-1"
+                  />
+                  <span className="text-xs text-onSurfaceVariant font-medium w-8 text-right">{penWidth.toFixed(1)}</span>
+                </div>
+                
+                {/* Couleur */}
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-semibold text-onSurfaceVariant">Couleur:</label>
+                  <input
+                    type="color"
+                    value={penColor}
+                    onChange={(e) => setPenColor(e.target.value)}
+                    className="w-10 h-8 rounded border border-outlineVariant cursor-pointer"
+                  />
+                </div>
               </div>
-              <SignatureCanvas
-                ref={signatureCanvasRef}
-                penColor="black"
-                velocityFilterWeight={0.7}
-                minWidth={1.5}
-                maxWidth={2.5}
-                dotSize={2}
-                canvasProps={{
-                  width: Math.round(600 * scale),
-                  height: Math.round(300 * scale),
-                  className: 'bg-white rounded-xl cursor-crosshair w-full border border-outlineVariant touch-none',
-                  style: { touchAction: 'none' }
-                }}
+              
+              {/* Canvas signature_pad (30k⭐) */}
+              <canvas
+                ref={canvasRef}
+                className="bg-white rounded-xl cursor-crosshair w-full border border-outlineVariant touch-none"
+                style={{ touchAction: 'none', height: '280px' }}
               />
             </div>
           )}
@@ -207,12 +276,33 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onCancel, signerNam
 
         {/* Buttons */}
         <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
-          <div className="flex-shrink-0">
-            {activeTab === 'draw' && <Button variant="text" onClick={handleClear} className="w-full sm:w-auto">Effacer</Button>}
+          <div className="flex gap-2 flex-shrink-0">
+            {activeTab === 'draw' && (
+              <>
+                <Button 
+                  variant="text" 
+                  icon={Undo2} 
+                  onClick={handleUndo} 
+                  className="w-auto"
+                  title="Annuler le dernier trait"
+                >
+                  <span className="hidden sm:inline">Annuler</span>
+                </Button>
+                <Button 
+                  variant="text" 
+                  icon={Eraser} 
+                  onClick={handleClear} 
+                  className="w-auto"
+                  title="Effacer tout"
+                >
+                  <span className="hidden sm:inline">Effacer</span>
+                </Button>
+              </>
+            )}
           </div>
           <div className="flex gap-3 flex-wrap sm:flex-nowrap">
             <Button variant="text" onClick={onCancel} className="flex-1 sm:flex-initial">
-              Annuler
+              Fermer
             </Button>
             <button
               onClick={
@@ -234,4 +324,4 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onCancel, signerNam
   );
 };
 
-export default SignaturePad;
+export default SignaturePadComponent;

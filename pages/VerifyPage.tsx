@@ -1,15 +1,25 @@
 
 import React, { useState } from 'react';
 import Button from '../components/Button';
-import { getAuditTrail } from '../services/firebaseApi';
+import { getAuditTrail, verifyPDFSignature, getPdfData } from '../services/firebaseApi';
 import type { AuditEvent } from '../types';
-import { ShieldCheck, Search, FilePlus, Send, PenSquare, Ban, CheckCircle, Clock } from 'lucide-react';
+import { ShieldCheck, Search, FilePlus, Send, PenSquare, Ban, CheckCircle, Clock, AlertTriangle, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 interface AuditData {
     documentId: string;
     documentName: string;
     events: AuditEvent[];
     error?: string;
+}
+
+interface VerificationResult {
+    valid: boolean;
+    signer: string | null;
+    timestamp: string | null;
+    conformanceLevel: string | null;
+    errors: string[];
+    warnings: string[];
+    trustScore: number; // 0-100
 }
 
 const eventIcons: {[key in AuditEvent['type']]: React.ElementType} = {
@@ -50,8 +60,28 @@ const AuditTimeline: React.FC<{data: AuditData}> = ({data}) => {
 const VerifyPage: React.FC = () => {
   const [documentId, setDocumentId] = useState('');
   const [auditData, setAuditData] = useState<AuditData | null>(null);
+  const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // 🔐 Calculer le score de confiance (0-100)
+  const calculateTrustScore = (result: Omit<VerificationResult, 'trustScore'>): number => {
+    let score = 100;
+    
+    // Erreurs critiques : -50 points chacune
+    score -= result.errors.length * 50;
+    
+    // Warnings : -10 points chacun
+    score -= result.warnings.length * 10;
+    
+    // Bonus si signature valide
+    if (result.valid) score += 20;
+    
+    // Bonus si conformité PAdES
+    if (result.conformanceLevel?.includes('PAdES')) score += 10;
+    
+    return Math.max(0, Math.min(100, score));
+  };
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,15 +92,50 @@ const VerifyPage: React.FC = () => {
     setError('');
     setIsLoading(true);
     setAuditData(null);
+    setVerificationResult(null);
+    
     try {
+      // 📋 Étape 1: Récupérer l'audit trail
       const trailJson = await getAuditTrail(documentId);
       const data: AuditData = JSON.parse(trailJson);
+      
       if(data.error){
         setError(data.error);
-      } else {
-        setAuditData(data);
+        return;
       }
+      
+      setAuditData(data);
+      
+      // 🔐 Étape 2: Vérifier la signature PDF
+      try {
+        const pdfData = await getPdfData(documentId);
+        const pdfBytes = new Uint8Array(await pdfData.arrayBuffer());
+        
+        const verification = await verifyPDFSignature(pdfBytes, documentId);
+        
+        // Calculer le score de confiance
+        const trustScore = calculateTrustScore(verification);
+        
+        setVerificationResult({
+          ...verification,
+          trustScore
+        });
+        
+      } catch (pdfError) {
+        console.error('Erreur lors de la vérification du PDF:', pdfError);
+        setVerificationResult({
+          valid: false,
+          signer: null,
+          timestamp: null,
+          conformanceLevel: null,
+          errors: ['Impossible de charger le PDF pour vérification'],
+          warnings: [],
+          trustScore: 0
+        });
+      }
+      
     } catch (err) {
+      console.error('Erreur de vérification:', err);
       setError('Une erreur est survenue lors de la vérification du document.');
     } finally {
       setIsLoading(false);
@@ -116,6 +181,116 @@ const VerifyPage: React.FC = () => {
           {error && <p className="mt-4 text-sm text-error">{error}</p>}
         </div>
 
+        {/* 🔐 Résultats de vérification cryptographique */}
+        {verificationResult && (
+          <div className="mt-6 bg-surface p-4 sm:p-6 rounded-3xl shadow-sm border border-outlineVariant/30">
+            <h2 className="text-lg sm:text-xl font-bold text-onSurface mb-4">Résultats de Vérification</h2>
+            
+            {/* Score de confiance */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-semibold text-onSurfaceVariant">Score de Confiance</span>
+                <span className={`text-2xl font-bold ${
+                  verificationResult.trustScore >= 80 ? 'text-green-600' : 
+                  verificationResult.trustScore >= 50 ? 'text-orange-600' : 
+                  'text-red-600'
+                }`}>
+                  {verificationResult.trustScore}%
+                </span>
+              </div>
+              <div className="w-full bg-surfaceVariant rounded-full h-3 overflow-hidden">
+                <div
+                  className={`h-full transition-all rounded-full ${
+                    verificationResult.trustScore >= 80 ? 'bg-green-600' : 
+                    verificationResult.trustScore >= 50 ? 'bg-orange-600' : 
+                    'bg-red-600'
+                  }`}
+                  style={{ width: `${verificationResult.trustScore}%` }}
+                />
+              </div>
+              <p className="text-xs text-onSurfaceVariant mt-2">
+                {verificationResult.trustScore >= 80 && '✅ Document hautement fiable'}
+                {verificationResult.trustScore >= 50 && verificationResult.trustScore < 80 && '⚠️ Document partiellement vérifié'}
+                {verificationResult.trustScore < 50 && '❌ Document non fiable ou altéré'}
+              </p>
+            </div>
+            
+            {/* Informations */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+              <div className="bg-surfaceVariant/30 p-3 rounded-lg">
+                <p className="text-xs text-onSurfaceVariant mb-1">Signataire</p>
+                <p className="text-sm font-semibold text-onSurface">{verificationResult.signer || 'Non spécifié'}</p>
+              </div>
+              <div className="bg-surfaceVariant/30 p-3 rounded-lg">
+                <p className="text-xs text-onSurfaceVariant mb-1">Date de signature</p>
+                <p className="text-sm font-semibold text-onSurface">
+                  {verificationResult.timestamp ? new Date(verificationResult.timestamp).toLocaleString('fr-FR') : 'Non disponible'}
+                </p>
+              </div>
+              <div className="bg-surfaceVariant/30 p-3 rounded-lg">
+                <p className="text-xs text-onSurfaceVariant mb-1">Conformité</p>
+                <p className="text-sm font-semibold text-onSurface">{verificationResult.conformanceLevel || 'Non spécifié'}</p>
+              </div>
+              <div className="bg-surfaceVariant/30 p-3 rounded-lg">
+                <p className="text-xs text-onSurfaceVariant mb-1">Statut</p>
+                <p className={`text-sm font-semibold ${verificationResult.valid ? 'text-green-600' : 'text-red-600'}`}>
+                  {verificationResult.valid ? '✅ Valide' : '❌ Invalide'}
+                </p>
+              </div>
+            </div>
+            
+            {/* Erreurs */}
+            {verificationResult.errors.length > 0 && (
+              <div className="mb-4 bg-red-50 border-l-4 border-red-600 p-4 rounded-r-lg">
+                <div className="flex items-start">
+                  <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div className="ml-3">
+                    <h3 className="text-sm font-semibold text-red-900 mb-2">Erreurs détectées</h3>
+                    <ul className="list-disc list-inside text-sm text-red-800 space-y-1">
+                      {verificationResult.errors.map((error, index) => (
+                        <li key={index}>{error}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Avertissements */}
+            {verificationResult.warnings.length > 0 && (
+              <div className="bg-orange-50 border-l-4 border-orange-600 p-4 rounded-r-lg">
+                <div className="flex items-start">
+                  <AlertTriangle className="h-5 w-5 text-orange-600 flex-shrink-0 mt-0.5" />
+                  <div className="ml-3">
+                    <h3 className="text-sm font-semibold text-orange-900 mb-2">Avertissements</h3>
+                    <ul className="list-disc list-inside text-sm text-orange-800 space-y-1">
+                      {verificationResult.warnings.map((warning, index) => (
+                        <li key={index}>{warning}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Succès */}
+            {verificationResult.valid && verificationResult.errors.length === 0 && (
+              <div className="bg-green-50 border-l-4 border-green-600 p-4 rounded-r-lg">
+                <div className="flex items-start">
+                  <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <div className="ml-3">
+                    <h3 className="text-sm font-semibold text-green-900">Document vérifié avec succès</h3>
+                    <p className="text-sm text-green-800 mt-1">
+                      La signature électronique est valide et le document n'a pas été modifié depuis sa signature.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 📋 Piste d'audit */}
         {auditData && (
           <div className="mt-6 bg-surface p-4 sm:p-6 rounded-3xl shadow-sm border border-outlineVariant/30">
             <h2 className="text-lg sm:text-xl font-bold text-onSurface mb-1">Piste d'audit</h2>

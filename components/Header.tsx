@@ -64,11 +64,16 @@ const Header: React.FC = () => {
   const inactiveLinkClass = "text-onSurfaceVariant state-layer state-layer-primary";
 
   const fetchUnreadCount = async () => {
+    if (!currentUser?.email) return;
+    
     try {
-      const count = await getUnreadEmailCount(currentUser?.email);
-      setUnreadCount(count);
+      const count = await getUnreadEmailCount(currentUser.email);
+      if (count !== unreadCount) { // Mise à jour uniquement si le compteur change
+        setUnreadCount(count);
+        console.log('📧 Notifications non lues:', count);
+      }
     } catch (error) {
-      console.error("Failed to fetch unread email count:", error);
+      console.error("❌ Erreur récupération notifications:", error);
     }
   };
   
@@ -78,10 +83,14 @@ const Header: React.FC = () => {
     // Listen for custom event when storage is updated
     window.addEventListener('storage_updated', fetchUnreadCount);
 
+    // Rafraîchir toutes les 30 secondes
+    const interval = setInterval(fetchUnreadCount, 30000);
+
     return () => {
       window.removeEventListener('storage_updated', fetchUnreadCount);
+      clearInterval(interval);
     };
-  }, []);
+  }, [currentUser]);
 
   // Also refetch when navigating to the inbox, in case the event is missed
   useEffect(() => {
@@ -157,12 +166,10 @@ const Header: React.FC = () => {
           </nav>
           
           <div className="flex items-center gap-2">
-            {/* Notification Dropdown for Mobile/Tablet */}
-            <div className="lg:hidden">
-              <NotificationDropdown />
-            </div>
+            {/* Notification Dropdown - Toujours visible */}
+            <NotificationDropdown />
             
-            {/* Burger Menu - BEFORE Profile */}
+            {/* Burger Menu - Mobile/Tablette uniquement */}
             <div className="lg:hidden">
               <MobileMenu />
             </div>

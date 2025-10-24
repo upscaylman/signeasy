@@ -99,6 +99,7 @@ const InboxPage: React.FC = () => {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [showContent, setShowContent] = useState(false);
+  const [hoveredFolder, setHoveredFolder] = useState<string | null>(null);
   const navigate = useNavigate();
   const { addToast } = useToast();
   const { currentUser } = useUser();
@@ -109,8 +110,11 @@ const InboxPage: React.FC = () => {
   const [pdfZoom, setPdfZoom] = useState(1);
   const viewerRef = useRef<HTMLDivElement>(null);
 
-  // Déterminer le rôle de l'utilisateur
-  const [userRole, setUserRole] = useState<'destinataire' | 'expéditeur' | 'both'>('destinataire');
+  // Déterminer le rôle de l'utilisateur (récupérer du localStorage si disponible)
+  const [userRole, setUserRole] = useState<'destinataire' | 'expéditeur' | 'both'>(() => {
+    const savedRole = localStorage.getItem(`userRole_${currentUser?.email}`);
+    return (savedRole as 'destinataire' | 'expéditeur' | 'both') || 'destinataire';
+  });
 
   // Déterminer les dossiers selon le rôle
   const getFolders = (role: 'destinataire' | 'expéditeur' | 'both'): Folder[] => {
@@ -119,7 +123,7 @@ const InboxPage: React.FC = () => {
       // Dossiers destinataire
       to_sign: { id: 'to_sign', name: 'À signer', icon: Clock, count: 0, unread: 0 },
       signed: { id: 'signed', name: 'Signés', icon: CheckCircle, count: 0 },
-      rejected: { id: 'rejected', name: 'Refusés', icon: AlertCircle, count: 0 },
+      rejected: { id: 'rejected', name: 'Rejetés', icon: AlertCircle, count: 0 },
       // Dossiers expéditeur
       sent: { id: 'sent', name: 'Envoyés', icon: Send, count: 0 },
       signed_by_recipient: { id: 'signed_by_recipient', name: 'Signés par destinataire', icon: CheckCircle, count: 0 },
@@ -162,10 +166,23 @@ const InboxPage: React.FC = () => {
       const emails = await getEmails(currentUser?.email);
       const documents = await getDocuments(currentUser?.email);
 
-      // Déterminer le rôle
-      let role: 'destinataire' | 'expéditeur' | 'both' = 'destinataire';
-      if (documents.length > 0 && emails.length > 0) role = 'both';
-      else if (documents.length > 0) role = 'expéditeur';
+      // Déterminer le rôle (ne pas réinitialiser si tout est vide)
+      let role: 'destinataire' | 'expéditeur' | 'both' = userRole; // Conserver le rôle actuel par défaut
+      
+      // Mettre à jour le rôle uniquement si on a des données
+      if (documents.length > 0 && emails.length > 0) {
+        role = 'both';
+      } else if (documents.length > 0) {
+        role = 'expéditeur';
+      } else if (emails.length > 0) {
+        role = 'destinataire';
+      }
+      // Si tout est vide, on garde le rôle précédent pour maintenir l'affichage des onglets
+      
+      // Sauvegarder le rôle dans localStorage pour persistance
+      if (currentUser?.email) {
+        localStorage.setItem(`userRole_${currentUser.email}`, role);
+      }
       setUserRole(role);
 
       // Convertir emails en UnifiedItem
@@ -234,7 +251,10 @@ const InboxPage: React.FC = () => {
 
   // Calculate folder counts
   const folders = useMemo(() => {
-    const folderList = getFolders(userRole);
+    // Si l'inbox est vide, afficher tous les onglets (rôle "both")
+    const effectiveRole = unifiedItems.length === 0 ? 'both' : userRole;
+    const folderList = getFolders(effectiveRole);
+    
     return folderList.map(folder => {
       const count = unifiedItems.filter(item => item.folder === folder.id || folder.id === 'all').length;
       const unread = unifiedItems.filter(item => 
@@ -343,108 +363,104 @@ const InboxPage: React.FC = () => {
   }
 
   return (
-    <div className="h-screen flex flex-col lg:flex-row bg-background">
+    <div className="h-[calc(100vh-4rem)] flex flex-col lg:flex-row bg-background overflow-hidden">
       {/* Sidebar avec dossiers */}
-      <div className={`${showContent && 'hidden lg:flex'} w-full lg:w-1/4 h-auto lg:min-h-screen flex flex-col lg:flex-col flex-shrink-0 lg:flex-shrink bg-surface border-b lg:border-b-0 lg:border-r border-outlineVariant overflow-y-auto`}>
-        <div className="p-4 lg:p-4 border-b lg:border-b border-outlineVariant sticky top-0 bg-surface min-w-max lg:min-w-0">
-          <div className="flex lg:flex items-center gap-3 whitespace-nowrap">
-            <div className="bg-secondaryContainer inline-block p-3 lg:p-2.5 rounded-full progressive-glow flex-shrink-0">
-              <InboxIcon className="h-7 lg:h-6 w-7 lg:w-6 text-onSecondaryContainer" />
+      <div className={`${showContent && 'hidden lg:flex'} w-full lg:w-1/4 flex flex-col bg-surface lg:border-r border-outlineVariant`}>
+        <div className="p-4 border-b border-outlineVariant bg-surface z-10">
+          <div className="flex items-center gap-3">
+            <div className="inline-block p-2.5 rounded-full progressive-glow-blue flex-shrink-0" style={{ backgroundColor: 'rgb(37 99 235 / 0.1)' }}>
+              <InboxIcon className="h-6 w-6 text-onSecondaryContainer" />
             </div>
-            <h1 className="text-lg lg:text-2xl font-bold text-onSurface">Boîte de réception</h1>
+            <h1 className="text-2xl font-bold text-onSurface">Boîte de réception</h1>
           </div>
         </div>
 
-        <nav className="flex flex-row lg:flex-col flex-1 lg:flex-1 p-2 gap-1 sticky top-16 bg-surface z-10">
-          {folders.map(folder => (
-            <button
-              key={folder.id}
-              onClick={() => {
-                setSelectedFolder(folder.id);
-                // Sur desktop (lg), on réinitialise la sélection
-                // Sur mobile, on garde l'affichage actuel
-                if (window.innerWidth >= 1024) {
-                  setSelectedItem(null);
-                  setShowContent(false);
-                }
-              }}
-              className={`px-4 py-3 md:px-5 md:py-3 lg:px-4 lg:py-3 rounded-full md:rounded-lg flex items-center justify-center md:justify-between transition-colors mb-0 md:mb-1 flex-shrink-0 md:flex-shrink whitespace-nowrap md:whitespace-normal min-w-max md:min-w-0 w-auto md:w-full ${
-                selectedFolder === folder.id
-                  ? 'bg-primaryContainer text-onPrimaryContainer'
-                  : 'text-onSurface hover:bg-surfaceVariant/50 md:hover:bg-surfaceVariant'
-              }`}
-            >
-              <div className="flex md:flex-row flex-col md:items-center gap-1 md:gap-3 min-w-0 items-center">
-                <folder.icon className="h-6 md:h-5 w-6 md:w-5 flex-shrink-0" />
-                <span className="truncate font-medium hidden md:inline text-xs md:text-sm">{folder.name}</span>
-              </div>
-              <div className="hidden md:flex items-center gap-2 flex-shrink-0">
-                {folder.unread !== undefined && folder.unread > 0 && (
-                  <span className="bg-error text-onError text-xs font-bold px-2 py-0.5 rounded-full">
-                    {folder.unread}
-                  </span>
+        <nav className="flex-none lg:flex-shrink-0 p-2 bg-background overflow-visible">
+          <div className="flex flex-row lg:flex-col gap-1 overflow-x-auto lg:overflow-x-visible scrollbar-hide">
+            <style>{`
+              .scrollbar-hide::-webkit-scrollbar { display: none; }
+              .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+            `}</style>
+            {folders.map(folder => (
+              <div key={folder.id} className="relative w-auto md:w-full">
+                <button
+                  onClick={() => {
+                    setSelectedFolder(folder.id);
+                    // Sur desktop (lg), on réinitialise la sélection
+                    // Sur mobile, on garde l'affichage actuel
+                    if (window.innerWidth >= 1024) {
+                      setSelectedItem(null);
+                      setShowContent(false);
+                    }
+                  }}
+                  onMouseEnter={() => setHoveredFolder(folder.id)}
+                  onMouseLeave={() => setHoveredFolder(null)}
+                  onTouchStart={() => {
+                    setHoveredFolder(folder.id);
+                    setTimeout(() => setHoveredFolder(null), 1500);
+                  }}
+                  title={folder.name}
+                  className={`px-4 py-3 md:px-5 md:py-3 lg:px-4 lg:py-3 rounded-full md:rounded-lg flex items-center justify-center md:justify-between transition-colors mb-0 md:mb-1 flex-shrink-0 md:flex-shrink whitespace-nowrap md:whitespace-normal min-w-max md:min-w-0 w-full ${
+                    selectedFolder === folder.id
+                      ? 'bg-primaryContainer text-onPrimaryContainer'
+                      : 'text-onSurface hover:bg-surfaceVariant/50 md:hover:bg-surfaceVariant'
+                  }`}
+                >
+                  <div className="flex md:flex-row flex-col md:items-center gap-1 md:gap-3 min-w-0 items-center">
+                    <folder.icon className="h-6 md:h-5 w-6 md:w-5 flex-shrink-0" />
+                    <span className="truncate font-medium hidden md:inline text-xs md:text-sm">{folder.name}</span>
+                  </div>
+                  <div className="hidden md:flex items-center gap-2 flex-shrink-0">
+                    {folder.unread !== undefined && folder.unread > 0 && (
+                      <span className="bg-error text-onError text-xs font-bold px-2 py-0.5 rounded-full">
+                        {folder.unread}
+                      </span>
+                    )}
+                    <span className="text-xs text-onSurfaceVariant font-semibold">{folder.count}</span>
+                  </div>
+                </button>
+                {hoveredFolder === folder.id && (
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 pointer-events-none md:hidden animate-fade-in">
+                    <div className="bg-inverseSurface text-inverseOnSurface text-xs font-medium px-3 py-2 rounded-lg shadow-lg whitespace-nowrap">
+                      {folder.name}
+                    </div>
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 w-0 h-0 border-4 border-l-transparent border-r-transparent border-t-transparent border-b-inverseSurface" />
+                  </div>
                 )}
-                <span className="text-xs text-onSurfaceVariant font-semibold">{folder.count}</span>
-            </div>
-            </button>
-          ))}
+              </div>
+            ))}
+          </div>
         </nav>
 
-        {/* Barre de sélection globale */}
-        {isSelectionMode && (
-          <div className="p-3 border-b border-outlineVariant flex items-center gap-3 bg-surfaceVariant/30 sticky top-28">
-            <input
-              type="checkbox"
-              checked={selectedItems.length === filteredItems.length && filteredItems.length > 0}
-              onChange={handleSelectAllClick}
-              className="w-4 h-4 rounded cursor-pointer"
-              title="Sélectionner tous"
-            />
-            <span className="text-sm font-medium text-onSurface flex-1">
-              {selectedItems.length === 0 ? 'Sélectionner tous' : `${selectedItems.length} sélectionné(s)`}
-            </span>
-            {selectedItems.length > 0 && (
-              <Button 
-                variant="outlined"
-                icon={Trash2}
-                onClick={handleDeleteItems}
-                size="small"
-                className="!text-error !border-error"
-              >
-                Supprimer
-              </Button>
-            )}
-          </div>
-        )}
+
       </div>
 
       {/* Liste des items */}
-      <div className={`${showContent && 'hidden lg:flex'} lg:flex w-full lg:w-1/4 flex-col border-r border-outlineVariant bg-surface flex-1 min-h-0`}>
-        <div className="p-4 border-b border-outlineVariant sticky top-0 bg-surface flex items-center justify-between">
-          <h2 className="font-semibold text-onSurface truncate mr-2">
-            {folders.find(f => f.id === selectedFolder)?.name}
-          </h2>
-          {!isSelectionMode && (
-            <Button 
-              variant="text" 
-              size="small"
-              onClick={() => setIsSelectionMode(true)}
-            >
-              Sélectionner
-            </Button>
-          )}
-          {isSelectionMode && (
-            <Button 
-              variant="text" 
-              size="small"
-              onClick={() => {
-                setIsSelectionMode(false);
-                setSelectedItems([]);
-              }}
+      <div className={`${showContent && 'hidden lg:flex'} w-full lg:w-1/4 flex flex-col border-r border-outlineVariant bg-surface h-full overflow-hidden`}>
+        <div className="p-4 border-b border-outlineVariant bg-surface z-10">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-onSurface truncate">Tous</h2>
+            {!isSelectionMode ? (
+              <Button 
+                variant="text" 
+                size="small"
+                onClick={() => setIsSelectionMode(true)}
               >
-              Annuler
+                Sélectionner
               </Button>
-          )}
+            ) : (
+              <Button 
+                variant="text" 
+                size="small"
+                onClick={() => {
+                  setIsSelectionMode(false);
+                  setSelectedItems([]);
+                }}
+              >
+                Annuler
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Barre de sélection globale */}
@@ -474,7 +490,7 @@ const InboxPage: React.FC = () => {
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="overflow-y-auto flex-1">
           {filteredItems.length === 0 ? (
             <div className="p-8 text-center text-onSurfaceVariant">
               <FolderOpen className="h-12 w-12 mx-auto mb-3 opacity-30" />
@@ -544,7 +560,7 @@ const InboxPage: React.FC = () => {
       </div>
 
       {/* Détail view */}
-      <div className={`${!showContent && 'hidden lg:flex'} lg:flex w-full lg:flex-1 flex-col bg-surface`}>
+      <div className={`${!showContent && 'hidden lg:flex'} w-full lg:flex-1 flex flex-col bg-surface h-full overflow-hidden`}>
         {selectedItem ? (
           <>
             <div className="p-4 border-b border-outlineVariant flex items-center gap-2 justify-between">

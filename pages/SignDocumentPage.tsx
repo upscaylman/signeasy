@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import * as pdfjsLib from 'pdfjs-dist';
 import { useToast } from '../components/Toast';
@@ -40,8 +40,8 @@ const RejectModal: React.FC<{
     return (
         <div className="fixed inset-0 bg-scrim/50 flex items-center justify-center z-50 p-4 modal-backdrop" onClick={onCancel}>
             <div className="bg-surface rounded-3xl shadow-xl w-full max-w-md p-6 modal-content" onClick={e => e.stopPropagation()}>
-                <h2 className="text-xl font-bold text-onSurface">Refuser de signer</h2>
-                <p className="text-sm text-onSurfaceVariant my-2">Veuillez indiquer la raison de votre refus. L'expéditeur en sera informé.</p>
+                <h2 className="text-xl font-bold text-onSurface">Rejeter le document</h2>
+                <p className="text-sm text-onSurfaceVariant my-2">Veuillez indiquer la raison du rejet. L'expéditeur en sera informé.</p>
                 <textarea
                     value={reason}
                     onChange={e => setReason(e.target.value)}
@@ -66,7 +66,7 @@ const RejectModal: React.FC<{
                                 <span>Envoi...</span>
                             </>
                         ) : (
-                            <span>Confirmer le refus</span>
+                            <span>Confirmer le rejet</span>
                         )}
                     </button>
                 </div>
@@ -405,6 +405,23 @@ const SignDocumentPage: React.FC = () => {
     const currentSignerId = envelope?.currentSignerId;
     const signableFields = envelope?.fields.filter(f => f.recipientId === currentSignerId) || [];
     const [currentFieldIndex, setCurrentFieldIndex] = useState(-1);
+    
+    // Validation : vérifier que tous les champs requis sont remplis
+    const isFormValid = useMemo(() => {
+        if (readOnly || !envelope) return true; // Pas de validation en lecture seule
+        
+        // Vérifier que le nom du signataire est rempli
+        if (!signerName.trim()) return false;
+        
+        // Vérifier que tous les champs de signature sont remplis
+        const requiredFields = signableFields.filter(f => f.type === FieldType.SIGNATURE);
+        const allRequiredFieldsFilled = requiredFields.every(field => {
+            const value = fieldValues[field.id];
+            return value != null && value !== '';
+        });
+        
+        return allRequiredFieldsFilled;
+    }, [envelope, signerName, signableFields, fieldValues, readOnly]);
     
     // State pour les positions et tailles personnalisées des champs
     const [fieldDimensions, setFieldDimensions] = useState<{[key: string]: {x: number, y: number, width: number, height: number}}>({});
@@ -931,13 +948,13 @@ const SignDocumentPage: React.FC = () => {
         try {
             const result = await rejectSignature(token, reason);
             if (result.success) {
-                addToast('Document refusé avec succès.', 'success');
+                addToast('Document rejeté avec succès.', 'success');
                 navigate('/dashboard');
             } else {
                 throw new Error('Rejection failed');
             }
         } catch (err) {
-            addToast('Échec du refus. Veuillez réessayer.', 'error');
+            addToast('Échec du rejet. Veuillez réessayer.', 'error');
         } finally {
             setIsSubmitting(false);
             setIsRejectModalOpen(false);
@@ -1429,7 +1446,7 @@ const SignDocumentPage: React.FC = () => {
                          )}
                     </div>
                     <div className="flex items-center gap-4 flex-wrap w-full sm:w-auto">
-                        {!isCompleted && !readOnly && <Button variant="text" icon={XCircle} onClick={() => setIsRejectModalOpen(true)}>Refuser de signer</Button>}
+                        {!isCompleted && !readOnly && <Button variant="text" icon={XCircle} onClick={() => setIsRejectModalOpen(true)}>Rejeter le document</Button>}
                         <div className="flex-grow sm:flex-grow-0">
                             <label htmlFor="signerName" className="sr-only">Confirmez votre nom</label>
                             <input
@@ -1444,24 +1461,32 @@ const SignDocumentPage: React.FC = () => {
                         </div>
                         {readOnly ? 
                           <Button variant="text" onClick={() => navigate('/dashboard')} className="w-full sm:w-auto flex-shrink-0">Fermer</Button> :
-                          <button
-                            onClick={handleSubmit}
-                            disabled={isSubmitting}
-                            className="btn-premium-shine btn-premium-extended h-11 text-sm focus:outline-none focus:ring-4 focus:ring-primary/30 w-full sm:w-auto flex-shrink-0 inline-flex items-center justify-center gap-2"
-                            aria-busy={isSubmitting}
-                          >
-                            {isSubmitting ? (
-                              <>
-                                <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                <span>Envoi en cours...</span>
-                              </>
-                            ) : (
-                              <span>Terminer la signature</span>
+                          <div className="flex flex-col gap-2 w-full sm:w-auto flex-shrink-0">
+                            <button
+                              onClick={handleSubmit}
+                              disabled={isSubmitting || !isFormValid}
+                              className="btn-premium-shine btn-premium-extended h-11 text-sm focus:outline-none focus:ring-4 focus:ring-primary/30 w-full inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                              aria-busy={isSubmitting}
+                              title={!isFormValid ? 'Veuillez remplir tous les champs de signature et confirmer votre nom' : ''}
+                            >
+                              {isSubmitting ? (
+                                <>
+                                  <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                  </svg>
+                                  <span>Envoi en cours...</span>
+                                </>
+                              ) : (
+                                <span>Terminer la signature</span>
+                              )}
+                            </button>
+                            {!isFormValid && !isSubmitting && (
+                              <p className="text-xs text-onSurfaceVariant text-center">
+                                {!signerName.trim() ? '⚠️ Veuillez confirmer votre nom' : '⚠️ Complétez tous les champs de signature'}
+                              </p>
                             )}
-                          </button>
+                          </div>
                         }
                     </div>
                 </div>
