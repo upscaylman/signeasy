@@ -44,6 +44,19 @@ const NotificationDropdown: React.FC = () => {
     };
   }, [isOpen]);
 
+  // Bloquer le scroll sur mobile quand le dropdown est ouvert
+  useEffect(() => {
+    if (isOpen && window.innerWidth < 1024) { // lg breakpoint
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'auto';
+    }
+
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, [isOpen]);
+
   // Récupérer les notifications depuis Firestore
   const fetchNotifications = async () => {
     if (!currentUser?.email) return;
@@ -343,28 +356,46 @@ const NotificationDropdown: React.FC = () => {
         </span>
       )}
 
-      {/* Dropdown */}
+      {/* Dropdown Desktop / Modal Mobile */}
       {isOpen && (
-        <div className="
-          absolute right-0 mt-2 w-80 sm:w-96
-          bg-surface rounded-2xl shadow-2xl border border-outlineVariant
-          z-50 overflow-hidden animate-slide-down
-        ">
+        <>
+          {/* Overlay pour mobile */}
+          <div className="fixed inset-0 bg-scrim/50 z-40 lg:hidden" onClick={() => setIsOpen(false)} />
+          
+          {/* Contenu */}
+          <div className="
+            fixed inset-x-0 bottom-0 lg:absolute lg:right-0 lg:left-auto lg:top-auto lg:bottom-auto
+            lg:mt-2 w-full lg:w-96
+            bg-surface lg:rounded-2xl rounded-t-3xl shadow-2xl border-t lg:border border-outlineVariant
+            z-50 overflow-hidden animate-slide-down
+            max-h-[85vh] lg:max-h-[600px]
+            flex flex-col
+          ">
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-outlineVariant">
+          <div className="flex items-center justify-between p-4 border-b border-outlineVariant flex-shrink-0">
             <h3 className="font-bold text-lg text-onSurface">Notifications</h3>
-            {unreadCount > 0 && (
+            <div className="flex items-center gap-2">
+              {unreadCount > 0 && (
+                <button
+                  onClick={markAllAsRead}
+                  className="text-xs text-primary hover:underline font-medium"
+                >
+                  Tout marquer comme lu
+                </button>
+              )}
+              {/* Bouton fermer (mobile) */}
               <button
-                onClick={markAllAsRead}
-                className="text-xs text-primary hover:underline font-medium"
+                onClick={() => setIsOpen(false)}
+                className="lg:hidden p-2 rounded-full hover:bg-surfaceVariant transition-colors"
+                aria-label="Fermer"
               >
-                Tout marquer comme lu
+                <X className="h-5 w-5 text-onSurfaceVariant" />
               </button>
-            )}
+            </div>
           </div>
 
           {/* Liste des notifications */}
-          <div className="max-h-96 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto">
             {notifications.length === 0 ? (
               <div className="p-8 text-center text-onSurfaceVariant">
                 <Bell className="h-12 w-12 mx-auto mb-3 opacity-30" />
@@ -503,7 +534,7 @@ const NotificationDropdown: React.FC = () => {
 
           {/* Footer */}
           {notifications.length > 0 && (
-            <div className="p-3 border-t border-outlineVariant">
+            <div className="p-3 border-t border-outlineVariant flex-shrink-0">
               <div className="flex items-center justify-center gap-4 flex-wrap">
                 {notifications.filter(n => n.source === 'received').length > 0 && (
                   <button
@@ -530,7 +561,8 @@ const NotificationDropdown: React.FC = () => {
               </div>
             </div>
           )}
-        </div>
+          </div>
+        </>
       )}
     </div>
   );
