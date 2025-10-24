@@ -1,5 +1,6 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Button from '../components/Button';
 import { getAuditTrail, verifyPDFSignature, getPdfData } from '../services/firebaseApi';
 import type { AuditEvent } from '../types';
@@ -58,11 +59,21 @@ const AuditTimeline: React.FC<{data: AuditData}> = ({data}) => {
 };
 
 const VerifyPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const [documentId, setDocumentId] = useState('');
   const [auditData, setAuditData] = useState<AuditData | null>(null);
   const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // 🔗 Récupérer le documentId depuis l'URL au chargement
+  useEffect(() => {
+    const docId = searchParams.get('doc');
+    if (docId) {
+      setDocumentId(docId);
+      console.log('📋 Document ID détecté depuis l\'URL:', docId);
+    }
+  }, [searchParams]);
 
   // 🔐 Calculer le score de confiance (0-100)
   const calculateTrustScore = (result: Omit<VerificationResult, 'trustScore'>): number => {

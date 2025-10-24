@@ -492,6 +492,7 @@ export const sendSignatureConfirmationEmail = async (
     signer_email: signerEmail,
     signature_date: new Date().toLocaleString('fr-FR'),
     view_link: `${window.location.origin}${window.location.pathname}#/sign/${viewToken}`,
+    verify_link: `${window.location.origin}${window.location.pathname}#/verify?doc=${documentId}`, // 🔐 Nouveau lien de vérification
   };
 
   const result = await sendEmailViaDualServices(TEMPLATE_ID, templateParams, creatorEmail);
