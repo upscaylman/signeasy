@@ -345,7 +345,7 @@ const InboxPage: React.FC = () => {
   return (
     <div className="h-screen flex flex-col lg:flex-row bg-background">
       {/* Sidebar avec dossiers */}
-      <div className={`${showContent && 'hidden lg:flex'} w-full lg:w-1/4 h-auto lg:min-h-screen flex-row lg:flex-col flex-shrink-0 lg:flex-shrink bg-surface border-b lg:border-b-0 lg:border-r border-outlineVariant overflow-x-auto lg:overflow-y-auto`}>
+      <div className={`${showContent && 'hidden lg:flex'} w-full lg:w-1/4 h-auto lg:min-h-screen flex flex-col lg:flex-col flex-shrink-0 lg:flex-shrink bg-surface border-b lg:border-b-0 lg:border-r border-outlineVariant overflow-y-auto`}>
         <div className="p-4 lg:p-4 border-b lg:border-b border-outlineVariant sticky top-0 bg-surface min-w-max lg:min-w-0">
           <div className="flex lg:flex items-center gap-3 whitespace-nowrap">
             <div className="bg-secondaryContainer inline-block p-3 lg:p-2.5 rounded-full progressive-glow flex-shrink-0">
