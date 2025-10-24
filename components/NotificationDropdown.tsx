@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Check, FileSignature, CheckCircle, XCircle, Mail, Send, X } from 'lucide-react';
+import { Bell, BellOff, Check, FileSignature, CheckCircle, XCircle, Mail, Send, X } from 'lucide-react';
 import { collection, query, where, getDocs, getDoc, updateDoc, doc, writeBatch, deleteDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useUser } from './UserContext';
@@ -23,30 +23,25 @@ const NotificationDropdown: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [menuHeight, setMenuHeight] = useState('calc(100dvh - 64px)');
   const navigate = useNavigate();
   const { currentUser } = useUser();
 
-  // Fermer le dropdown si on clique en dehors
+  // Calculer la hauteur du menu en fonction de la taille de l'écran
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
+    const updateMenuHeight = () => {
+      const isSmallScreen = window.innerWidth < 640;
+      setMenuHeight(isSmallScreen ? 'calc(100dvh - 64px)' : 'calc(100dvh - 72px)');
     };
 
+    updateMenuHeight();
+    window.addEventListener('resize', updateMenuHeight);
+    return () => window.removeEventListener('resize', updateMenuHeight);
+  }, []);
+
+  // Bloquer le scroll quand le menu est ouvert
+  useEffect(() => {
     if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isOpen]);
-
-  // Bloquer le scroll sur mobile quand le dropdown est ouvert
-  useEffect(() => {
-    if (isOpen && window.innerWidth < 1024) { // lg breakpoint
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'auto';
@@ -330,7 +325,7 @@ const NotificationDropdown: React.FC = () => {
   };
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative">
       <Tooltip content="Notifications" position="bottom">
         <button
           onClick={() => setIsOpen(!isOpen)}
@@ -356,214 +351,115 @@ const NotificationDropdown: React.FC = () => {
         </span>
       )}
 
-      {/* Dropdown Desktop / Modal Mobile */}
-      {isOpen && (
-        <>
-          {/* Overlay pour mobile */}
-          <div className="fixed inset-0 bg-scrim/50 z-40 lg:hidden" onClick={() => setIsOpen(false)} />
-          
-          {/* Contenu */}
-          <div className="
-            fixed inset-x-0 bottom-0 lg:absolute lg:right-0 lg:left-auto lg:top-auto lg:bottom-auto
-            lg:mt-2 w-full lg:w-96
-            bg-surface lg:rounded-2xl rounded-t-3xl shadow-2xl border-t lg:border border-outlineVariant
-            z-50 overflow-hidden animate-slide-down
-            max-h-[85vh] lg:max-h-[600px]
-            flex flex-col
-          ">
+      {/* Slide-in Notifications from RIGHT (comme le menu burger) */}
+      <div
+        className={`fixed right-0 top-16 sm:top-18 w-full bg-surface z-40 transform transition-all duration-300 ease-in-out flex flex-col shadow-2xl ${
+          isOpen ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0 pointer-events-none'
+        }`}
+        style={{ 
+          height: menuHeight,
+        }}
+      >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-outlineVariant flex-shrink-0">
             <h3 className="font-bold text-lg text-onSurface">Notifications</h3>
-            <div className="flex items-center gap-2">
-              {unreadCount > 0 && (
-                <button
-                  onClick={markAllAsRead}
-                  className="text-xs text-primary hover:underline font-medium"
-                >
-                  Tout marquer comme lu
-                </button>
-              )}
-              {/* Bouton fermer (mobile) */}
+            {unreadCount > 0 && (
               <button
-                onClick={() => setIsOpen(false)}
-                className="lg:hidden p-2 rounded-full hover:bg-surfaceVariant transition-colors"
-                aria-label="Fermer"
+                onClick={markAllAsRead}
+                className="text-xs text-primary hover:underline font-medium"
               >
-                <X className="h-5 w-5 text-onSurfaceVariant" />
+                Tout marquer comme lu
               </button>
-            </div>
+            )}
           </div>
 
           {/* Liste des notifications */}
           <div className="flex-1 overflow-y-auto">
             {notifications.length === 0 ? (
-              <div className="p-8 text-center text-onSurfaceVariant">
-                <Bell className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                <p className="text-sm">Aucune notification pour le moment</p>
+              <div className="flex items-center justify-center h-full p-8 text-center text-onSurfaceVariant">
+                <div>
+                  <BellOff className="h-16 w-16 mx-auto mb-4 opacity-40" />
+                  <p className="text-base font-medium">Aucune notification</p>
+                  <p className="text-xs mt-2 opacity-70">Vous n'avez aucune notification pour le moment</p>
+                </div>
               </div>
             ) : (
-              <>
-                {/* Notifications reçues (Destinataire) */}
-                {notifications.filter(n => n.source === 'received').length > 0 && (
-                  <div>
-                    <div className="px-4 py-2 bg-blue-500/10 border-b border-blue-500/30">
-                      <div className="flex items-center gap-2">
-                        <Mail className="h-4 w-4 text-blue-600" />
-                        <h4 className="text-xs font-bold text-blue-600 uppercase tracking-wide">
-                          Documents reçus
-                        </h4>
+              <div className="flex flex-col">
+                {notifications.map((notification) => (
+                  <button
+                    key={notification.id}
+                    onClick={() => handleNotificationClick(notification)}
+                    className={`
+                      w-full p-4 border-b border-outlineVariant/50 text-left
+                      hover:bg-surfaceVariant/50 transition-colors group relative
+                      ${!notification.read ? 'bg-primaryContainer/10' : ''}
+                    `}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 mt-1">
+                        {getIcon(notification.type)}
                       </div>
-                    </div>
-                    {notifications
-                      .filter(n => n.source === 'received')
-                      .map((notification) => (
-                        <button
-                          key={notification.id}
-                          onClick={() => handleNotificationClick(notification)}
-                          className={`
-                            w-full p-4 border-b border-outlineVariant/50 text-left
-                            hover:bg-surfaceVariant/50 transition-colors group relative
-                            ${!notification.read ? 'bg-primaryContainer/10' : ''}
-                          `}
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className="flex-shrink-0 mt-1">
-                              {getIcon(notification.type)}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-sm ${!notification.read ? 'font-semibold' : 'font-medium'} text-onSurface`}>
-                                {notification.message}
-                              </p>
-                              <p className="text-xs text-onSurfaceVariant truncate mt-1">
-                                {notification.documentName}
-                              </p>
-                              <p className="text-xs text-onSurfaceVariant mt-1">
-                                {new Date(notification.timestamp).toLocaleString('fr-FR', {
-                                  day: '2-digit',
-                                  month: '2-digit',
-                                  year: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </p>
-                            </div>
-                            {!notification.read && (
-                              <div className="flex-shrink-0">
-                                <div className="w-2 h-2 rounded-full bg-primary"></div>
-                              </div>
-                            )}
-                          </div>
-                          {/* Bouton de suppression */}
-                          <button
-                            onClick={(e) => deleteNotification(notification, e)}
-                            className="absolute top-2 right-2 p-1.5 rounded-full hover:bg-error/10 text-error opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Supprimer cette notification"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </button>
-                      ))}
-                  </div>
-                )}
-
-                {/* Notifications envoyées (Expéditeur) */}
-                {notifications.filter(n => n.source === 'sent').length > 0 && (
-                  <div>
-                    <div className="px-4 py-2 bg-orange-500/10 border-b border-orange-500/30">
-                      <div className="flex items-center gap-2">
-                        <Send className="h-4 w-4 text-orange-600" />
-                        <h4 className="text-xs font-bold text-orange-600 uppercase tracking-wide">
-                          Documents envoyés
-                        </h4>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm ${!notification.read ? 'font-semibold' : 'font-medium'} text-onSurface`}>
+                          {notification.message}
+                        </p>
+                        <p className="text-xs text-onSurfaceVariant truncate mt-1">
+                          {notification.documentName}
+                        </p>
+                        <p className="text-xs text-onSurfaceVariant mt-1">
+                          {new Date(notification.timestamp).toLocaleString('fr-FR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
                       </div>
+                      {!notification.read && (
+                        <div className="flex-shrink-0">
+                          <div className="w-2 h-2 rounded-full bg-primary"></div>
+                        </div>
+                      )}
                     </div>
-                    {notifications
-                      .filter(n => n.source === 'sent')
-                      .map((notification) => (
-                        <button
-                          key={notification.id}
-                          onClick={() => handleNotificationClick(notification)}
-                          className={`
-                            w-full p-4 border-b border-outlineVariant/50 text-left
-                            hover:bg-surfaceVariant/50 transition-colors group relative
-                            ${!notification.read ? 'bg-primaryContainer/10' : ''}
-                          `}
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className="flex-shrink-0 mt-1">
-                              {getIcon(notification.type)}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-sm ${!notification.read ? 'font-semibold' : 'font-medium'} text-onSurface`}>
-                                {notification.message}
-                              </p>
-                              <p className="text-xs text-onSurfaceVariant truncate mt-1">
-                                {notification.documentName}
-                              </p>
-                              <p className="text-xs text-onSurfaceVariant mt-1">
-                                {new Date(notification.timestamp).toLocaleString('fr-FR', {
-                                  day: '2-digit',
-                                  month: '2-digit',
-                                  year: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </p>
-                            </div>
-                            {!notification.read && (
-                              <div className="flex-shrink-0">
-                                <div className="w-2 h-2 rounded-full bg-primary"></div>
-                              </div>
-                            )}
-                          </div>
-                          {/* Bouton de suppression */}
-                          <button
-                            onClick={(e) => deleteNotification(notification, e)}
-                            className="absolute top-2 right-2 p-1.5 rounded-full hover:bg-error/10 text-error opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Supprimer cette notification"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </button>
-                      ))}
-                  </div>
-                )}
-              </>
+                    {/* Bouton de suppression */}
+                    <button
+                      onClick={(e) => deleteNotification(notification, e)}
+                      className="absolute top-2 right-2 p-1.5 rounded-full hover:bg-error/10 text-error opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Supprimer cette notification"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </button>
+                ))}
+              </div>
             )}
           </div>
 
-          {/* Footer */}
-          {notifications.length > 0 && (
-            <div className="p-3 border-t border-outlineVariant flex-shrink-0">
-              <div className="flex items-center justify-center gap-4 flex-wrap">
-                {notifications.filter(n => n.source === 'received').length > 0 && (
-                  <button
-                    onClick={() => {
-                      setIsOpen(false);
-                      navigate('/inbox');
-                    }}
-                    className="text-sm text-primary hover:underline font-medium"
-                  >
-                    Voir la boîte de réception
-                  </button>
-                )}
-                {notifications.filter(n => n.source === 'sent').length > 0 && (
-                  <button
-                    onClick={() => {
-                      setIsOpen(false);
-                      navigate('/dashboard');
-                    }}
-                    className="text-sm text-primary hover:underline font-medium"
-                  >
-                    Voir le tableau de bord
-                  </button>
-                )}
-              </div>
+          {/* Footer - Toujours visible */}
+          <div className="p-3 border-t border-outlineVariant flex-shrink-0">
+            <div className="flex items-center justify-center gap-4 flex-wrap">
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  navigate('/inbox');
+                }}
+                className="text-sm text-primary hover:underline font-medium"
+              >
+                Voir la boîte de réception
+              </button>
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  navigate('/dashboard');
+                }}
+                className="text-sm text-primary hover:underline font-medium"
+              >
+                Voir le tableau de bord
+              </button>
             </div>
-          )}
           </div>
-        </>
-      )}
+      </div>
     </div>
   );
 };
