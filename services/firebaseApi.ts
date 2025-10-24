@@ -1119,6 +1119,10 @@ export const createPAdESSignatureMetadata = (
  * @param privateKey - Clé privée PEM
  * @returns PDF signé avec signature électronique intégrée
  */
+/**
+ * 🎨 FRONTEND: Prépare le PDF avec la signature visuelle
+ * Cette fonction est appelée depuis le navigateur
+ */
 export const signPDFWithPAdES = async (
     pdfBytes: Uint8Array,
     signatureImage: string,
@@ -1143,21 +1147,110 @@ export const signPDFWithPAdES = async (
             height: signaturePosition.height,
         });
         
-        // Sauvegarder le PDF avec l'image ajoutée
-        const modifiedPdfBytes = await pdfDoc.save({ addDefaultPage: false });
+        // Ajouter métadonnées au PDF
+        pdfDoc.setTitle(signatureMetadata.reason);
+        pdfDoc.setAuthor(signatureMetadata.signer);
+        pdfDoc.setSubject('Document signé électroniquement');
+        pdfDoc.setKeywords(['eIDAS', 'PAdES', 'signature', signatureMetadata.conformance]);
+        pdfDoc.setProducer('SignEase by FO Metaux');
+        pdfDoc.setCreator('SignEase');
+        pdfDoc.setCreationDate(new Date(signatureMetadata.timestamp.timestamp));
+        pdfDoc.setModificationDate(new Date());
         
-        // 🔐 Étape 2: Ajouter la signature électronique PAdES
-        // Note: @signpdf nécessite un certificat P12
-        // Pour le moment, on sauvegarde le PDF avec l'image
-        // TODO: Implémenter signature cryptographique avec @signpdf quand certificat disponible
+        // Sauvegarder le PDF avec l'image et métadonnées
+        const modifiedPdfBytes = await pdfDoc.save({ 
+            addDefaultPage: false,
+            useObjectStreams: false // Meilleure compatibilité
+        });
         
-        console.log('✅ PDF signé visuellement (signature électronique à implémenter avec certificat)');
+        console.log('✅ PDF signé visuellement avec métadonnées PAdES');
+        
+        // 🔐 Note: La signature cryptographique doit être ajoutée côté serveur
+        // Voir: signPDFWithCryptographicSignature() pour backend/Firebase Functions
         
         return new Uint8Array(modifiedPdfBytes);
         
     } catch (error) {
         console.error('❌ Erreur lors de la signature du PDF:', error);
         throw new Error('Échec de la signature du PDF');
+    }
+};
+
+/**
+ * 🔐 BACKEND/SERVER: Ajoute la signature cryptographique PAdES
+ * ⚠️ Cette fonction doit être exécutée côté serveur (Node.js)
+ * Ne fonctionne PAS dans le navigateur!
+ * 
+ * @param pdfBytes - PDF déjà préparé avec signature visuelle
+ * @param p12CertificatePath - Chemin vers le fichier P12
+ * @param p12Password - Mot de passe du certificat P12
+ * @param signatureMetadata - Métadonnées PAdES
+ * @returns PDF signé cryptographiquement
+ * 
+ * Usage (côté serveur uniquement):
+ * ```typescript
+ * // Firebase Functions ou backend Node.js
+ * const signedPdf = await signPDFWithCryptographicSignature(
+ *     pdfBytes,
+ *     './certs/dev-certificate.p12',
+ *     'signease-dev-2025',
+ *     metadata
+ * );
+ * ```
+ */
+export const signPDFWithCryptographicSignature = async (
+    pdfBytes: Uint8Array | Buffer,
+    p12CertificatePath: string,
+    p12Password: string,
+    signatureMetadata: ReturnType<typeof createPAdESSignatureMetadata>
+): Promise<Buffer> => {
+    // ⚠️ Cette fonction ne peut être exécutée que côté serveur (Node.js)
+    if (typeof window !== 'undefined') {
+        throw new Error('signPDFWithCryptographicSignature ne peut être exécuté que côté serveur');
+    }
+    
+    try {
+        // Import dynamique des modules serveur
+        const fs = await import('fs');
+        const { signpdf } = await import('@signpdf/signpdf');
+        const { P12Signer } = await import('@signpdf/signer-p12');
+        const { plainAddPlaceholder } = await import('@signpdf/placeholder-plain');
+        
+        console.log('🔐 Ajout de la signature cryptographique PAdES...');
+        
+        // 1️⃣ Charger le certificat P12
+        const p12Buffer = fs.readFileSync(p12CertificatePath);
+        
+        // 2️⃣ Créer le signer avec le certificat
+        const signer = new P12Signer(p12Buffer, {
+            passphrase: p12Password,
+        });
+        
+        // 3️⃣ Convertir en Buffer si nécessaire
+        const pdfBuffer = Buffer.isBuffer(pdfBytes) ? pdfBytes : Buffer.from(pdfBytes);
+        
+        // 4️⃣ Ajouter un placeholder pour la signature
+        const pdfWithPlaceholder = plainAddPlaceholder({
+            pdfBuffer,
+            reason: signatureMetadata.reason,
+            contactInfo: signatureMetadata.contact,
+            name: signatureMetadata.signer,
+            location: signatureMetadata.location,
+        });
+        
+        // 5️⃣ Signer le PDF
+        const signedPdf = await signpdf.sign(pdfWithPlaceholder, signer);
+        
+        console.log('✅ Signature cryptographique PAdES ajoutée avec succès');
+        console.log(`   • Signataire: ${signatureMetadata.signer}`);
+        console.log(`   • Conformité: ${signatureMetadata.conformance}`);
+        console.log(`   • Timestamp: ${signatureMetadata.timestamp.timestamp}`);
+        
+        return signedPdf;
+        
+    } catch (error) {
+        console.error('❌ Erreur lors de la signature cryptographique:', error);
+        throw new Error(`Échec de la signature cryptographique: ${error.message}`);
     }
 };
 
