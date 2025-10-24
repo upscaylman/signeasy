@@ -120,7 +120,17 @@ const VerifyPage: React.FC = () => {
       // 🔐 Étape 2: Vérifier la signature PDF
       try {
         const pdfData = await getPdfData(documentId);
-        const pdfBytes = new Uint8Array(await pdfData.arrayBuffer());
+        if (!pdfData) {
+          throw new Error('Impossible de charger le PDF');
+        }
+        
+        // Convertir data URL en bytes
+        const base64Data = pdfData.split(',')[1];
+        const binaryString = atob(base64Data);
+        const pdfBytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          pdfBytes[i] = binaryString.charCodeAt(i);
+        }
         
         const verification = await verifyPDFSignature(pdfBytes, documentId);
         

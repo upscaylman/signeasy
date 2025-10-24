@@ -1213,7 +1213,7 @@ export const signPDFWithCryptographicSignature = async (
     try {
         // Import dynamique des modules serveur
         const fs = await import('fs');
-        const { signpdf } = await import('@signpdf/signpdf');
+        const { SignPdf } = await import('@signpdf/signpdf');
         const { P12Signer } = await import('@signpdf/signer-p12');
         const { plainAddPlaceholder } = await import('@signpdf/placeholder-plain');
         
@@ -1240,7 +1240,8 @@ export const signPDFWithCryptographicSignature = async (
         });
         
         // 5️⃣ Signer le PDF
-        const signedPdf = await signpdf.sign(pdfWithPlaceholder, signer);
+        const signPdfInstance = new SignPdf();
+        const signedPdf = await signPdfInstance.sign(pdfWithPlaceholder, signer);
         
         console.log('✅ Signature cryptographique PAdES ajoutée avec succès');
         console.log(`   • Signataire: ${signatureMetadata.signer}`);
