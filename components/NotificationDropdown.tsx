@@ -352,14 +352,13 @@ const NotificationDropdown: React.FC = () => {
       )}
 
       {/* Slide-in Notifications from RIGHT (comme le menu burger) */}
-      <div
-        className={`fixed right-0 top-16 sm:top-18 w-full bg-surface z-40 transform transition-all duration-300 ease-in-out flex flex-col shadow-2xl ${
-          isOpen ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0 pointer-events-none'
-        }`}
-        style={{ 
-          height: menuHeight,
-        }}
-      >
+      {isOpen && (
+        <div
+          className="fixed right-0 top-16 sm:top-18 w-full sm:w-96 bg-surface z-40 flex flex-col shadow-2xl animate-slide-down"
+          style={{ 
+            height: menuHeight,
+          }}
+        >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-outlineVariant flex-shrink-0">
             <h3 className="font-bold text-lg text-onSurface">Notifications</h3>
@@ -459,7 +458,8 @@ const NotificationDropdown: React.FC = () => {
               </button>
             </div>
           </div>
-      </div>
+        </div>
+      )}
     </div>
   );
 };
