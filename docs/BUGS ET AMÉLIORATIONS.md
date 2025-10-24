@@ -36,25 +36,25 @@ Les emails à plusieurs destinataires ne fonctionnent pas ou arrivent avec retar
 P4 - Audit complet des données en BDD
 Vérifier l'intégrité et la cohérence des données stockées.
 
-P5 - Destinataire existant ne va pas dans le slot 1
-Corriger le comportement lors de l'ajout d'un destinataire existant.
+~~P5 - Destinataire existant ne va pas dans le slot 1~~
+~~Corriger le comportement lors de l'ajout d'un destinataire existant.~~
 
 🟡 Moyen - Améliorations UX importantes
 P1 - Taille et redimensionnement de la signature
 La signature ne peut pas être redimensionnée homothétiquement et est trop petite par défaut. Augmenter la taille par défaut et permettre le redimensionnement proportionnel.
 
-P2 - Affichage des initiales utilisateur dans le header
-Afficher les initiales de l'utilisateur connecté avec une couleur aléatoire pour personnaliser l'interface.
+~~P2 - Affichage des initiales utilisateur dans le header~~
+~~Afficher les initiales de l'utilisateur connecté avec une couleur aléatoire pour personnaliser l'interface.~~
 
-P3 - Bouton de déconnexion
-Ajouter un bouton de déconnexion à côté de l'icône utilisateur pour faciliter la sortie de l'application.
+~~P3 - Bouton de déconnexion~~
+~~Ajouter un bouton de déconnexion à côté de l'icône utilisateur pour faciliter la sortie de l'application.~~
 
 P4 - Navigation mobile/tablette
 Deux options à choisir :
 
 Menu flottant arrondi en bas avec les boutons de navigation
 
-Menu burger avec les pages et bouton de déconnexion en bas
+~~Menu burger avec les pages et bouton de déconnexion en bas~~
 
 P5 - Header dynamique en mobile
 Implémenter un effet de réduction du header au scroll : header large avec logo et texte en haut de page, puis réduction fluide au scroll pour n'afficher que le logo.
@@ -63,8 +63,8 @@ Implémenter un effet de réduction du header au scroll : header large avec logo
 ✅ P1 - Badge de notification
 ~~Déplacer le badge de notification en dehors du bouton lorsqu'il n'est pas focus.~~ ✅ RÉSOLU - Restructuration HTML du badge pour le placer comme frère du NavLink au lieu d'enfant.
 
-P2 - Bug du bouton "Ajouter" en mobile sur la séction "Gestion des Accès" pour l'admin bouvier.jul
-Le bouton dépasse du container dans la section gestion d'accès du dashboard. Corriger le responsive.
+~~P2 - Bug du bouton "Ajouter" en mobile sur la séction "Gestion des Accès" pour l'admin bouvier.jul~~
+~~Le bouton dépasse du container dans la section gestion d'accès du dashboard. Corriger le responsive.~~
 
 P3 - Supprimer le champ sujet
 Retirer le champ sujet de la popup d'envoi pour simplifier l'interface.
@@ -74,6 +74,27 @@ P1 - Système de rappel automatique
 Implémenter l'envoi automatique d'un email de rappel tous les 3 jours pour les documents non signés.
 
 Cette priorisation place la sécurité en premier, suivie des fonctionnalités critiques cassées, puis des améliorations UX et enfin des corrections mineures et nouvelles fonctionnalités.​
+
+Récapitulatif des nouveaux bugs et améliorations
+Voici la synthèse structurée des 5 nouveaux éléments identifiés :
+
+🟠 Majeur - Fonctionnalités critiques
+Affichage des cartes pour documents signés reçus
+Sur le tableau de bord de l'utilisateur ayant reçu un document signé par mail, la carte doit apparaître et être triée correctement comme elle devrait l'être normalement.​
+
+Système de notifications cassé
+Le système de notification ne fonctionne plus et n'affiche plus les notifications aux utilisateurs.​
+
+Synchronisation cartes/boîte de réception
+Le système de cartes et le contenu de la boîte de réception doivent fonctionner simultanément avec le même type de système de tri pour maintenir la cohérence des données.​
+
+🟡 Moyen - Améliorations UX importantes
+Validation du processus de signature
+Quand on reçoit le document à signer, le bouton "Terminer la signature" doit être désactivé par défaut jusqu'à ce que l'utilisateur suive complètement la procédure de signature. À ce moment, le bouton s'active et le processus peut être finalisé.​
+
+🟢 Mineur - Améliorations cosmétiques
+Adaptation hauteur écran du bouton déconnexion
+Dans le menu, le bouton de déconnexion est mal adapté à la hauteur de l'écran et nécessite un ajustement de positionnement vertical.​
 
 ---
 

@@ -246,6 +246,20 @@ export const getEnvelopeByToken = async (token: string): Promise<(Envelope & { c
   }
 };
 
+// Nouvelle fonction : Récupérer le document ID depuis un token ou email
+export const getDocumentIdFromToken = async (token: string): Promise<string | null> => {
+  try {
+    const envelope = await getEnvelopeByToken(token);
+    if (envelope) {
+      return envelope.document.id;
+    }
+    return null;
+  } catch (error) {
+    console.error('Erreur getDocumentIdFromToken:', error);
+    return null;
+  }
+};
+
 export const getPdfData = async (documentId: string): Promise<string | null> => {
   try {
     // 1. Essayer d'abord dans Storage (nouveaux documents)

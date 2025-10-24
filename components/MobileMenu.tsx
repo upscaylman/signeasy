@@ -1,11 +1,55 @@
-import React, { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import { Menu, X, LogOut, LayoutDashboard, FileText, Inbox, ShieldCheck } from 'lucide-react';
 import { useUser } from './UserContext';
+import { getUnreadEmailCount } from '../services/firebaseApi';
 
 const MobileMenu: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { logout } = useUser();
+  const [unreadCount, setUnreadCount] = useState(0);
+  const location = useLocation();
+  const { currentUser, logout } = useUser();
+
+  // Bloquer le scroll quand le menu est ouvert
+  React.useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'auto';
+    }
+
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, [isOpen]);
+
+  // Récupérer le nombre d'emails non lus
+  const fetchUnreadCount = async () => {
+    try {
+      const count = await getUnreadEmailCount(currentUser?.email);
+      setUnreadCount(count);
+    } catch (error) {
+      console.error("Failed to fetch unread email count:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchUnreadCount();
+    
+    // Listen for custom event when storage is updated
+    window.addEventListener('storage_updated', fetchUnreadCount);
+
+    return () => {
+      window.removeEventListener('storage_updated', fetchUnreadCount);
+    };
+  }, [currentUser?.email]);
+
+  // Refetch when navigating to inbox or dashboard
+  useEffect(() => {
+    if (location.pathname === '/inbox' || location.pathname === '/dashboard') {
+      fetchUnreadCount();
+    }
+  }, [location.pathname]);
 
   const handleLogout = () => {
     setIsOpen(false);
@@ -29,7 +73,7 @@ const MobileMenu: React.FC = () => {
 
       {/* Slide-in Menu from LEFT (below header) - Material Design 3 Expressive */}
       <div
-        className={`fixed left-0 top-16 h-[calc(100vh-64px)] w-full bg-[#fffbff] z-40 transform transition-all duration-300 ease-in-out flex flex-col overflow-y-auto ${
+        className={`fixed left-0 top-16 sm:top-18 h-[calc(100vh-64px)] sm:h-[calc(100vh-72px)] w-full bg-[#fffbff] z-40 transform transition-all duration-300 ease-in-out flex flex-col overflow-y-auto ${
           isOpen ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0 pointer-events-none'
         }`}
       >
@@ -50,20 +94,31 @@ const MobileMenu: React.FC = () => {
             Tableau de bord
           </NavLink>
 
-          <NavLink
-            to="/inbox"
-            onClick={() => setIsOpen(false)}
-            className={({ isActive }) =>
-              `flex items-center min-h-[44px] px-4 py-2 rounded-full text-base font-medium transition-colors ${
-                isActive
-                  ? 'bg-secondaryContainer text-onSecondaryContainer elevation-1'
-                  : 'text-onSurfaceVariant state-layer state-layer-primary'
-              }`
-            }
-          >
-            <Inbox className="h-5 w-5 mr-2" />
-            Boîte de réception
-          </NavLink>
+          <div className="relative">
+            <NavLink
+              to="/inbox"
+              onClick={() => setIsOpen(false)}
+              className={({ isActive }) =>
+                `flex items-center min-h-[44px] px-4 py-2 rounded-full text-base font-medium transition-colors ${
+                  isActive
+                    ? 'bg-secondaryContainer text-onSecondaryContainer elevation-1'
+                    : 'text-onSurfaceVariant state-layer state-layer-primary'
+                }`
+              }
+            >
+              <Inbox className="h-5 w-5 mr-2" />
+              Boîte de réception
+            </NavLink>
+            {unreadCount > 0 && (
+              <span className="
+                absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center
+                rounded-full bg-primary text-onPrimary text-xs font-bold
+                animate-fade-in-scale elevation-2 badge-pulse
+              ">
+                {unreadCount}
+              </span>
+            )}
+          </div>
 
           <NavLink
             to="/verify"
@@ -82,7 +137,7 @@ const MobileMenu: React.FC = () => {
         </nav>
 
         {/* Logout Button at Bottom */}
-        <div className="p-6 border-t border-outlineVariant/20">
+        <div className="p-6 border-t border-outlineVariant/20 mt-auto">
           <button
             onClick={handleLogout}
             className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-full text-white font-medium transition-all btn-premium-shine btn-premium-extended focus:outline-none focus:ring-4 focus:ring-primary/30"

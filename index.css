@@ -151,6 +151,7 @@ body {
   overflow-x: hidden;
   min-height: 100vh;
   -webkit-tap-highlight-color: transparent;
+  scrollbar-gutter: stable;
 }
 
 /* ============================================

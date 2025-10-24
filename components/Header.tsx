@@ -6,6 +6,7 @@ import { getUnreadEmailCount } from '../services/firebaseApi';
 import { useUser } from './UserContext';
 import Tooltip from './Tooltip';
 import MobileMenu from './MobileMenu';
+import NotificationDropdown from './NotificationDropdown';
 
 const Header: React.FC = () => {
   const [unreadCount, setUnreadCount] = useState(0);
@@ -121,7 +122,7 @@ const Header: React.FC = () => {
                 className={({ isActive }) => `
                   flex items-center min-h-[44px] px-4 py-2 rounded-full
                   text-sm font-medium
-                  ${isActive ? activeLinkClass : inactiveLinkClass}
+                  ${isActive ? 'bg-secondaryContainer text-onSecondaryContainer elevation-1' : 'text-onSurfaceVariant state-layer state-layer-primary'}
                 `.trim().replace(/\s+/g, ' ')}
               >
                 <Inbox className="h-5 w-5 mr-2" />
@@ -156,7 +157,12 @@ const Header: React.FC = () => {
           </nav>
           
           <div className="flex items-center gap-2">
-             {/* Burger Menu - BEFORE Profile */}
+            {/* Notification Dropdown for Mobile/Tablet */}
+            <div className="lg:hidden">
+              <NotificationDropdown />
+            </div>
+            
+            {/* Burger Menu - BEFORE Profile */}
             <div className="lg:hidden">
               <MobileMenu />
             </div>

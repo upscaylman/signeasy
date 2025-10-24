@@ -416,6 +416,9 @@ const SignDocumentPage: React.FC = () => {
     const [tempTransform, setTempTransform] = useState<{fieldId: string, dx: number, dy: number, width?: number, height?: number} | null>(null);
     // Pour empêcher le onClick après un drag
     const [hasDragged, setHasDragged] = useState(false);
+    // Pour le pinch-to-zoom sur mobile
+    const [pinchingField, setPinchingField] = useState<string | null>(null);
+    const [pinchDistance, setPinchDistance] = useState<number | null>(null);
 
     // Fonction pour snapper les coordonnées à la grille
     const snapToGrid = (value: number) => {
@@ -702,6 +705,88 @@ const SignDocumentPage: React.FC = () => {
             mouseX: adjustedX,
             mouseY: adjustedY
         });
+    };
+
+    // 📱 Pinch-to-zoom : Détecter le geste tactile à 2 doigts pour redimensionner
+    const handleFieldTouchStart = (e: React.TouchEvent, fieldId: string, field: Field) => {
+        if (readOnly || e.touches.length !== 2) return;
+        
+        e.preventDefault();
+        setPinchingField(fieldId);
+        
+        // Calculer la distance entre les 2 doigts
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        const distance = Math.hypot(
+            touch2.clientX - touch1.clientX,
+            touch2.clientY - touch1.clientY
+        );
+        setPinchDistance(distance);
+    };
+
+    const handleFieldTouchMove = (e: React.TouchEvent, fieldId: string, field: Field) => {
+        if (readOnly || !pinchingField || pinchingField !== fieldId || e.touches.length !== 2 || !pinchDistance) return;
+        
+        e.preventDefault();
+        
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        const newDistance = Math.hypot(
+            touch2.clientX - touch1.clientX,
+            touch2.clientY - touch1.clientY
+        );
+        
+        // Calculer le ratio de zoom
+        const ratio = newDistance / pinchDistance;
+        const customDims = fieldDimensions[fieldId];
+        const { width: defaultWidth, height: defaultHeight } = getDefaultFieldDimensions(field.type, field.width, field.height);
+        
+        const currentWidth = customDims?.width ?? defaultWidth;
+        const currentHeight = customDims?.height ?? defaultHeight;
+        
+        // Appliquer le zoom avec limites
+        const newWidth = snapToGrid(Math.max(50, Math.min(500, currentWidth * ratio)));
+        const newHeight = snapToGrid(Math.max(30, Math.min(400, currentHeight * ratio)));
+        
+        setTempTransform({
+            fieldId,
+            dx: 0,
+            dy: 0,
+            width: newWidth,
+            height: newHeight
+        });
+        
+        setDimensionTooltip({
+            x: touch1.clientX,
+            y: touch1.clientY,
+            width: Math.round(newWidth),
+            height: Math.round(newHeight)
+        });
+    };
+
+    const handleFieldTouchEnd = () => {
+        if (tempTransform && envelope) {
+            const field = envelope.fields.find(f => f.id === tempTransform.fieldId);
+            if (field) {
+                const customDims = fieldDimensions[tempTransform.fieldId];
+                const { width: defaultWidth, height: defaultHeight } = getDefaultFieldDimensions(field.type, field.width, field.height);
+                
+                setFieldDimensions(prev => ({
+                    ...prev,
+                    [tempTransform.fieldId]: {
+                        x: customDims?.x ?? field.x,
+                        y: customDims?.y ?? field.y,
+                        width: tempTransform.width ?? defaultWidth,
+                        height: tempTransform.height ?? defaultHeight
+                    }
+                }));
+            }
+        }
+        
+        setPinchingField(null);
+        setPinchDistance(null);
+        setTempTransform(null);
+        setDimensionTooltip(null);
     };
 
     useEffect(() => {
@@ -1132,7 +1217,14 @@ const SignDocumentPage: React.FC = () => {
                             style={{...fieldWrapperStyle, width: '100%', height: '100%'}} 
                             onClick={handleSignatureClick} 
                             onMouseDown={(e) => isCurrentSignerField && !readOnly && handleFieldMouseDown(e, field.id)}
-                            onTouchStart={(e) => isCurrentSignerField && !readOnly && handleFieldMouseDown(e, field.id)}
+                            onTouchStart={(e) => {
+                              if (isCurrentSignerField && !readOnly) {
+                                handleFieldMouseDown(e, field.id);
+                                handleFieldTouchStart(e, field.id, field);
+                              }
+                            }}
+                            onTouchMove={(e) => isCurrentSignerField && !readOnly && handleFieldTouchMove(e, field.id, field)}
+                            onTouchEnd={handleFieldTouchEnd}
                             className={`${interactiveClasses} flex items-center justify-center p-1 ${draggingField === field.id ? 'cursor-move' : ''} touch-none`}
                         >
                             {value ? (
@@ -1148,10 +1240,13 @@ const SignDocumentPage: React.FC = () => {
                             <div
                                 onMouseDown={(e) => handleResizeMouseDown(e, field.id, field)}
                                 onTouchStart={(e) => handleResizeMouseDown(e, field.id, field)}
-                                className="hidden sm:block absolute bottom-0 right-0 sm:w-4 sm:h-4 bg-primary cursor-nwse-resize rounded-tl-lg sm:opacity-0 sm:group-hover:opacity-100 transition-opacity touch-none"
+                                className="absolute bottom-0 right-0 w-5 h-5 bg-primary cursor-nwse-resize rounded-tl-lg opacity-0 group-hover:opacity-100 transition-opacity touch-none flex items-center justify-center"
                                 style={{transform: 'translate(50%, 50%)'}}
                                 aria-label="Redimensionner le champ"
-                            />
+                                title="Glissez pour redimensionner"
+                            >
+                                <div className="text-white text-xs font-bold leading-none">⤢</div>
+                            </div>
                         )}
                     </div>
                 );
@@ -1163,7 +1258,14 @@ const SignDocumentPage: React.FC = () => {
                             style={{...fieldWrapperStyle, width: '100%', height: '100%'}} 
                             onClick={handleDateClick} 
                             onMouseDown={(e) => isCurrentSignerField && !readOnly && handleFieldMouseDown(e, field.id)}
-                            onTouchStart={(e) => isCurrentSignerField && !readOnly && handleFieldMouseDown(e, field.id)}
+                            onTouchStart={(e) => {
+                              if (isCurrentSignerField && !readOnly) {
+                                handleFieldMouseDown(e, field.id);
+                                handleFieldTouchStart(e, field.id, field);
+                              }
+                            }}
+                            onTouchMove={(e) => isCurrentSignerField && !readOnly && handleFieldTouchMove(e, field.id, field)}
+                            onTouchEnd={handleFieldTouchEnd}
                             className={`${interactiveClasses} flex items-center justify-center ${draggingField === field.id ? 'cursor-move' : ''} touch-none`}
                         >
                             {value ? (
@@ -1176,10 +1278,13 @@ const SignDocumentPage: React.FC = () => {
                             <div
                                 onMouseDown={(e) => handleResizeMouseDown(e, field.id, field)}
                                 onTouchStart={(e) => handleResizeMouseDown(e, field.id, field)}
-                                className="hidden sm:block absolute bottom-0 right-0 sm:w-4 sm:h-4 bg-primary cursor-nwse-resize rounded-tl-lg sm:opacity-0 sm:group-hover:opacity-100 transition-opacity touch-none"
+                                className="absolute bottom-0 right-0 w-5 h-5 bg-primary cursor-nwse-resize rounded-tl-lg opacity-0 group-hover:opacity-100 transition-opacity touch-none flex items-center justify-center"
                                 style={{transform: 'translate(50%, 50%)'}}
                                 aria-label="Redimensionner le champ"
-                            />
+                                title="Glissez pour redimensionner"
+                            >
+                                <div className="text-white text-xs font-bold leading-none">⤢</div>
+                            </div>
                         )}
                     </div>
                 );
@@ -1248,10 +1353,13 @@ const SignDocumentPage: React.FC = () => {
                             <div
                                 onMouseDown={(e) => handleResizeMouseDown(e, field.id, field)}
                                 onTouchStart={(e) => handleResizeMouseDown(e, field.id, field)}
-                                className="hidden sm:block absolute bottom-0 right-0 sm:w-4 sm:h-4 bg-primary cursor-nwse-resize rounded-tl-lg sm:opacity-0 sm:group-hover:opacity-100 transition-opacity touch-none"
+                                className="absolute bottom-0 right-0 w-5 h-5 bg-primary cursor-nwse-resize rounded-tl-lg opacity-0 group-hover:opacity-100 transition-opacity touch-none flex items-center justify-center"
                                 style={{transform: 'translate(50%, 50%)'}}
                                 aria-label="Redimensionner le champ"
-                            />
+                                title="Glissez pour redimensionner"
+                            >
+                                <div className="text-white text-xs font-bold leading-none">⤢</div>
+                            </div>
                         )}
                     </div>
                  );
@@ -1261,7 +1369,14 @@ const SignDocumentPage: React.FC = () => {
                         <FieldTooltip field={field} recipientName={recipientName} />
                         <div
                             onMouseDown={(e) => isCurrentSignerField && !readOnly && handleFieldMouseDown(e, field.id)}
-                            onTouchStart={(e) => isCurrentSignerField && !readOnly && handleFieldMouseDown(e, field.id)}
+                            onTouchStart={(e) => {
+                              if (isCurrentSignerField && !readOnly) {
+                                handleFieldMouseDown(e, field.id);
+                                handleFieldTouchStart(e, field.id, field);
+                              }
+                            }}
+                            onTouchMove={(e) => isCurrentSignerField && !readOnly && handleFieldTouchMove(e, field.id, field)}
+                            onTouchEnd={handleFieldTouchEnd}
                             className={`flex items-center justify-center w-full h-full ${draggingField === field.id ? 'cursor-move' : ''} touch-none`}
                         >
                             <label className={`${readOnly || !isCurrentSignerField ? '' : 'cursor-pointer'} pointer-events-none`}>
@@ -1279,10 +1394,13 @@ const SignDocumentPage: React.FC = () => {
                             <div
                                 onMouseDown={(e) => handleResizeMouseDown(e, field.id, field)}
                                 onTouchStart={(e) => handleResizeMouseDown(e, field.id, field)}
-                                className="hidden sm:block absolute bottom-0 right-0 sm:w-4 sm:h-4 bg-primary cursor-nwse-resize rounded-tl-lg sm:opacity-0 sm:group-hover:opacity-100 transition-opacity touch-none"
+                                className="absolute bottom-0 right-0 w-5 h-5 bg-primary cursor-nwse-resize rounded-tl-lg opacity-0 group-hover:opacity-100 transition-opacity touch-none flex items-center justify-center"
                                 style={{transform: 'translate(50%, 50%)'}}
                                 aria-label="Redimensionner le champ"
-                            />
+                                title="Glissez pour redimensionner"
+                            >
+                                <div className="text-white text-xs font-bold leading-none">⤢</div>
+                            </div>
                         )}
                     </div>
                  );
