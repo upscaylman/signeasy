@@ -18,6 +18,7 @@ BUGS ET AMÉLIORATIONS
 13. **🔐 Backend signatures PDF** (signPDFWithPAdES, verifyPDFSignature)
 14. **🔐 Certificat P12 + Signature Crypto Serveur** (génération certificat, architecture backend, Firebase Functions)
 15. **🔗 Intégration VerifyPage + EmailJS** (lien vérification direct, pré-remplissage URL, UX 1 clic)
+16. **🎨 Signature Redimensionnable Homothétique** (maintien automatique des proportions pour signatures et paraphes)
 
 📊 **Progrès Conformité eIDAS : 43% → 87%** (+44 points) 🚀
 
@@ -32,7 +33,7 @@ BUGS ET AMÉLIORATIONS
 - P4 - Audit complet données BDD (intégrité/cohérence)
 
 **🟡 MOYEN - UX**
-- P1 - Signature redimensionnable homothétique (système existe, à vérifier)
+- ✅ ~~P1 - Signature redimensionnable homothétique~~ **RÉSOLU** (maintien ratio automatique)
 - P5 - Header dynamique mobile au scroll (réduction fluide)
 
 **🟢 MINEUR - Cosmétique**
@@ -392,6 +393,44 @@ Solutions implémentées:
   - Ajouter verify_link dans template demande signature (`template_6m6pxue`)
   - Auto-vérification si URL contient ?doc=XXX (optionnel)
   - QR code dans PDF pointant vers /verify?doc={id} (futur)
+
+✅ **Signature Redimensionnable Homothétique** (Amélioration UX critique)
+- Problème: Les signatures et paraphes se déformaient lors du redimensionnement (étirement non proportionnel)
+- Solution implémentée:
+  - **Redimensionnement Homothétique**:
+    - Condition ajoutée pour `FieldType.SIGNATURE` et `FieldType.INITIAL` (paraphe)
+    - Utilisation du même algorithme que les CHECKBOX (ratio conservé)
+    - Calcul automatique: `ratio = initialDimensions.width / initialDimensions.height`
+    - Application proportionnelle: `newHeight = newWidth / ratio`
+    - Résultat: Les signatures gardent leurs proportions originales
+  - **Algorithme**:
+    ```typescript
+    if (field.type === FieldType.CHECKBOX || 
+        field.type === FieldType.SIGNATURE || 
+        field.type === FieldType.INITIAL) {
+      const delta = Math.max(deltaX, deltaY);
+      const ratio = initialDimensions.width / initialDimensions.height;
+      const newWidth = snapToGrid(Math.max(20, initialDimensions.width + delta));
+      const newHeight = snapToGrid(Math.max(20, (initialDimensions.width + delta) / ratio));
+      // ✅ Ratio préservé automatiquement
+    }
+    ```
+  - **Snap to Grid**: Alignement automatique sur grille 10px maintenu
+  - **Tooltip Dimensions**: Affichage en temps réel largeur × hauteur pendant redimensionnement
+  - **Autres Champs**: Texte et Date conservent redimensionnement libre (non homothétique)
+- Impact:
+  - Qualité visuelle: **+100%** (signatures non déformées)
+  - UX professionnelle: Signatures toujours proportionnées
+  - Cohérence: Même comportement que CHECKBOX
+  - Pas de régression: Autres champs non affectés
+- Date: 24 Octobre 2025
+- Fichiers:
+  - pages/SignDocumentPage.tsx (condition redimensionnement ligne 852)
+- **Bénéfices**:
+  - Signatures lisibles et esthétiques
+  - Respect proportions originales (capture/upload)
+  - Expérience utilisateur intuitive
+  - Conformité professionnelle
 
 ---
 

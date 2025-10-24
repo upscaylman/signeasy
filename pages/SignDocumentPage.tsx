@@ -848,8 +848,8 @@ const SignDocumentPage: React.FC = () => {
                 const deltaX = (clientX - initialDimensions.mouseX) / zoomLevel;
                 const deltaY = (clientY - initialDimensions.mouseY) / zoomLevel;
 
-                // Pour checkbox, maintenir le ratio
-                if (field.type === FieldType.CHECKBOX) {
+                // 🎨 Pour checkbox, signature et paraphe : maintenir le ratio homothétique
+                if (field.type === FieldType.CHECKBOX || field.type === FieldType.SIGNATURE || field.type === FieldType.INITIAL) {
                     const delta = Math.max(deltaX, deltaY);
                     const ratio = initialDimensions.width / initialDimensions.height;
                     const newWidth = snapToGrid(Math.max(20, initialDimensions.width + delta));
@@ -871,6 +871,7 @@ const SignDocumentPage: React.FC = () => {
                         height: Math.round(newHeight)
                     });
                 } else {
+                    // Pour les autres champs (texte, date) : redimensionnement libre
                     const newWidth = snapToGrid(Math.max(50, initialDimensions.width + deltaX));
                     const newHeight = snapToGrid(Math.max(30, initialDimensions.height + deltaY));
                     
