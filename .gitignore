@@ -1,17 +1,23 @@
-# Dependencies
+# Dépendances
 node_modules/
 package-lock.json
 
-# Build output
+# Build
 dist/
 build/
-*.tsbuildinfo
+*.log
 
-# Environment variables
+# Environment
 .env
 .env.local
-.env.production
-.env.development
+.env.*.local
+
+# 🔐 Certificats et clés privées (NE JAMAIS COMMIT!)
+certs/
+*.p12
+*.pem
+*.key
+*.crt
 
 # IDE
 .vscode/
@@ -23,31 +29,14 @@ build/
 # OS
 .DS_Store
 Thumbs.db
-desktop.ini
-
-# Logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-
-# Testing
-coverage/
-.nyc_output/
-
-# Temporary files
-*.tmp
-*.temp
-.cache/
 
 # Firebase
 .firebase/
 firebase-debug.log
 
-# Other
-*.bak
-*.old
+# Temporary
+*.tmp
+*.temp
 
-# Local Netlify folder
-.netlify
+# Test output
+test-output/

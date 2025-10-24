@@ -1,314 +1,660 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getEmails, markEmailAsRead, deleteEmails } from '../services/firebaseApi';
+import { getEmails, getDocuments, markEmailAsRead, deleteEmails, getPdfData, getDocumentIdFromToken } from '../services/firebaseApi';
 import { useUser } from '../components/UserContext';
-import type { MockEmail } from '../types';
-import { Loader2, Inbox as InboxIcon, FileText, Trash2, CheckSquare, Square, X, ArrowLeft, Mail, CheckCircle2 } from 'lucide-react';
+import type { MockEmail, Document } from '../types';
+import { Loader2, Inbox as InboxIcon, FileText, Trash2, CheckSquare, Square, X, ArrowLeft, Mail, Send, Clock, AlertCircle, CheckCircle, FolderOpen, ZoomIn, ZoomOut, Eye } from 'lucide-react';
 import Button from '../components/Button';
 import { useToast } from '../components/Toast';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configure PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs`;
+
+// Helper pour convertir data URL en Uint8Array
+const base64ToUint8Array = (dataUrl: string) => {
+  const base64 = dataUrl.split(',')[1];
+  if (!base64) throw new Error("Invalid data URL");
+  const binaryString = window.atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+};
+
+// Composant pour afficher une page PDF
+interface PdfPageRendererProps {
+  pageNum: number;
+  pdf: pdfjsLib.PDFDocumentProxy;
+  zoom: number;
+}
+
+const PdfPageRenderer: React.FC<PdfPageRendererProps> = ({ pageNum, pdf, zoom }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    if (!pdf || !canvasRef.current) return;
+
+    const renderPage = async () => {
+      try {
+        const page = await pdf.getPage(pageNum);
+        const viewport = page.getViewport({ scale: zoom });
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+
+        const renderContext = {
+          canvasContext: canvas.getContext('2d')!,
+          viewport,
+        };
+
+        await page.render(renderContext).promise;
+      } catch (error) {
+        console.error(`Erreur lors du rendu page ${pageNum}:`, error);
+      }
+    };
+
+    renderPage();
+  }, [pageNum, pdf, zoom]);
+
+  return <canvas ref={canvasRef} className="w-full" />;
+};
+
+// Type unifié pour afficher emails ET documents
+interface UnifiedItem {
+  id: string;
+  type: 'email' | 'document';
+  title: string;
+  documentName: string;
+  timestamp: string;
+  read: boolean;
+  status?: string;
+  source?: string; // "À signer" ou "Envoyé"
+  signatureLink?: string;
+  from?: string;
+  body?: string;
+  rawData: MockEmail | Document;
+  folder: string; // Dossier auquel appartient l'item
+}
+
+// Type pour un dossier
+interface Folder {
+  id: string;
+  name: string;
+  icon: any;
+  count: number;
+  unread?: number;
+}
 
 const InboxPage: React.FC = () => {
-  const [emails, setEmails] = useState<MockEmail[]>([]);
-  const [selectedEmail, setSelectedEmail] = useState<MockEmail | null>(null);
+  const [unifiedItems, setUnifiedItems] = useState<UnifiedItem[]>([]);
+  const [selectedItem, setSelectedItem] = useState<UnifiedItem | null>(null);
+  const [selectedFolder, setSelectedFolder] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
-  const [showEmailContent, setShowEmailContent] = useState(false); // 📱 Pour mobile : afficher le contenu de l'email
+  const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [showContent, setShowContent] = useState(false);
+  const [hoveredFolder, setHoveredFolder] = useState<string | null>(null);
   const navigate = useNavigate();
   const { addToast } = useToast();
   const { currentUser } = useUser();
 
-  const renderSubjectWithIcon = (subject: string) => {
-    // Remplacer ✅ par une icone CheckCircle2
-    if (subject.includes('✅')) {
-      const parts = subject.split('✅');
-      return (
-        <div className="flex items-center gap-1.5">
-          <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
-          <span>{parts[1]?.trim()}</span>
-        </div>
-      );
+  // État pour le PDF
+  const [pdfDocument, setPdfDocument] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfZoom, setPdfZoom] = useState(1);
+  const viewerRef = useRef<HTMLDivElement>(null);
+
+  // Déterminer le rôle de l'utilisateur (récupérer du localStorage si disponible)
+  const [userRole, setUserRole] = useState<'destinataire' | 'expéditeur' | 'both'>(() => {
+    const savedRole = localStorage.getItem(`userRole_${currentUser?.email}`);
+    return (savedRole as 'destinataire' | 'expéditeur' | 'both') || 'destinataire';
+  });
+
+  // Déterminer les dossiers selon le rôle
+  const getFolders = (role: 'destinataire' | 'expéditeur' | 'both'): Folder[] => {
+    const allFolders: { [key: string]: Folder } = {
+      all: { id: 'all', name: 'Tous', icon: InboxIcon, count: 0 },
+      // Dossiers destinataire
+      to_sign: { id: 'to_sign', name: 'À signer', icon: Clock, count: 0, unread: 0 },
+      signed: { id: 'signed', name: 'Signés', icon: CheckCircle, count: 0 },
+      rejected: { id: 'rejected', name: 'Rejetés', icon: AlertCircle, count: 0 },
+      // Dossiers expéditeur
+      sent: { id: 'sent', name: 'Envoyés', icon: Send, count: 0 },
+      signed_by_recipient: { id: 'signed_by_recipient', name: 'Signés par destinataire', icon: CheckCircle, count: 0 },
+      rejected_by_recipient: { id: 'rejected_by_recipient', name: 'Rejetés', icon: AlertCircle, count: 0 }
+    };
+
+    let folders: Folder[] = [allFolders.all];
+
+    if (role === 'destinataire' || role === 'both') {
+      folders.push(allFolders.to_sign, allFolders.signed, allFolders.rejected);
     }
-    return <span>{subject}</span>;
+
+    if (role === 'expéditeur' || role === 'both') {
+      folders.push(allFolders.sent, allFolders.signed_by_recipient, allFolders.rejected_by_recipient);
+    }
+
+    return folders;
   };
 
-  const renderDetailSubjectWithIcon = (subject: string) => {
-    // Icone plus grande pour le détail
-    if (subject.includes('✅')) {
-      const parts = subject.split('✅');
-      return (
-        <div className="flex items-center gap-2">
-          <CheckCircle2 className="h-6 w-6 text-green-600 flex-shrink-0" />
-          <span>{parts[1]?.trim()}</span>
-        </div>
-      );
+  // Assign folder to item
+  const assignFolder = (item: UnifiedItem, role: string): string => {
+    if (item.type === 'email') {
+      // Pour les emails reçus (destinataire)
+      if (item.source === 'À signer') return 'to_sign';
+      if (item.title.includes('✅')) return 'signed';
+      if (item.title.includes('❌')) return 'rejected';
+    } else {
+      // Pour les documents (expéditeur)
+      if (item.status === 'Envoyé') return 'sent';
+      if (item.status === 'Signé') return 'signed_by_recipient';
+      if (item.status === 'Rejeté') return 'rejected_by_recipient';
     }
-    return <span>{subject}</span>;
+    return 'all';
   };
 
-  const fetchEmails = useCallback(async () => {
+  // 📊 Charger et fusionner emails + documents
+  const fetchUnifiedData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const fetchedEmails = await getEmails(currentUser?.email);
-      setEmails(fetchedEmails);
-      if (fetchedEmails.length > 0 && !selectedEmail) {
-        const firstEmail = fetchedEmails[0];
-        setSelectedEmail(firstEmail);
-        if (!firstEmail.read) {
-          await markEmailAsRead(firstEmail.id);
-          // Manually update the state to reflect read status without a full refetch
-          firstEmail.read = true;
-        }
-      } else if (fetchedEmails.length === 0) {
-        setSelectedEmail(null);
+      const emails = await getEmails(currentUser?.email);
+      const documents = await getDocuments(currentUser?.email);
+
+      // Déterminer le rôle (ne pas réinitialiser si tout est vide)
+      let role: 'destinataire' | 'expéditeur' | 'both' = userRole; // Conserver le rôle actuel par défaut
+      
+      // Mettre à jour le rôle uniquement si on a des données
+      if (documents.length > 0 && emails.length > 0) {
+        role = 'both';
+      } else if (documents.length > 0) {
+        role = 'expéditeur';
+      } else if (emails.length > 0) {
+        role = 'destinataire';
+      }
+      // Si tout est vide, on garde le rôle précédent pour maintenir l'affichage des onglets
+      
+      // Sauvegarder le rôle dans localStorage pour persistance
+      if (currentUser?.email) {
+        localStorage.setItem(`userRole_${currentUser.email}`, role);
+      }
+      setUserRole(role);
+
+      // Convertir emails en UnifiedItem
+      const emailItems: UnifiedItem[] = emails.map(email => ({
+        id: email.id,
+        type: 'email',
+        title: email.subject,
+        documentName: email.documentName,
+        timestamp: email.sentAt,
+        read: email.read,
+        source: 'À signer',
+        signatureLink: email.signatureLink,
+        from: email.from,
+        body: email.body,
+        rawData: email,
+        folder: 'to_sign'
+      }));
+
+      // Convertir documents en UnifiedItem
+      const documentItems: UnifiedItem[] = documents.map(doc => ({
+        id: doc.id,
+        type: 'document',
+        title: `${doc.name} (${doc.status})`,
+        documentName: doc.name,
+        timestamp: doc.updatedAt,
+        read: true,
+        status: doc.status,
+        source: 'Envoyé',
+        rawData: doc,
+        folder: 'sent'
+      }));
+
+      // Assign folders
+      const merged = [...emailItems, ...documentItems].map(item => ({
+        ...item,
+        folder: assignFolder(item, role)
+      }));
+
+      // Trier par date décroissante
+      merged.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+      setUnifiedItems(merged);
+      setSelectedFolder('all');
+
+      if (merged.length > 0) {
+        setSelectedItem(null);
+        setShowContent(false);
       }
     } catch (error) {
-      console.error("Failed to fetch emails:", error);
+      console.error('Erreur lors du chargement:', error);
+      addToast('Erreur lors du chargement', 'error');
     } finally {
       setIsLoading(false);
     }
-  }, [selectedEmail, currentUser?.email]);
+  }, [currentUser?.email, addToast]);
 
   useEffect(() => {
-    fetchEmails();
-  }, []);
+    fetchUnifiedData();
+  }, [fetchUnifiedData]);
 
-  const handleSelectEmail = (email: MockEmail) => {
-    setSelectedEmail(email);
-    setShowEmailContent(true); // 📱 Afficher le contenu sur mobile
-    if (!email.read) {
-      markEmailAsRead(email.id).then(() => {
-         setEmails(prev => prev.map(e => e.id === email.id ? {...e, read: true} : e));
+  // Filter items by selected folder
+  const filteredItems = useMemo(() => {
+    if (selectedFolder === 'all') return unifiedItems;
+    return unifiedItems.filter(item => item.folder === selectedFolder);
+  }, [unifiedItems, selectedFolder]);
+
+  // Calculate folder counts
+  const folders = useMemo(() => {
+    // 🎨 Toujours afficher TOUS les onglets peu importe le rôle
+    // (même si certains sont vides, pour une meilleure cohérence UX)
+    const effectiveRole = 'both'; // Forcer "both" pour afficher tous les onglets
+    const folderList = getFolders(effectiveRole);
+    
+    return folderList.map(folder => {
+      const count = unifiedItems.filter(item => item.folder === folder.id || folder.id === 'all').length;
+      const unread = unifiedItems.filter(item => 
+        (item.folder === folder.id || folder.id === 'all') && !item.read && item.type === 'email'
+      ).length;
+      return { ...folder, count: folder.id === 'all' ? unifiedItems.length : count, unread };
+    });
+  }, [unifiedItems]);
+
+  const handleSelectItem = (item: UnifiedItem) => {
+    setSelectedItem(item);
+    setShowContent(true);
+
+    if (!item.read && item.type === 'email') {
+      markEmailAsRead(item.id).then(() => {
+        setUnifiedItems(prev => prev.map(i =>
+          i.id === item.id ? { ...i, read: true } : i
+        ));
       });
+    }
+
+    // Charger le PDF
+    loadPdfDocument(item);
+  };
+
+  // Charger le document PDF
+  const loadPdfDocument = async (item: UnifiedItem) => {
+    setPdfLoading(true);
+    setPdfDocument(null);
+    try {
+      let pdfData: string | null = null;
+      
+      if (item.type === 'email' && item.rawData) {
+        // Pour les emails, extraire le token depuis le signatureLink
+        const email = item.rawData as MockEmail;
+        const token = email.signatureLink.split('/').pop(); // Extrait le token de la fin de l'URL
+        
+        if (token) {
+          const docId = await getDocumentIdFromToken(token);
+          if (docId) {
+            pdfData = await getPdfData(docId);
+          }
+        }
+      } else if (item.type === 'document' && item.rawData) {
+        // Pour les documents, récupérer le PDF via le document id
+        const doc = item.rawData as Document;
+        pdfData = await getPdfData(doc.id);
+      }
+
+      if (pdfData) {
+        const uint8Array = base64ToUint8Array(pdfData);
+        const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
+        setPdfDocument(pdf);
+        setPdfZoom(window.innerWidth < 768 ? 0.5 : 0.8);
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement du PDF:', error);
+      addToast('Erreur lors du chargement du PDF', 'error');
+    } finally {
+      setPdfLoading(false);
     }
   };
   
   const handleSignClick = () => {
-      if(selectedEmail?.signatureLink){
-          const token = selectedEmail.signatureLink.split('/').pop();
-          navigate(`/sign/${token}`);
+    if (selectedItem?.type === 'email' && selectedItem?.signatureLink) {
+      // Pour les emails reçus (destinataire), permettre la signature
+      const token = selectedItem.signatureLink.split('/').pop();
+      navigate(`/sign/${token}`);
+    } else if (selectedItem?.type === 'document') {
+      // 🔒 SÉCURITÉ : Pour les documents envoyés (expéditeur), 
+      // consultation en lecture seule uniquement
+      const token = selectedItem.signatureLink?.split('/').pop();
+      if (token) {
+        console.log('🔒 Expéditeur ne peut pas signer son propre document - Mode lecture seule');
+        navigate(`/sign/${token}`, { state: { readOnly: true } });
       }
+    }
   };
 
-  const handleEmailSelect = (emailId: string) => {
-    setSelectedEmails(prev => 
-      prev.includes(emailId) 
-        ? prev.filter(id => id !== emailId)
-        : [...prev, emailId]
+  const handleItemSelect = (itemId: string) => {
+    setSelectedItems(prev => 
+      prev.includes(itemId) 
+        ? prev.filter(id => id !== itemId)
+        : [...prev, itemId]
     );
   };
 
   const handleSelectAllClick = () => {
-    if (emails.length > 0 && selectedEmails.length === emails.length) {
-      setSelectedEmails([]);
+    if (filteredItems.length > 0 && selectedItems.length === filteredItems.length) {
+      setSelectedItems([]);
     } else {
-      setSelectedEmails(emails.map(e => e.id));
+      setSelectedItems(filteredItems.map(i => i.id));
     }
   };
 
-  const handleDeleteEmails = async () => {
-    if (selectedEmails.length === 0) return;
+  const handleDeleteItems = async () => {
+    if (selectedItems.length === 0) return;
     
-    const result = await deleteEmails(selectedEmails);
-    if (result.success) {
-      addToast(`${selectedEmails.length} message(s) supprimé(s) avec succès.`, 'success');
-      setEmails(prev => prev.filter(e => !selectedEmails.includes(e.id)));
-      setSelectedEmails([]);
-      setIsSelectionMode(false);
-      if (selectedEmail && selectedEmails.includes(selectedEmail.id)) {
-        setSelectedEmail(null);
-      }
-    } else {
-      addToast('Échec de la suppression des messages.', 'error');
+    try {
+      await deleteEmails(selectedItems);
+      setUnifiedItems(prev => prev.filter(item => !selectedItems.includes(item.id)));
+      setSelectedItems([]);
+      addToast(`${selectedItems.length} élément(s) supprimé(s)`, 'success');
+    } catch (error) {
+      addToast('Erreur lors de la suppression', 'error');
     }
-  };
-
-  const handleExitSelectionMode = () => {
-    setIsSelectionMode(false);
-    setSelectedEmails([]);
   };
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-200px)]">
+      <div className="flex items-center justify-center h-screen">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 lg:p-8">
-      {isSelectionMode ? (
-        <div className="bg-primaryContainer/30 backdrop-blur-sm rounded-2xl p-4 elevation-1 border border-primary/20 animate-slide-down mb-8">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="bg-primary text-onPrimary px-4 py-2 rounded-full font-bold text-sm elevation-2">
-                {selectedEmails.length} / {emails.length}
-              </div>
-              <h2 className="text-lg font-bold text-onSurface">
-                {selectedEmails.length === 0 ? 'Aucune sélection' : 
-                 selectedEmails.length === 1 ? '1 email sélectionné' : 
-                 `${selectedEmails.length} emails sélectionnés`}
-              </h2>
+    <div className="h-[calc(100vh-4rem)] flex flex-col lg:flex-row bg-background overflow-hidden">
+      {/* Sidebar avec dossiers */}
+      <div className={`${showContent && 'hidden lg:flex'} w-full lg:w-1/4 flex flex-col bg-surface lg:border-r border-outlineVariant`}>
+        <div className="p-4 border-b border-outlineVariant bg-surface z-10">
+          <div className="flex items-center gap-3">
+            <div className="inline-block p-2.5 rounded-full progressive-glow-blue flex-shrink-0" style={{ backgroundColor: 'rgb(37 99 235 / 0.1)' }}>
+              <InboxIcon className="h-6 w-6 text-onSecondaryContainer" />
             </div>
-            <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto">
-              <Button 
-                variant="filled" 
-                icon={CheckSquare}
-                onClick={handleSelectAllClick} 
-                disabled={emails.length === 0}
-                size="small"
-                className="flex-1 sm:flex-initial min-w-[140px] max-w-[160px]"
-              >
-                <span className="truncate">
-                  {emails.length > 0 && selectedEmails.length === emails.length
-                    ? 'Tout désélectionner'
-                    : 'Tout sélectionner'}
-                </span>
-              </Button>
+            <h1 className="text-2xl font-bold text-onSurface">Boîte de réception</h1>
+          </div>
+        </div>
+
+        <nav className="flex-none lg:flex-shrink-0 p-2 bg-background overflow-visible">
+          <div className="flex flex-row lg:flex-col gap-1 overflow-x-auto lg:overflow-x-visible scrollbar-hide">
+            <style>{`
+              .scrollbar-hide::-webkit-scrollbar { display: none; }
+              .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+            `}</style>
+            {folders.map(folder => (
+              <div key={folder.id} className="relative w-auto md:w-full">
+                <button
+                  onClick={() => {
+                    setSelectedFolder(folder.id);
+                    // Sur desktop (lg), on réinitialise la sélection
+                    // Sur mobile, on garde l'affichage actuel
+                    if (window.innerWidth >= 1024) {
+                      setSelectedItem(null);
+                      setShowContent(false);
+                    }
+                  }}
+                  onMouseEnter={() => setHoveredFolder(folder.id)}
+                  onMouseLeave={() => setHoveredFolder(null)}
+                  onTouchStart={() => {
+                    setHoveredFolder(folder.id);
+                    setTimeout(() => setHoveredFolder(null), 1500);
+                  }}
+                  title={folder.name}
+                  className={`px-4 py-3 md:px-5 md:py-3 lg:px-4 lg:py-3 rounded-full md:rounded-lg flex items-center justify-center md:justify-between transition-colors mb-0 md:mb-1 flex-shrink-0 md:flex-shrink whitespace-nowrap md:whitespace-normal min-w-max md:min-w-0 w-full ${
+                    selectedFolder === folder.id
+                      ? 'bg-primaryContainer text-onPrimaryContainer'
+                      : 'text-onSurface hover:bg-surfaceVariant/50 md:hover:bg-surfaceVariant'
+                  }`}
+                >
+                  <div className="flex md:flex-row flex-col md:items-center gap-1 md:gap-3 min-w-0 items-center">
+                    <folder.icon className="h-6 md:h-5 w-6 md:w-5 flex-shrink-0" />
+                    <span className="truncate font-medium hidden md:inline text-xs md:text-sm">{folder.name}</span>
+                  </div>
+                  <div className="hidden md:flex items-center gap-2 flex-shrink-0">
+                    {folder.unread !== undefined && folder.unread > 0 && (
+                      <span className="bg-error text-onError text-xs font-bold px-2 py-0.5 rounded-full">
+                        {folder.unread}
+                      </span>
+                    )}
+                    <span className="text-xs text-onSurfaceVariant font-semibold">{folder.count}</span>
+                  </div>
+                </button>
+                {hoveredFolder === folder.id && (
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 pointer-events-none md:hidden animate-fade-in">
+                    <div className="bg-inverseSurface text-inverseOnSurface text-xs font-medium px-3 py-2 rounded-lg shadow-lg whitespace-nowrap">
+                      {folder.name}
+                    </div>
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 w-0 h-0 border-4 border-l-transparent border-r-transparent border-t-transparent border-b-inverseSurface" />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </nav>
+
+
+      </div>
+
+      {/* Liste des items */}
+      <div className={`${showContent && 'hidden lg:flex'} w-full lg:w-1/4 flex flex-col border-r border-outlineVariant bg-surface h-full overflow-hidden`}>
+        <div className="p-4 border-b border-outlineVariant bg-surface z-10">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-onSurface truncate">Tous</h2>
+            {!isSelectionMode ? (
               <Button 
                 variant="outlined"
-                icon={Trash2} 
-                disabled={selectedEmails.length === 0} 
-                onClick={handleDeleteEmails}
-                size="small"
-                className="flex-1 sm:flex-initial min-w-[110px] !text-error !border-error state-layer-error [&:hover]:!bg-transparent"
+                onClick={() => setIsSelectionMode(true)}
               >
-                Supprimer
+                Sélectionner
               </Button>
+            ) : (
               <Button 
-                variant="text" 
-                icon={X}
-                onClick={handleExitSelectionMode}
-                size="small"
-                className="flex-1 sm:flex-initial"
+                variant="outlined"
+                onClick={() => {
+                  setIsSelectionMode(false);
+                  setSelectedItems([]);
+                }}
               >
                 Annuler
               </Button>
-            </div>
+            )}
           </div>
         </div>
-      ) : (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
-            <div className="flex items-center gap-4">
-              <div className="bg-secondaryContainer inline-block p-4 rounded-full progressive-glow">
-                <InboxIcon className="h-12 w-12 text-onSecondaryContainer" />
-              </div>
-              <div>
-                <h1 className="text-4xl font-bold text-onSurface">Boîte de réception</h1>
-                <p className="mt-1 text-md text-onSurfaceVariant">Consultez ici toutes vos demandes de signature reçues.</p>
-              </div>
-            </div>
-            <Button variant="outlined" onClick={() => setIsSelectionMode(true)}>Sélectionner</Button>
-        </div>
-      )}
 
-      <div className="bg-surface rounded-3xl shadow-sm flex h-[calc(100vh-220px)] overflow-hidden" style={{ borderWidth: '1px', borderColor: 'rgb(216, 194, 191)' }}>
-        {/* Email List - Caché sur mobile quand on affiche le contenu */}
-        <div className={`w-full sm:w-1/3 overflow-y-auto ${showEmailContent ? 'hidden sm:block' : 'block'}`} style={{ borderRight: '1px solid rgb(216, 194, 191)' }}>
-          {emails.length === 0 ? (
-             <div className="text-center p-8 text-onSurfaceVariant">
-                <InboxIcon className="mx-auto h-12 w-12" />
-                <p className="mt-4 text-sm font-semibold">La boîte de réception est vide.</p>
+        {/* Barre de sélection globale */}
+        {isSelectionMode && (
+          <div className="p-3 border-b border-outlineVariant flex items-center gap-3 bg-surfaceVariant/30">
+            <input
+              type="checkbox"
+              checked={selectedItems.length === filteredItems.length && filteredItems.length > 0}
+              onChange={handleSelectAllClick}
+              className="w-4 h-4 rounded cursor-pointer"
+              title="Sélectionner tous"
+            />
+            <span className="text-sm font-medium text-onSurface flex-1">
+              {selectedItems.length === 0 ? 'Sélectionner tous' : `${selectedItems.length} sélectionné(s)`}
+            </span>
+            {selectedItems.length > 0 && (
+              <Button 
+                variant="outlined"
+                icon={Trash2}
+                onClick={handleDeleteItems}
+                size="small"
+                className="!text-error !border-error"
+              >
+                Supprimer
+              </Button>
+            )}
+          </div>
+        )}
+
+        <div className="overflow-y-auto flex-1">
+          {filteredItems.length === 0 ? (
+            <div className="p-8 text-center text-onSurfaceVariant">
+              <FolderOpen className="h-12 w-12 mx-auto mb-3 opacity-30" />
+              <p className="text-sm">Aucun élément</p>
              </div>
           ) : (
-            <ul>
-              {emails.map(email => (
-                <li 
-                    key={email.id} 
-                    onClick={() => isSelectionMode ? handleEmailSelect(email.id) : handleSelectEmail(email)}
-                    className={`p-4 cursor-pointer transition-colors ${selectedEmail?.id === email.id && !isSelectionMode ? 'bg-primaryContainer/50' : 'hover:bg-surfaceVariant'}`}
-                    style={{ borderBottom: '1px solid rgb(216, 194, 191)' }}
+            filteredItems.map(item => (
+              <button
+                key={item.id}
+                onClick={() => handleSelectItem(item)}
+                className={`w-full p-4 border-b border-outlineVariant/50 text-left hover:bg-surfaceVariant/50 transition-colors group ${
+                  selectedItem?.id === item.id ? 'bg-primaryContainer/20' : ''
+                } ${!item.read ? 'bg-surfaceVariant/20' : ''}`}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className={`flex justify-between items-start gap-2 ${!email.read ? 'font-bold' : ''}`}>
-                        <p className="text-onSurface truncate flex-1">{email.toName}</p>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className="text-xs text-onSurfaceVariant whitespace-nowrap">{new Date(email.sentAt).toLocaleDateString()}</span>
                           {isSelectionMode && (
-                            <label className="cursor-pointer group animate-fade-in-scale" onClick={(e) => e.stopPropagation()}>
                               <input
                                 type="checkbox"
-                                checked={selectedEmails.includes(email.id)}
-                                onChange={(e) => {
-                                  e.stopPropagation();
-                                  handleEmailSelect(email.id);
-                                }}
-                                className="sr-only peer"
-                                aria-label={`Sélectionner l'email de ${email.toName}`}
-                              />
-                              <div className="
-                                w-5 h-5 sm:w-6 sm:h-6
-                                rounded-full border-2
-                                bg-surface elevation-1
-                                flex items-center justify-center
-                                transition-all duration-200
-                                peer-checked:bg-primary peer-checked:border-primary peer-checked:elevation-2
-                                peer-focus:ring-2 peer-focus:ring-primary
-                                group-hover:elevation-2 group-hover:scale-105
-                                border-outlineVariant
-                              ">
-                                {selectedEmails.includes(email.id) && (
-                                  <svg className="w-3 h-3 text-onPrimary animate-expand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                  </svg>
-                                )}
-                              </div>
-                            </label>
-                          )}
-                        </div>
+                      checked={selectedItems.includes(item.id)}
+                      onChange={() => handleItemSelect(item.id)}
+                      className="mt-1"
+                      onClick={e => e.stopPropagation()}
+                    />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start gap-2 mb-1">
+                      {item.type === 'email' ? (
+                        <Mail className="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                      ) : (
+                        <Send className="h-4 w-4 text-orange-500 flex-shrink-0 mt-0.5" />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-sm truncate max-w-xs sm:max-w-sm md:max-w-md lg:max-w-md xl:max-w-lg 2xl:max-w-xl ${!item.read ? 'font-semibold' : 'font-medium'}`}>
+                          {item.documentName}
+                        </p>
+                        <p className="text-xs text-onSurfaceVariant">
+                          {new Date(item.timestamp).toLocaleString('fr-FR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
                       </div>
-                      <p className={`text-sm mt-1 truncate ${!email.read ? 'text-onSurface' : 'text-onSurfaceVariant'}`}>{renderSubjectWithIcon(email.subject)}</p>
                     </div>
                   </div>
-                </li>
-              ))}
-            </ul>
+                  {!item.read && item.type === 'email' && (
+                    <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1"></div>
+                  )}
+                  {/* Bouton Supprimer qui apparaît au survol */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedItems([item.id]);
+                      handleDeleteItems();
+                    }}
+                    className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded hover:bg-error/10 text-error flex-shrink-0"
+                    title="Supprimer"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </button>
+            ))
           )}
         </div>
+      </div>
 
-        {/* Email Content - Visible sur mobile quand showEmailContent est true */}
-        <div className={`w-full sm:w-2/3 p-4 sm:p-6 overflow-y-auto overflow-x-hidden ${showEmailContent ? 'block' : 'hidden sm:block'}`}>
-          {selectedEmail ? (
-            <div className="max-w-full">
-              {/* Bouton retour pour mobile */}
+      {/* Détail view */}
+      <div className={`${!showContent && 'hidden lg:flex'} w-full lg:flex-1 flex flex-col bg-surface h-full overflow-hidden`}>
+        {selectedItem ? (
+          <>
+            <div className="p-4 border-b border-outlineVariant flex items-center gap-2 justify-between">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
               <button 
-                onClick={() => setShowEmailContent(false)}
-                className="sm:hidden mb-4 flex items-center text-primary font-semibold press-effect transition-all hover:scale-105"
+                  onClick={() => setShowContent(false)}
+                  className="lg:hidden p-2 rounded-full hover:bg-surfaceVariant flex-shrink-0"
               >
-                <ArrowLeft className="h-5 w-5 mr-2" /> Retour à la liste
+                  <ArrowLeft className="h-5 w-5" />
               </button>
-              <h2 className="text-xl sm:text-2xl font-bold text-onSurface break-words">{renderDetailSubjectWithIcon(selectedEmail.subject)}</h2>
-              <div className="mt-4 pb-4" style={{ borderBottom: '1px solid rgb(216, 194, 191)' }}>
-                <p className="break-words"><strong>De :</strong> SignEase (no-reply@signease.com)</p>
-                <p className="break-words"><strong>À :</strong> {selectedEmail.toName} &lt;{selectedEmail.toEmail}&gt;</p>
-                <p className="break-words"><strong>Date :</strong> {new Date(selectedEmail.sentAt).toLocaleString('fr-FR')}</p>
+                <h2 className="text-xl font-bold text-onSurface truncate max-w-[150px] sm:max-w-[250px] md:max-w-[300px] lg:max-w-1/4 xl:max-w-3/5 2xl:max-w-2/3">
+                  {selectedItem.documentName}
+                </h2>
               </div>
-              <div className="mt-6 prose max-w-none text-onSurface break-words">
-                <p className="break-words">{selectedEmail.body.split('\n').map((line, i) => <span key={i}>{line}<br/></span>)}</p>
-              </div>
-               <div className="mt-8 pt-6 text-center px-4" style={{ borderTop: '1px solid rgb(216, 194, 191)' }}>
-                   <p className="text-sm text-onSurfaceVariant mb-4">Cliquez sur le bouton ci-dessous pour examiner et signer le document.</p>
+              {pdfDocument && (
+                <div className="flex items-center gap-2">
                   <button
-                      onClick={handleSignClick}
-                      className="w-full sm:w-auto max-w-full inline-flex items-center justify-center gap-2 min-h-[44px] btn-premium-shine btn-premium-extended text-sm focus:outline-none focus:ring-4 focus:ring-primary/30"
-                      title={`Examiner & Signer ${selectedEmail.documentName}`}
+                    onClick={() => setPdfZoom(z => Math.max(0.5, z - 0.1))}
+                    className="p-2 rounded-lg hover:bg-surfaceVariant transition-colors"
                   >
-                      <FileText className="h-5 w-5 flex-shrink-0" />
-                      <span className="truncate min-w-0">Examiner &amp; Signer {selectedEmail.documentName}</span>
+                    <ZoomOut className="h-5 w-5" />
+                  </button>
+                  <span className="text-sm font-medium min-w-[50px] text-center">{Math.round(pdfZoom * 100)}%</span>
+                  <button
+                    onClick={() => setPdfZoom(z => Math.min(1, z + 0.1))}
+                    className="p-2 rounded-lg hover:bg-surfaceVariant transition-colors"
+                  >
+                    <ZoomIn className="h-5 w-5" />
                   </button>
                </div>
+              )}
             </div>
-          ) : (
-             <div className="flex flex-col items-center justify-center h-full text-center text-onSurfaceVariant">
-                <InboxIcon className="mx-auto h-16 w-16" />
-                <p className="mt-4 text-lg font-semibold">Sélectionnez un message à lire</p>
-                <p className="text-sm">Le contenu s'affichera ici.</p>
-             </div>
-          )}
-        </div>
+
+            <div className="flex-1 overflow-y-auto bg-surfaceVariant/30" ref={viewerRef}>
+              {pdfLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                </div>
+              ) : pdfDocument ? (
+                <div className="flex flex-col items-center py-2 px-2">
+                  {Array.from(new Array(pdfDocument.numPages), (_, index) => (
+                    <div key={`page-${index + 1}`} className="bg-white rounded-lg shadow-lg overflow-hidden mb-3">
+                      <PdfPageRenderer 
+                        pageNum={index + 1} 
+                        pdf={pdfDocument} 
+                        zoom={pdfZoom} 
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-onSurfaceVariant">
+                  <FileText className="h-12 w-12 mb-4 opacity-30" />
+                  <p className="text-sm">Aucun PDF à afficher</p>
+                </div>
+              )}
+            </div>
+
+            {/* Boutons d'action */}
+            <div className="p-4 border-t border-outlineVariant flex justify-end">
+              <button
+                onClick={handleSignClick}
+                className="inline-flex items-center justify-center gap-2 min-h-[44px] btn-premium-shine btn-premium-extended text-sm"
+              >
+                {selectedItem.type === 'email' ? (
+                  <>
+                    <FileText className="h-5 w-5" />
+                    Examiner & Signer
+                  </>
+                ) : (
+                  <>
+                    <Eye className="h-5 w-5" />
+                    Consulter
+                  </>
+                )}
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="flex items-center justify-center h-full text-center text-onSurfaceVariant">
+            <div>
+              <InboxIcon className="h-16 w-16 mx-auto mb-4 opacity-30" />
+              <p className="text-lg font-semibold">Sélectionnez un élément</p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
