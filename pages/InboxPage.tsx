@@ -355,7 +355,7 @@ const InboxPage: React.FC = () => {
           </div>
         </div>
 
-        <nav className="flex flex-row lg:flex-col flex-1 lg:flex-1 p-4 lg:p-2 gap-3 lg:gap-0">
+        <nav className="flex flex-row lg:flex-col flex-1 lg:flex-1 p-2 gap-1 sticky top-16 bg-surface z-10">
           {folders.map(folder => (
             <button
               key={folder.id}
@@ -392,7 +392,7 @@ const InboxPage: React.FC = () => {
 
         {/* Barre de sélection globale */}
         {isSelectionMode && (
-          <div className="p-3 border-b border-outlineVariant flex items-center gap-3 bg-surfaceVariant/30">
+          <div className="p-3 border-b border-outlineVariant flex items-center gap-3 bg-surfaceVariant/30 sticky top-28">
             <input
               type="checkbox"
               checked={selectedItems.length === filteredItems.length && filteredItems.length > 0}
@@ -419,7 +419,7 @@ const InboxPage: React.FC = () => {
       </div>
 
       {/* Liste des items */}
-      <div className={`${showContent && 'hidden lg:flex'} lg:flex w-full lg:w-1/4 flex-col border-r border-outlineVariant bg-surface`}>
+      <div className={`${showContent && 'hidden lg:flex'} lg:flex w-full lg:w-1/4 flex-col border-r border-outlineVariant bg-surface flex-1 min-h-0`}>
         <div className="p-4 border-b border-outlineVariant sticky top-0 bg-surface flex items-center justify-between">
           <h2 className="font-semibold text-onSurface truncate mr-2">
             {folders.find(f => f.id === selectedFolder)?.name}
