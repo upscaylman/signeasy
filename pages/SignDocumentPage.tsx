@@ -2048,17 +2048,7 @@ const SignDocumentPage: React.FC = () => {
             >
               {envelope.document.name}
             </h1>
-                         {alreadySigned ? (
-                            <div className="flex items-center gap-2 mt-1">
-                                <div className="bg-tertiaryContainer text-onTertiaryContainer px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5">
-                                    <CheckCircle className="h-3.5 w-3.5" />
-                                    Vous avez déjà signé ce document
-                                </div>
-                <p className="text-sm text-onSurfaceVariant hidden sm:inline">
-                  • Mode lecture seule
-                </p>
-                            </div>
-                         ) : readOnly ? (
+                         {alreadySigned || readOnly ? (
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 mt-1">
                                 <div className="bg-tertiaryContainer text-onTertiaryContainer px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5">
                                     <CheckCircle className="h-3.5 w-3.5" />
@@ -2070,7 +2060,7 @@ const SignDocumentPage: React.FC = () => {
                       (r) => r.id === envelope.currentSignerId
                     );
                     return signer
-                      ? `${signer.name} (${signer.email})`
+                      ? `${signer.name} (${signer.email}) a signé ce document • Mode lecture seule`
                       : "Mode lecture seule";
                   })()}
                 </p>
