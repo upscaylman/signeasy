@@ -768,6 +768,17 @@ export const submitSignature = async (
         "📧 Document complètement signé - Envoi de notification à l'expéditeur..."
       );
 
+      // Créer un token de lecture seule pour l'email externe
+      const viewToken = `view-${
+        envelope.document.id
+      }-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+
+      await setDoc(doc(db, "tokens", viewToken), {
+        envelopeId: envelopeId,
+        recipientId: envelope.recipients[0].id,
+        isViewOnly: true,
+      });
+
       // Envoyer l'email de confirmation externe
       const confirmationResult = await sendSignatureConfirmationEmail(
         envelope.document.id,
@@ -780,7 +791,7 @@ export const submitSignature = async (
 
       if (!confirmationResult.success) {
         console.warn(
-          "⚠️ Email externe de confirmation non envoyé, mais email interne est enregistré"
+          "⚠️ Email externe de confirmation non envoyé"
         );
       }
     }
