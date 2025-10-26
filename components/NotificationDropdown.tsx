@@ -1,21 +1,47 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Bell, BellOff, Check, FileSignature, CheckCircle, XCircle, Mail, Send, X } from 'lucide-react';
-import { collection, query, where, getDocs, getDoc, updateDoc, doc, writeBatch, deleteDoc } from 'firebase/firestore';
-import { db } from '../config/firebase';
-import { useUser } from './UserContext';
-import Tooltip from './Tooltip';
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  updateDoc,
+  where,
+  writeBatch,
+} from "firebase/firestore";
+import {
+  Bell,
+  BellOff,
+  Check,
+  CheckCircle,
+  Mail,
+  Send,
+  X,
+  XCircle,
+} from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { db } from "../config/firebase";
+import Tooltip from "./Tooltip";
+import { useUser } from "./UserContext";
 
 interface Notification {
   id: string;
-  type: 'SEND' | 'SIGN' | 'REJECT' | 'COMPLETE' | 'RECEIVED' | 'SIGNED_BY_ME' | 'REJECTED_BY_ME';
+  type:
+    | "SEND"
+    | "SIGN"
+    | "REJECT"
+    | "COMPLETE"
+    | "RECEIVED"
+    | "SIGNED_BY_ME"
+    | "REJECTED_BY_ME";
   documentId: string;
   documentName: string;
   message: string;
   timestamp: string;
   read: boolean;
   recipientName?: string;
-  source: 'sent' | 'received'; // Pour distinguer expéditeur vs destinataire
+  source: "sent" | "received"; // Pour distinguer expéditeur vs destinataire
   emailId?: string; // Pour les notifications de type email
 }
 
@@ -23,7 +49,7 @@ const NotificationDropdown: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [menuHeight, setMenuHeight] = useState('calc(100dvh - 64px)');
+  const [menuHeight, setMenuHeight] = useState("calc(100dvh - 64px)");
   const navigate = useNavigate();
   const { currentUser } = useUser();
 
@@ -31,24 +57,26 @@ const NotificationDropdown: React.FC = () => {
   useEffect(() => {
     const updateMenuHeight = () => {
       const isSmallScreen = window.innerWidth < 640;
-      setMenuHeight(isSmallScreen ? 'calc(100dvh - 64px)' : 'calc(100dvh - 72px)');
+      setMenuHeight(
+        isSmallScreen ? "calc(100dvh - 64px)" : "calc(100dvh - 72px)"
+      );
     };
 
     updateMenuHeight();
-    window.addEventListener('resize', updateMenuHeight);
-    return () => window.removeEventListener('resize', updateMenuHeight);
+    window.addEventListener("resize", updateMenuHeight);
+    return () => window.removeEventListener("resize", updateMenuHeight);
   }, []);
 
   // Bloquer le scroll quand le menu est ouvert
   useEffect(() => {
     if (isOpen) {
-      document.body.style.overflow = 'hidden';
+      document.body.style.overflow = "hidden";
     } else {
-      document.body.style.overflow = 'auto';
+      document.body.style.overflow = "auto";
     }
 
     return () => {
-      document.body.style.overflow = 'auto';
+      document.body.style.overflow = "auto";
     };
   }, [isOpen]);
 
@@ -61,43 +89,55 @@ const NotificationDropdown: React.FC = () => {
 
       // ========== PARTIE 1 : NOTIFICATIONS EXPÉDITEUR (documents envoyés) ==========
       const docsQuery = query(
-        collection(db, 'documents'),
-        where('creatorEmail', '==', currentUser.email.toLowerCase())
+        collection(db, "documents"),
+        where("creatorEmail", "==", currentUser.email.toLowerCase())
       );
       const docsSnapshot = await getDocs(docsQuery);
 
       for (const docSnapshot of docsSnapshot.docs) {
         const docData = docSnapshot.data();
-        const auditDoc = await getDoc(
-          doc(db, 'auditTrails', docData.id)
-        );
+        const auditDoc = await getDoc(doc(db, "auditTrails", docData.id));
 
         if (auditDoc.exists()) {
           const auditData = auditDoc.data();
           const events = auditData.events || [];
 
-          // Filtrer les événements pertinents (SEND, SIGN, REJECT, COMPLETE)
-          const relevantEvents = events.filter((event: any) => 
-            ['SEND', 'SIGN', 'REJECT', 'COMPLETE'].includes(event.type)
+          // Filtrer les événements pertinents (SIGN, REJECT uniquement)
+          const relevantEvents = events.filter((event: any) =>
+            ["SIGN", "REJECT"].includes(event.type)
           );
+
+          // Récupérer l'enveloppe pour obtenir les infos complètes du destinataire
+          const envelopeDoc = await getDoc(
+            doc(db, "envelopes", `env${docData.id.substring(3)}`)
+          );
+
+          let recipientInfo = "";
+          if (envelopeDoc.exists()) {
+            const envelopeData = envelopeDoc.data();
+            const recipient = envelopeData.recipients?.find(
+              (r: any) =>
+                r.email ===
+                events.find(
+                  (e: any) => e.type === "SIGN" || e.type === "REJECT"
+                )?.user
+            );
+            if (recipient) {
+              recipientInfo = `${recipient.name} (${recipient.email})`;
+            }
+          }
 
           // Créer des notifications pour chaque événement
           relevantEvents.forEach((event: any) => {
-            let message = '';
-            const recipientName = event.user || 'Utilisateur';
+            let message = "";
+            const recipientName = recipientInfo || event.user || "Utilisateur";
 
             switch (event.type) {
-              case 'SEND':
-                message = `Document envoyé pour signature`;
-                break;
-              case 'SIGN':
+              case "SIGN":
                 message = `Document signé par ${recipientName}`;
                 break;
-              case 'REJECT':
+              case "REJECT":
                 message = `Document rejeté par ${recipientName}`;
-                break;
-              case 'COMPLETE':
-                message = `Toutes les signatures sont complètes`;
                 break;
             }
 
@@ -110,13 +150,17 @@ const NotificationDropdown: React.FC = () => {
               timestamp: event.timestamp,
               read: event.read || false,
               recipientName,
-              source: 'sent'
+              source: "sent",
             });
           });
         }
       }
 
       // ========== PARTIE 2 : NOTIFICATIONS DESTINATAIRE (emails reçus) ==========
+      // NOTE: Ces notifications sont désactivées dans l'affichage mais conservées dans le code
+      // pour référence future. Seules les notifications SIGN et REJECT des expéditeurs sont affichées.
+
+      /* 
       const emailsQuery = query(
         collection(db, 'emails'),
         where('toEmail', '==', currentUser.email.toLowerCase())
@@ -152,40 +196,44 @@ const NotificationDropdown: React.FC = () => {
           emailId: emailDoc.id
         });
       }
+      */
 
       // Trier par date décroissante et limiter à 10
       const sortedNotifications = allNotifications
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .sort(
+          (a, b) =>
+            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        )
         .slice(0, 10);
 
       setNotifications(sortedNotifications);
-      setUnreadCount(sortedNotifications.filter(n => !n.read).length);
+      setUnreadCount(sortedNotifications.filter((n) => !n.read).length);
     } catch (error) {
-      console.error('Erreur lors de la récupération des notifications:', error);
+      console.error("Erreur lors de la récupération des notifications:", error);
     }
   };
 
   useEffect(() => {
     fetchNotifications();
-    
+
     // Refetch périodiquement (toutes les 30 secondes)
     const interval = setInterval(fetchNotifications, 30000);
-    
+
     return () => clearInterval(interval);
   }, [currentUser?.email]);
 
   // Marquer une notification comme lue
   const markAsRead = async (notification: Notification) => {
     try {
-      if (notification.source === 'sent') {
+      if (notification.source === "sent") {
         // Notification expéditeur : Mettre à jour dans audit trail
-        const auditDocRef = doc(db, 'auditTrails', notification.documentId);
+        const auditDocRef = doc(db, "auditTrails", notification.documentId);
         const auditDoc = await getDoc(auditDocRef);
 
         if (auditDoc.exists()) {
           const auditData = auditDoc.data();
           const events = auditData.events || [];
-          
+
           const updatedEvents = events.map((event: any) => {
             if (event.timestamp === notification.timestamp) {
               return { ...event, read: true };
@@ -195,19 +243,19 @@ const NotificationDropdown: React.FC = () => {
 
           await updateDoc(auditDocRef, { events: updatedEvents });
         }
-      } else if (notification.source === 'received' && notification.emailId) {
+      } else if (notification.source === "received" && notification.emailId) {
         // Notification destinataire : Mettre à jour l'email
-        const emailRef = doc(db, 'emails', notification.emailId);
+        const emailRef = doc(db, "emails", notification.emailId);
         await updateDoc(emailRef, { read: true });
       }
 
       // Mettre à jour localement
-      setNotifications(prev => 
-        prev.map(n => n.id === notification.id ? { ...n, read: true } : n)
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n))
       );
-      setUnreadCount(prev => Math.max(0, prev - 1));
+      setUnreadCount((prev) => Math.max(0, prev - 1));
     } catch (error) {
-      console.error('Erreur lors du marquage comme lu:', error);
+      console.error("Erreur lors du marquage comme lu:", error);
     }
   };
 
@@ -215,17 +263,17 @@ const NotificationDropdown: React.FC = () => {
   const markAllAsRead = async () => {
     try {
       const batch = writeBatch(db);
-      
-      for (const notification of notifications.filter(n => !n.read)) {
-        if (notification.source === 'sent') {
+
+      for (const notification of notifications.filter((n) => !n.read)) {
+        if (notification.source === "sent") {
           // Notifications expéditeur
-          const auditDocRef = doc(db, 'auditTrails', notification.documentId);
+          const auditDocRef = doc(db, "auditTrails", notification.documentId);
           const auditDoc = await getDoc(auditDocRef);
 
           if (auditDoc.exists()) {
             const auditData = auditDoc.data();
             const events = auditData.events || [];
-            
+
             const updatedEvents = events.map((event: any) => {
               if (event.timestamp === notification.timestamp) {
                 return { ...event, read: true };
@@ -235,9 +283,9 @@ const NotificationDropdown: React.FC = () => {
 
             batch.update(auditDocRef, { events: updatedEvents });
           }
-        } else if (notification.source === 'received' && notification.emailId) {
+        } else if (notification.source === "received" && notification.emailId) {
           // Notifications destinataire
-          const emailRef = doc(db, 'emails', notification.emailId);
+          const emailRef = doc(db, "emails", notification.emailId);
           batch.update(emailRef, { read: true });
         }
       }
@@ -245,47 +293,53 @@ const NotificationDropdown: React.FC = () => {
       await batch.commit();
 
       // Mettre à jour localement
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       setUnreadCount(0);
     } catch (error) {
-      console.error('Erreur lors du marquage de toutes les notifications:', error);
+      console.error(
+        "Erreur lors du marquage de toutes les notifications:",
+        error
+      );
     }
   };
 
   // Supprimer une notification
-  const deleteNotification = async (notification: Notification, event: React.MouseEvent) => {
+  const deleteNotification = async (
+    notification: Notification,
+    event: React.MouseEvent
+  ) => {
     event.stopPropagation(); // Empêcher le clic sur la notification
-    
+
     try {
-      if (notification.source === 'sent') {
+      if (notification.source === "sent") {
         // Notification expéditeur : Supprimer l'événement de l'audit trail
-        const auditDocRef = doc(db, 'auditTrails', notification.documentId);
+        const auditDocRef = doc(db, "auditTrails", notification.documentId);
         const auditDoc = await getDoc(auditDocRef);
 
         if (auditDoc.exists()) {
           const auditData = auditDoc.data();
           const events = auditData.events || [];
-          
+
           // Filtrer pour retirer cet événement
-          const updatedEvents = events.filter((event: any) => 
-            event.timestamp !== notification.timestamp
+          const updatedEvents = events.filter(
+            (event: any) => event.timestamp !== notification.timestamp
           );
 
           await updateDoc(auditDocRef, { events: updatedEvents });
         }
-      } else if (notification.source === 'received' && notification.emailId) {
+      } else if (notification.source === "received" && notification.emailId) {
         // Notification destinataire : Supprimer l'email
-        const emailRef = doc(db, 'emails', notification.emailId);
+        const emailRef = doc(db, "emails", notification.emailId);
         await deleteDoc(emailRef);
       }
 
       // Mettre à jour localement
-      setNotifications(prev => prev.filter(n => n.id !== notification.id));
+      setNotifications((prev) => prev.filter((n) => n.id !== notification.id));
       if (!notification.read) {
-        setUnreadCount(prev => Math.max(0, prev - 1));
+        setUnreadCount((prev) => Math.max(0, prev - 1));
       }
     } catch (error) {
-      console.error('Erreur lors de la suppression de la notification:', error);
+      console.error("Erreur lors de la suppression de la notification:", error);
     }
   };
 
@@ -293,31 +347,31 @@ const NotificationDropdown: React.FC = () => {
   const handleNotificationClick = async (notification: Notification) => {
     await markAsRead(notification);
     setIsOpen(false);
-    
+
     // Rediriger selon la source
-    if (notification.source === 'received') {
-      navigate('/inbox'); // Destinataire -> inbox
+    if (notification.source === "received") {
+      navigate("/inbox"); // Destinataire -> inbox
     } else {
-      navigate('/dashboard'); // Expéditeur -> dashboard
+      navigate("/dashboard"); // Expéditeur -> dashboard
     }
   };
 
   // Icône selon le type de notification
   const getIcon = (type: string) => {
     switch (type) {
-      case 'SEND':
+      case "SEND":
         return <Send className="h-4 w-4 text-blue-500" />;
-      case 'SIGN':
+      case "SIGN":
         return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'REJECT':
+      case "REJECT":
         return <XCircle className="h-4 w-4 text-red-500" />;
-      case 'COMPLETE':
+      case "COMPLETE":
         return <Check className="h-4 w-4 text-purple-500" />;
-      case 'RECEIVED':
+      case "RECEIVED":
         return <Mail className="h-4 w-4 text-blue-500" />;
-      case 'SIGNED_BY_ME':
+      case "SIGNED_BY_ME":
         return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'REJECTED_BY_ME':
+      case "REJECTED_BY_ME":
         return <XCircle className="h-4 w-4 text-red-500" />;
       default:
         return <Bell className="h-4 w-4 text-gray-500" />;
@@ -342,11 +396,13 @@ const NotificationDropdown: React.FC = () => {
         </button>
       </Tooltip>
       {unreadCount > 0 && (
-        <span className="
+        <span
+          className="
           absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center
           rounded-full bg-primary text-onPrimary text-xs font-bold
           animate-fade-in-scale elevation-2 badge-pulse
-        ">
+        "
+        >
           {unreadCount}
         </span>
       )}
@@ -355,7 +411,7 @@ const NotificationDropdown: React.FC = () => {
       {isOpen && (
         <div
           className="fixed right-0 top-16 sm:top-18 w-full sm:w-96 bg-surface z-40 flex flex-col shadow-2xl animate-slide-down"
-          style={{ 
+          style={{
             height: menuHeight,
           }}
         >
@@ -379,7 +435,9 @@ const NotificationDropdown: React.FC = () => {
                 <div>
                   <BellOff className="h-16 w-16 mx-auto mb-4 opacity-40" />
                   <p className="text-base font-medium">Aucune notification</p>
-                  <p className="text-xs mt-2 opacity-70">Vous n'avez aucune notification pour le moment</p>
+                  <p className="text-xs mt-2 opacity-70">
+                    Vous n'avez aucune notification pour le moment
+                  </p>
                 </div>
               </div>
             ) : (
@@ -391,7 +449,7 @@ const NotificationDropdown: React.FC = () => {
                     className={`
                       w-full p-4 border-b border-outlineVariant/50 text-left
                       hover:bg-surfaceVariant/50 transition-colors group relative
-                      ${!notification.read ? 'bg-primaryContainer/10' : ''}
+                      ${!notification.read ? "bg-primaryContainer/10" : ""}
                     `}
                   >
                     <div className="flex items-start gap-3">
@@ -399,20 +457,27 @@ const NotificationDropdown: React.FC = () => {
                         {getIcon(notification.type)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className={`text-sm ${!notification.read ? 'font-semibold' : 'font-medium'} text-onSurface`}>
+                        <p
+                          className={`text-sm ${
+                            !notification.read ? "font-semibold" : "font-medium"
+                          } text-onSurface`}
+                        >
                           {notification.message}
                         </p>
                         <p className="text-xs text-onSurfaceVariant truncate mt-1">
                           {notification.documentName}
                         </p>
                         <p className="text-xs text-onSurfaceVariant mt-1">
-                          {new Date(notification.timestamp).toLocaleString('fr-FR', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
+                          {new Date(notification.timestamp).toLocaleString(
+                            "fr-FR",
+                            {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }
+                          )}
                         </p>
                       </div>
                       {!notification.read && (
@@ -441,7 +506,7 @@ const NotificationDropdown: React.FC = () => {
               <button
                 onClick={() => {
                   setIsOpen(false);
-                  navigate('/inbox');
+                  navigate("/inbox");
                 }}
                 className="text-sm text-primary hover:underline font-medium"
               >
@@ -450,7 +515,7 @@ const NotificationDropdown: React.FC = () => {
               <button
                 onClick={() => {
                   setIsOpen(false);
-                  navigate('/dashboard');
+                  navigate("/dashboard");
                 }}
                 className="text-sm text-primary hover:underline font-medium"
               >
@@ -465,4 +530,3 @@ const NotificationDropdown: React.FC = () => {
 };
 
 export default NotificationDropdown;
-

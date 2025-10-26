@@ -749,49 +749,24 @@ export const submitSignature = async (
       events: newEvents,
     });
 
-    // 📧 NOTIFICATION : Si le document est complètement signé, envoyer un email à l'expéditeur
+    // 🔄 Mettre à jour l'email original du destinataire pour refléter la signature
+    const originalEmailId = `email-${token}`;
+    const originalEmailDoc = await getDoc(doc(db, "emails", originalEmailId));
+    if (originalEmailDoc.exists()) {
+      await updateDoc(doc(db, "emails", originalEmailId), {
+        subject: `✅ Document signé : ${envelope.document.name}`,
+        body: `Bonjour ${signer.name},\n\nVous avez signé le document "${
+          envelope.document.name
+        }".\n\nDate de signature : ${new Date().toLocaleString("fr-FR")}`,
+      });
+      console.log("   ✅ Email original du destinataire mis à jour");
+    }
+
+    // 📧 NOTIFICATION : Si le document est complètement signé, envoyer un email externe à l'expéditeur
     if (allSigned) {
       console.log(
         "📧 Document complètement signé - Envoi de notification à l'expéditeur..."
       );
-
-      // Créer un token de lecture seule pour l'expéditeur
-      const viewToken = `view-${
-        envelope.document.id
-      }-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
-
-      // Stocker le token avec le premier destinataire (pour affichage en lecture seule)
-      await setDoc(doc(db, "tokens", viewToken), {
-        envelopeId: envelopeId,
-        recipientId: envelope.recipients[0].id, // Premier destinataire par défaut
-        isViewOnly: true, // Flag pour indiquer que c'est un token de lecture seule
-      });
-
-      // 📧 Créer un email Firestore pour le créateur du document
-      const confirmationEmailId = `email-signed-${
-        envelope.document.id
-      }-${Date.now()}`;
-      const confirmationEmail: MockEmail = {
-        id: confirmationEmailId,
-        from: "noreply@signeasyfo.com",
-        to: envelope.document.creatorEmail.toLowerCase(),
-        toEmail: envelope.document.creatorEmail.toLowerCase(),
-        subject: `✅ Document signé : ${envelope.document.name}`,
-        body: `Bonjour,\n\nLe document "${
-          envelope.document.name
-        }" a été complètement signé par ${signer.name} (${
-          signer.email
-        }).\n\nDate de signature : ${new Date().toLocaleString(
-          "fr-FR"
-        )}\n\nCliquez sur le lien ci-dessous pour consulter le document signé.`,
-        signatureLink: `${window.location.origin}/#/sign/${viewToken}`,
-        documentName: envelope.document.name,
-        sentAt: new Date().toISOString(),
-        read: false,
-      };
-
-      await setDoc(doc(db, "emails", confirmationEmailId), confirmationEmail);
-      console.log("   ✅ Email de confirmation créé dans Firestore");
 
       // Envoyer l'email de confirmation externe
       const confirmationResult = await sendSignatureConfirmationEmail(
@@ -860,6 +835,21 @@ export const rejectSignature = async (
         },
       ],
     });
+
+    // 🔄 Mettre à jour l'email original du destinataire pour refléter le rejet
+    const originalEmailId = `email-${token}`;
+    const originalEmailDoc = await getDoc(doc(db, "emails", originalEmailId));
+    if (originalEmailDoc.exists()) {
+      await updateDoc(doc(db, "emails", originalEmailId), {
+        subject: `❌ Document rejeté : ${envelope.document.name}`,
+        body: `Bonjour ${signer.name},\n\nVous avez rejeté le document "${
+          envelope.document.name
+        }".\n\nRaison : ${reason}\n\nDate de rejet : ${new Date().toLocaleString(
+          "fr-FR"
+        )}`,
+      });
+      console.log("   ✅ Email original du destinataire mis à jour (rejet)");
+    }
 
     return { success: true };
   } catch (error) {
@@ -1521,14 +1511,14 @@ export const verifyPDFSignature = async (
         ? timestampEvents[timestampEvents.length - 1]
         : null;
 
-     // ✅ Étape 2: Vérifier les métadonnées
-     const signer =
-       lastSignEvent.signatureMetadata?.signer || lastSignEvent.user;
-     const timestamp = lastSignEvent.timestamp;
-     const conformanceLevel =
-       lastSignEvent.signatureMetadata?.conformance || "Unknown";
- 
-     // ✅ Étape 3: Vérifier le hash d'intégrité
+    // ✅ Étape 2: Vérifier les métadonnées
+    const signer =
+      lastSignEvent.signatureMetadata?.signer || lastSignEvent.user;
+    const timestamp = lastSignEvent.timestamp;
+    const conformanceLevel =
+      lastSignEvent.signatureMetadata?.conformance || "Unknown";
+
+    // ✅ Étape 3: Vérifier le hash d'intégrité
     if (lastTimestampEvent?.timestampProof) {
       const storedHash = lastTimestampEvent.timestampProof.hash;
 

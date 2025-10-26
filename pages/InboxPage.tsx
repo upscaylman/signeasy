@@ -1,4 +1,12 @@
 import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+} from "firebase/firestore";
+import {
   AlertCircle,
   ArrowLeft,
   BadgeCheck,
@@ -28,6 +36,7 @@ import { useNavigate } from "react-router-dom";
 import Button from "../components/Button";
 import { useToast } from "../components/Toast";
 import { useUser } from "../components/UserContext";
+import { db } from "../config/firebase";
 import {
   deleteEmails,
   getDocumentIdFromToken,
@@ -37,6 +46,7 @@ import {
   markEmailAsRead,
 } from "../services/firebaseApi";
 import type { Document, MockEmail } from "../types";
+import { DocumentStatus } from "../types";
 
 // Configure PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs`;
@@ -113,6 +123,8 @@ interface UnifiedItem {
   body?: string;
   rawData: MockEmail | Document;
   folder: string; // Dossier auquel appartient l'item
+  recipientName?: string; // Nom complet du destinataire
+  recipientEmail?: string; // Email du destinataire
 }
 
 // Type pour un dossier
@@ -218,18 +230,19 @@ const InboxPage: React.FC = () => {
     return folders;
   };
 
-  // Assign folder to item
+  // Assign folder to item - Logique simple basée sur les données de la BDD
   const assignFolder = (item: UnifiedItem, role: string): string => {
     if (item.type === "email") {
-      // Pour les emails reçus (destinataire)
-      if (item.source === "À signer") return "to_sign";
+      // DESTINATAIRE : Emails reçus pour signer
       if (item.title.includes("✅")) return "signed";
       if (item.title.includes("❌")) return "rejected";
-    } else {
-      // Pour les documents (expéditeur)
-      if (item.status === "Envoyé") return "sent";
-      if (item.status === "Signé") return "signed_by_recipient";
-      if (item.status === "Rejeté") return "rejected_by_recipient";
+      return "to_sign"; // "Signature requise : ..."
+    } else if (item.type === "document") {
+      // EXPÉDITEUR : Documents envoyés (basé sur le status de la BDD)
+      if (item.status === DocumentStatus.SENT) return "sent";
+      if (item.status === DocumentStatus.SIGNED) return "signed_by_recipient";
+      if (item.status === DocumentStatus.REJECTED)
+        return "rejected_by_recipient";
     }
     return "all";
   };
@@ -260,7 +273,7 @@ const InboxPage: React.FC = () => {
       }
       setUserRole(role);
 
-      // Convertir emails en UnifiedItem
+      // Convertir emails en UnifiedItem (DESTINATAIRE uniquement)
       const emailItems: UnifiedItem[] = emails.map((email) => ({
         id: email.id,
         type: "email",
@@ -273,22 +286,68 @@ const InboxPage: React.FC = () => {
         from: email.from,
         body: email.body,
         rawData: email,
-        folder: "to_sign",
+        folder: "all", // Le folder sera assigné par assignFolder() après
       }));
 
-      // Convertir documents en UnifiedItem
-      const documentItems: UnifiedItem[] = documents.map((doc) => ({
-        id: doc.id,
-        type: "document",
-        title: `${doc.name} (${doc.status})`,
-        documentName: doc.name,
-        timestamp: doc.updatedAt,
-        read: true,
-        status: doc.status,
-        source: "Envoyé",
-        rawData: doc,
-        folder: "sent",
-      }));
+      // Convertir documents en UnifiedItem (EXPÉDITEUR uniquement)
+      const documentItems: UnifiedItem[] = await Promise.all(
+        documents.map(async (document) => {
+          // Créer un lien de consultation pour l'expéditeur
+          // Récupérer le token et les infos du destinataire
+          let viewLink = "";
+          let recipientName = "";
+          let recipientEmail = "";
+
+          try {
+            const envelopeId = `env${document.id.substring(3)}`;
+
+            // Récupérer l'enveloppe pour obtenir les infos du destinataire
+            const envelopeDocRef = doc(db, "envelopes", envelopeId);
+            const envelopeDoc = await getDoc(envelopeDocRef);
+
+            if (envelopeDoc.exists()) {
+              const envelopeData = envelopeDoc.data();
+              if (
+                envelopeData.recipients &&
+                envelopeData.recipients.length > 0
+              ) {
+                const recipient = envelopeData.recipients[0];
+                recipientName = recipient.name || "";
+                recipientEmail = recipient.email || "";
+              }
+            }
+
+            // Chercher le token existant pour ce document
+            const tokensQuery = query(
+              collection(db, "tokens"),
+              where("envelopeId", "==", envelopeId)
+            );
+            const tokensSnapshot = await getDocs(tokensQuery);
+            if (!tokensSnapshot.empty) {
+              const token = tokensSnapshot.docs[0].id;
+              viewLink = `${window.location.origin}/#/sign/${token}`;
+            }
+          } catch (err) {
+            console.error("Erreur lors de la récupération des infos:", err);
+          }
+
+          return {
+            id: document.id,
+            type: "document",
+            title: `${document.name} (${document.status})`,
+            documentName: document.name,
+            timestamp: document.updatedAt,
+            read: true,
+            status: document.status,
+            source: "Envoyé",
+            signatureLink: viewLink,
+            recipientName,
+            recipientEmail,
+            rawData: document,
+            folder: "all", // Le folder sera assigné par assignFolder() après
+          };
+        })
+      );
 
       // Assign folders
       const merged = [...emailItems, ...documentItems].map((item) => ({
@@ -407,18 +466,13 @@ const InboxPage: React.FC = () => {
   };
 
   const handleSignClick = () => {
-    if (selectedItem?.type === "email" && selectedItem?.signatureLink) {
-      // Pour les emails reçus (destinataire), permettre la signature
+    if (selectedItem?.signatureLink) {
       const token = selectedItem.signatureLink.split("/").pop();
-      navigate(`/sign/${token}`);
-    } else if (selectedItem?.type === "document") {
-      // 🔒 SÉCURITÉ : Pour les documents envoyés (expéditeur),
-      // consultation en lecture seule uniquement
-      const token = selectedItem.signatureLink?.split("/").pop();
-      if (token) {
-        console.log(
-          "🔒 Expéditeur ne peut pas signer son propre document - Mode lecture seule"
-        );
+      if (selectedItem.type === "email") {
+        // Pour les emails (destinataire)
+        navigate(`/sign/${token}`);
+      } else if (selectedItem.type === "document") {
+        // Pour les documents (expéditeur) - lecture seule
         navigate(`/sign/${token}`, { state: { readOnly: true } });
       }
     }
@@ -715,6 +769,15 @@ const InboxPage: React.FC = () => {
                         <Send className="h-4 w-4 text-orange-500 flex-shrink-0 mt-0.5" />
                       )}
                       <div className="min-w-0 flex-1">
+                        {item.recipientName && item.recipientEmail && (
+                          <p
+                            className={`text-xs text-onSurfaceVariant mb-0.5 ${
+                              !item.read ? "font-medium" : ""
+                            }`}
+                          >
+                            {item.recipientName} ({item.recipientEmail})
+                          </p>
+                        )}
                         <p
                           className={`text-sm truncate max-w-xs sm:max-w-sm md:max-w-md lg:max-w-md xl:max-w-lg 2xl:max-w-xl ${
                             !item.read ? "font-semibold" : "font-medium"
