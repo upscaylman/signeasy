@@ -343,7 +343,7 @@ const InboxPage: React.FC = () => {
 
       // Déterminer le rôle (ne pas réinitialiser si tout est vide)
       let role: "destinataire" | "expéditeur" | "both" = userRole; // Conserver le rôle actuel par défaut
-
+      
       // Mettre à jour le rôle uniquement si on a des données
       if (documents.length > 0 && emails.length > 0) {
         role = "both";
@@ -353,7 +353,7 @@ const InboxPage: React.FC = () => {
         role = "destinataire";
       }
       // Si tout est vide, on garde le rôle précédent pour maintenir l'affichage des onglets
-
+      
       // Sauvegarder le rôle dans localStorage pour persistance
       if (currentUser?.email) {
         localStorage.setItem(`userRole_${currentUser.email}`, role);
@@ -427,7 +427,7 @@ const InboxPage: React.FC = () => {
                 title: `${document.name} (${document.status})`,
                 documentName: document.name,
                 timestamp: document.updatedAt,
-                read: true,
+        read: true,
                 status: document.status,
                 source: "Envoyé",
                 signatureLink: viewLink,
@@ -501,7 +501,7 @@ const InboxPage: React.FC = () => {
     // (même si certains sont vides, pour une meilleure cohérence UX)
     const effectiveRole = "both"; // Forcer "both" pour afficher tous les onglets
     const folderList = getFolders(effectiveRole);
-
+    
     return folderList.map((folder) => {
       const count = unifiedItems.filter(
         (item) => item.folder === folder.id || folder.id === "all"
@@ -546,12 +546,12 @@ const InboxPage: React.FC = () => {
     try {
       let pdfData: string | null = null;
       let documentId: string | null = null;
-
+      
       if (item.type === "email" && item.rawData) {
         // Pour les emails, extraire le token depuis le signatureLink
         const email = item.rawData as MockEmail;
         const token = email.signatureLink.split("/").pop();
-
+        
         if (token) {
           documentId = await getDocumentIdFromToken(token);
           if (documentId) {
@@ -603,13 +603,13 @@ const InboxPage: React.FC = () => {
       setPdfLoading(false);
     }
   };
-
+  
   const handleSignClick = () => {
     if (selectedItem?.signatureLink) {
       const token = selectedItem.signatureLink.split("/").pop();
       if (selectedItem.type === "email") {
         // Pour les emails (destinataire)
-        navigate(`/sign/${token}`);
+      navigate(`/sign/${token}`);
       } else if (selectedItem.type === "document") {
         // Pour les documents (expéditeur) - lecture seule
         navigate(`/sign/${token}`, { state: { readOnly: true } });
@@ -619,7 +619,7 @@ const InboxPage: React.FC = () => {
 
   const handleItemSelect = (itemId: string) => {
     setSelectedItems((prev) =>
-      prev.includes(itemId)
+      prev.includes(itemId) 
         ? prev.filter((id) => id !== itemId)
         : [...prev, itemId]
     );
@@ -638,7 +638,7 @@ const InboxPage: React.FC = () => {
 
   const handleDeleteItems = async () => {
     if (selectedItems.length === 0) return;
-
+    
     try {
       await deleteEmails(selectedItems);
       setUnifiedItems((prev) =>
@@ -685,7 +685,7 @@ const InboxPage: React.FC = () => {
         </div>
 
         <nav className="flex-none lg:flex-shrink-0 bg-background overflow-visible">
-          <style>{`
+            <style>{`
             @media (max-width: 1023px) {
               .folder-nav-mobile {
                 display: flex;
@@ -693,6 +693,8 @@ const InboxPage: React.FC = () => {
                 gap: clamp(0.125rem, 0.5vw, 0.375rem);
                 padding: 0.5rem;
                 justify-content: center;
+                align-items: center;
+                margin: 0 auto;
               }
               .folder-button-mobile {
                 flex: 1;
@@ -705,22 +707,30 @@ const InboxPage: React.FC = () => {
                 justify-content: center;
                 padding: clamp(0.5rem, 1.5vw, 0.75rem);
                 border-radius: 50%;
-                gap: 0;
+                gap: 0.125rem;
                 position: relative;
               }
               .folder-button-mobile:focus {
                 outline: none;
                 box-shadow: 0 0 0 3px rgba(183, 28, 28, 0.4);
+                border-radius: 50%;
               }
               .folder-button-mobile:focus-visible {
                 outline: none;
                 box-shadow: 0 0 0 3px rgba(183, 28, 28, 0.4);
+                border-radius: 50%;
               }
               .folder-icon-mobile {
                 width: clamp(1rem, 4vw, 1.25rem);
                 height: clamp(1rem, 4vw, 1.25rem);
                 flex-shrink: 0;
                 margin: 0 auto;
+              }
+              .folder-count-mobile {
+                font-size: clamp(0.625rem, 2.5vw, 0.75rem);
+                font-weight: 600;
+                line-height: 1;
+                color: var(--md-sys-color-on-surface-variant);
               }
             }
             `}</style>
@@ -782,11 +792,14 @@ const InboxPage: React.FC = () => {
                 >
                   <div className="flex flex-col lg:flex-row lg:items-center gap-0.5 lg:gap-3 min-w-0 items-center w-full lg:w-auto">
                     <folder.icon className="folder-icon-mobile lg:h-5 lg:w-5 flex-shrink-0" />
+                    <span className="folder-count-mobile lg:hidden">
+                      {folder.count}
+                    </span>
                     <span className="truncate font-medium hidden lg:inline text-sm">
                       {folder.name}
                     </span>
                   </div>
-                  <div className="hidden md:flex items-center gap-2 flex-shrink-0">
+                  <div className="hidden lg:flex items-center gap-2 flex-shrink-0">
                     {folder.unread !== undefined && folder.unread > 0 && (
                       <span className="bg-error text-onError text-xs font-bold px-2 py-0.5 rounded-full">
                         {folder.unread}
@@ -823,14 +836,14 @@ const InboxPage: React.FC = () => {
               {folders.find((f) => f.id === selectedFolder)?.name || "Tous"}
             </h2>
             {!isSelectionMode ? (
-              <Button
+              <Button 
                 variant="outlined"
                 onClick={() => setIsSelectionMode(true)}
               >
                 Sélectionner
               </Button>
             ) : (
-              <Button
+              <Button 
                 variant="outlined"
                 onClick={() => {
                   setIsSelectionMode(false);
@@ -862,7 +875,7 @@ const InboxPage: React.FC = () => {
                 : `${selectedItems.length} sélectionné(s)`}
             </span>
             {selectedItems.length > 0 && (
-              <Button
+              <Button 
                 variant="outlined"
                 icon={Trash2}
                 onClick={handleDeleteItems}
@@ -880,7 +893,7 @@ const InboxPage: React.FC = () => {
             <div className="p-8 text-center text-onSurfaceVariant">
               <FolderOpen className="h-12 w-12 mx-auto mb-3 opacity-30" />
               <p className="text-sm">Aucun élément</p>
-            </div>
+             </div>
           ) : (
             filteredItems.map((item) => (
               <button
@@ -889,11 +902,11 @@ const InboxPage: React.FC = () => {
                 className={`w-full p-4 border-b border-outlineVariant/50 text-left hover:bg-surfaceVariant/50 transition-colors group ${
                   selectedItem?.id === item.id ? "bg-primaryContainer/20" : ""
                 } ${!item.read ? "bg-surfaceVariant/20" : ""}`}
-              >
-                <div className="flex items-start gap-3">
-                  {isSelectionMode && (
-                    <input
-                      type="checkbox"
+                >
+                  <div className="flex items-start gap-3">
+                          {isSelectionMode && (
+                              <input
+                                type="checkbox"
                       checked={selectedItems.includes(item.id)}
                       onChange={() => handleItemSelect(item.id)}
                       className="mt-1"
@@ -977,12 +990,12 @@ const InboxPage: React.FC = () => {
           <>
             <div className="p-4 border-b border-outlineVariant flex items-center gap-2 justify-between">
               <div className="flex items-center gap-2 min-w-0 flex-1">
-                <button
+              <button 
                   onClick={() => setShowContent(false)}
                   className="lg:hidden p-2 rounded-full hover:bg-surfaceVariant flex-shrink-0"
-                >
+              >
                   <ArrowLeft className="h-5 w-5" />
-                </button>
+              </button>
                 <h2 className="text-xl font-bold text-onSurface truncate max-w-[150px] sm:max-w-[250px] md:max-w-[300px] lg:max-w-1/4 xl:max-w-3/5 2xl:max-w-2/3">
                   {selectedItem.documentName}
                 </h2>
@@ -1004,7 +1017,7 @@ const InboxPage: React.FC = () => {
                   >
                     <ZoomIn className="h-5 w-5" />
                   </button>
-                </div>
+               </div>
               )}
             </div>
 
@@ -1023,10 +1036,10 @@ const InboxPage: React.FC = () => {
                       key={`page-${index + 1}`}
                       className="bg-white rounded-lg shadow-lg overflow-hidden mb-3"
                     >
-                      <PdfPageRenderer
-                        pageNum={index + 1}
-                        pdf={pdfDocument}
-                        zoom={pdfZoom}
+                      <PdfPageRenderer 
+                        pageNum={index + 1} 
+                        pdf={pdfDocument} 
+                        zoom={pdfZoom} 
                         fields={envelope?.fields || []}
                         pageDimensions={pageDimensions[index]}
                       />
