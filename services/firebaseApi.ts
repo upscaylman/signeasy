@@ -410,7 +410,7 @@ export const createEnvelope = async (
       {
         timestamp: newDoc.createdAt,
         action: "Document Créé",
-        user: "creator@example.com",
+        user: newDoc.creatorEmail,
         ip: "127.0.0.1",
         type: 'CREATE'
       },
