@@ -756,6 +756,14 @@ const SignDocumentPage: React.FC = () => {
         });
         setFieldValues(initialValues);
 
+        console.log("🔍 DEBUG - Champs chargés:", {
+          envelopeId: env.document.id,
+          currentSignerId: env.currentSignerId,
+          totalFields: env.fields.length,
+          fieldsWithValues: env.fields.filter(f => f.value).length,
+          fieldValues: initialValues,
+        });
+
         // 🔒 SÉCURITÉ : Vérifier si le signataire actuel a déjà signé
         const currentSignerFields = env.fields.filter(
           (f) => f.recipientId === env.currentSignerId

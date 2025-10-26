@@ -297,14 +297,14 @@ const InboxPage: React.FC = () => {
           let viewLink = "";
           let recipientName = "";
           let recipientEmail = "";
-
+          
           try {
             const envelopeId = `env${document.id.substring(3)}`;
-
+            
             // Récupérer l'enveloppe pour obtenir les infos du destinataire
             const envelopeDocRef = doc(db, "envelopes", envelopeId);
             const envelopeDoc = await getDoc(envelopeDocRef);
-
+            
             if (envelopeDoc.exists()) {
               const envelopeData = envelopeDoc.data();
               if (
@@ -316,7 +316,7 @@ const InboxPage: React.FC = () => {
                 recipientEmail = recipient.email || "";
               }
             }
-
+            
             // Chercher le token existant pour ce document
             const tokensQuery = query(
               collection(db, "tokens"),
@@ -330,6 +330,22 @@ const InboxPage: React.FC = () => {
           } catch (err) {
             console.error("Erreur lors de la récupération des infos:", err);
           }
+
+          console.log(`📄 Document ${document.name} - Status: "${document.status}" - Folder assigné:`, assignFolder({
+            id: document.id,
+            type: "document",
+            title: `${document.name} (${document.status})`,
+            documentName: document.name,
+            timestamp: document.updatedAt,
+            read: true,
+            status: document.status,
+            source: "Envoyé",
+            signatureLink: viewLink,
+            recipientName,
+            recipientEmail,
+            rawData: document,
+            folder: "all",
+          }, role));
 
           return {
             id: document.id,
