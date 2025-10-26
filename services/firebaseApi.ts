@@ -580,28 +580,104 @@ export const submitSignature = async (
     ];
 
     if (allSigned) {
-      const qualifiedTimestamp = generateQualifiedTimestamp();
-      newEvents.push(
-        {
-          timestamp: qualifiedTimestamp.timestamp,
-          action: "Horodatage Qualifié Appliqué",
-          tsa: "SignEase Qualified Timestamp Authority",
-          type: 'TIMESTAMP',
-          // 🔐 Preuve cryptographique d'horodatage
-          timestampProof: {
-            hash: qualifiedTimestamp.hash,
-            proof: qualifiedTimestamp.proof,
-            algorithm: 'SHA-256-HMAC'
+      // 🔐 Récupérer le PDF pour calculer le hash d'intégrité
+      try {
+        const pdfData = await getPdfData(envelope.document.id);
+        
+        if (pdfData) {
+          // Convertir data URL en bytes
+          const base64Data = pdfData.split(',')[1];
+          const binaryString = atob(base64Data);
+          const pdfBytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            pdfBytes[i] = binaryString.charCodeAt(i);
           }
-        },
-        {
-          timestamp: new Date().toISOString(),
-          action: "Document Terminé - Conformité eIDAS/PAdES",
-          finalHash: qualifiedTimestamp.hash,
-          type: 'COMPLETE',
-          conformanceLevel: 'PAdES-Level-B-T'
+          
+          // Calculer le hash du PDF
+          const md = forge.md.sha256.create();
+          md.update(new forge.util.ByteStringBuffer(pdfBytes).getBytes());
+          const pdfHash = md.digest().toHex();
+          
+          // Générer la preuve HMAC du hash
+          const signatureKey = process.env.SIGNATURE_KEY || 'default-dev-key';
+          const hmac = forge.hmac.create();
+          hmac.start('sha256', signatureKey);
+          hmac.update(pdfHash);
+          const proof = hmac.digest().toHex();
+          
+          const timestamp = new Date().toISOString();
+          
+          newEvents.push(
+            {
+              timestamp,
+              action: "Horodatage Qualifié Appliqué",
+              tsa: "SignEase Qualified Timestamp Authority",
+              type: 'TIMESTAMP',
+              // 🔐 Preuve cryptographique d'horodatage avec hash du PDF
+              timestampProof: {
+                hash: pdfHash,
+                proof: proof,
+                algorithm: 'SHA-256-HMAC'
+              }
+            },
+            {
+              timestamp: new Date().toISOString(),
+              action: "Document Terminé - Conformité eIDAS/PAdES",
+              finalHash: pdfHash,
+              type: 'COMPLETE',
+              conformanceLevel: 'PAdES-Level-B-T'
+            }
+          );
+          
+          console.log('✅ Hash d\'intégrité PDF calculé et stocké:', pdfHash);
+        } else {
+          console.warn('⚠️ Impossible de récupérer le PDF pour calculer le hash');
+          const qualifiedTimestamp = generateQualifiedTimestamp();
+          newEvents.push(
+            {
+              timestamp: qualifiedTimestamp.timestamp,
+              action: "Horodatage Qualifié Appliqué",
+              tsa: "SignEase Qualified Timestamp Authority",
+              type: 'TIMESTAMP',
+              timestampProof: {
+                hash: qualifiedTimestamp.hash,
+                proof: qualifiedTimestamp.proof,
+                algorithm: 'SHA-256-HMAC'
+              }
+            },
+            {
+              timestamp: new Date().toISOString(),
+              action: "Document Terminé - Conformité eIDAS/PAdES",
+              finalHash: qualifiedTimestamp.hash,
+              type: 'COMPLETE',
+              conformanceLevel: 'PAdES-Level-B-T'
+            }
+          );
         }
-      );
+      } catch (error) {
+        console.error('❌ Erreur lors du calcul du hash PDF:', error);
+        const qualifiedTimestamp = generateQualifiedTimestamp();
+        newEvents.push(
+          {
+            timestamp: qualifiedTimestamp.timestamp,
+            action: "Horodatage Qualifié Appliqué",
+            tsa: "SignEase Qualified Timestamp Authority",
+            type: 'TIMESTAMP',
+            timestampProof: {
+              hash: qualifiedTimestamp.hash,
+              proof: qualifiedTimestamp.proof,
+              algorithm: 'SHA-256-HMAC'
+            }
+          },
+          {
+            timestamp: new Date().toISOString(),
+            action: "Document Terminé - Conformité eIDAS/PAdES",
+            finalHash: qualifiedTimestamp.hash,
+            type: 'COMPLETE',
+            conformanceLevel: 'PAdES-Level-B-T'
+          }
+        );
+      }
     }
 
     await setDoc(doc(db, 'auditTrails', envelope.document.id), { events: newEvents });
@@ -1294,6 +1370,7 @@ export const verifyPDFSignature = async (
         
         const auditData = auditDoc.data();
         const signEvents = auditData.events.filter((e: any) => e.type === 'SIGN');
+        const timestampEvents = auditData.events.filter((e: any) => e.type === 'TIMESTAMP');
         
         if (signEvents.length === 0) {
             errors.push('Aucune signature trouvée dans l\'audit trail');
@@ -1301,6 +1378,7 @@ export const verifyPDFSignature = async (
         }
         
         const lastSignEvent = signEvents[signEvents.length - 1];
+        const lastTimestampEvent = timestampEvents.length > 0 ? timestampEvents[timestampEvents.length - 1] : null;
         
         // ✅ Étape 2: Vérifier les métadonnées
         const signer = lastSignEvent.signatureMetadata?.signer || lastSignEvent.user;
@@ -1312,8 +1390,8 @@ export const verifyPDFSignature = async (
         warnings.push('Vérification cryptographique du PDF non encore implémentée (nécessite certificat)');
         
         // ✅ Étape 4: Vérifier le hash d'intégrité
-        if (lastSignEvent.timestampProof) {
-            const storedHash = lastSignEvent.timestampProof.hash;
+        if (lastTimestampEvent?.timestampProof) {
+            const storedHash = lastTimestampEvent.timestampProof.hash;
             
             // Calculer hash actuel du PDF
             const md = forge.md.sha256.create();
@@ -1330,9 +1408,9 @@ export const verifyPDFSignature = async (
         }
         
         // ✅ Étape 5: Vérifier le timestamp
-        if (lastSignEvent.timestampProof) {
-            const proof = lastSignEvent.timestampProof.proof;
-            const hash = lastSignEvent.timestampProof.hash;
+        if (lastTimestampEvent?.timestampProof) {
+            const proof = lastTimestampEvent.timestampProof.proof;
+            const hash = lastTimestampEvent.timestampProof.hash;
             
             // Vérifier HMAC
             const signatureKey = process.env.SIGNATURE_KEY || 'default-dev-key';
