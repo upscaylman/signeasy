@@ -1,17 +1,24 @@
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { Document } from '../types';
+import type { Document, MockEmail } from '../types';
 import { DocumentStatus } from '../types';
 import DocumentCard from '../components/DocumentCard';
 import AdminPanel from '../components/AdminPanel';
-import { getDocuments, deleteDocuments, getTokenForDocumentSigner } from '../services/firebaseApi';
+import { getDocuments, deleteDocuments, getTokenForDocumentSigner, getEmails } from '../services/firebaseApi';
 import { useUser } from '../components/UserContext';
-import { PlusCircle, Inbox, Search, Trash2, X, AlertTriangle, Upload, CheckSquare, Square, LayoutDashboard } from 'lucide-react';
+import { PlusCircle, Inbox, Search, Trash2, X, AlertTriangle, Upload, CheckSquare, Square, LayoutDashboard, FileSignature, Mail, Send } from 'lucide-react';
 import Button from '../components/Button';
 import { useToast } from '../components/Toast';
 import Tooltip from '../components/Tooltip';
 import { convertWordToPdf, isWordFile } from '../utils/wordToPdf';
+
+// Type unifié pour combiner documents envoyés et emails reçus
+interface UnifiedDocument extends Document {
+  source: 'sent' | 'received'; // Pour distinguer expéditeur vs destinataire
+  emailId?: string; // Pour les documents issus d'emails
+  originalEmail?: MockEmail; // Données email originales si applicable
+}
 
 const ConfirmationModal: React.FC<{
   isOpen: boolean;
@@ -48,32 +55,88 @@ const ConfirmationModal: React.FC<{
 };
 
 const DashboardPage: React.FC = () => {
-  const [documents, setDocuments] = useState<Document[]>([]);
+  const [documents, setDocuments] = useState<UnifiedDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [userRole, setUserRole] = useState<'destinataire' | 'expéditeur' | 'both'>('expéditeur');
   const { addToast } = useToast();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { currentUser } = useUser();
 
-  useEffect(() => {
-    const fetchDocuments = async () => {
-      setIsLoading(true);
-      try {
-        const docs = await getDocuments(currentUser?.email);
-        setDocuments(docs);
-      } catch (error) {
-        console.error("Failed to fetch documents", error);
-      } finally {
-        setIsLoading(false);
-      }
+  // Fonction pour convertir un email en UnifiedDocument
+  const emailToUnifiedDocument = (email: MockEmail): UnifiedDocument => {
+    let status = DocumentStatus.SENT;
+    
+    // Déterminer le statut selon le contenu de l'email
+    if (email.subject.includes('✅') || email.body?.includes('signé')) {
+      status = DocumentStatus.SIGNED;
+    } else if (email.subject.includes('❌') || email.body?.includes('rejeté')) {
+      status = DocumentStatus.REJECTED;
+    }
+
+    return {
+      id: `email-${email.id}`,
+      name: email.documentName || email.subject,
+      status: status,
+      createdAt: email.sentAt,
+      updatedAt: email.sentAt,
+      totalPages: 0, // Non applicable pour les emails
+      expiresAt: email.sentAt, // Utiliser sentAt comme fallback
+      creatorEmail: email.from || '',
+      source: 'received',
+      emailId: email.id,
+      originalEmail: email
     };
-    fetchDocuments();
-  }, [currentUser?.email]);
+  };
+
+  // Récupérer les documents unifiés (envoyés + reçus)
+  const fetchUnifiedDocuments = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const [sentDocs, receivedEmails] = await Promise.all([
+        getDocuments(currentUser?.email),
+        getEmails(currentUser?.email)
+      ]);
+
+      // Déterminer le rôle de l'utilisateur
+      let role: 'destinataire' | 'expéditeur' | 'both' = 'expéditeur';
+      if (sentDocs.length > 0 && receivedEmails.length > 0) {
+        role = 'both';
+      } else if (receivedEmails.length > 0 && sentDocs.length === 0) {
+        role = 'destinataire';
+      }
+      setUserRole(role);
+
+      // Convertir les documents envoyés en UnifiedDocument
+      const unifiedSentDocs: UnifiedDocument[] = sentDocs.map(doc => ({
+        ...doc,
+        source: 'sent' as const
+      }));
+
+      // Convertir les emails reçus en UnifiedDocument
+      const unifiedReceivedDocs: UnifiedDocument[] = receivedEmails.map(emailToUnifiedDocument);
+
+      // Combiner et trier par date décroissante
+      const allDocs = [...unifiedSentDocs, ...unifiedReceivedDocs]
+        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+
+      setDocuments(allDocs);
+    } catch (error) {
+      console.error("Failed to fetch unified documents", error);
+      addToast('Erreur lors du chargement', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentUser?.email, addToast]);
+
+  useEffect(() => {
+    fetchUnifiedDocuments();
+  }, [fetchUnifiedDocuments]);
 
   const filteredDocuments = useMemo(() => {
     return documents.filter(doc => 
@@ -92,24 +155,60 @@ const DashboardPage: React.FC = () => {
     return filteredDocuments.reduce((acc, doc) => {
       (acc[doc.status] = acc[doc.status] || []).push(doc);
       return acc;
-    }, {} as Record<DocumentStatus, Document[]>);
+    }, {} as Record<DocumentStatus, UnifiedDocument[]>);
   }, [filteredDocuments]);
 
   const handleSign = async (id: string) => {
-    const token = await getTokenForDocumentSigner(id);
-    if (token) {
+    // Trouver le document
+    const doc = documents.find(d => d.id === id);
+    
+    // 🔒 SÉCURITÉ : Si l'utilisateur est l'expéditeur (source='sent'), 
+    // il ne peut pas signer, seulement consulter en lecture seule
+    if (doc?.source === 'sent') {
+      console.log('🔒 Expéditeur ne peut pas signer son propre document - Redirection vers consultation');
+      await handleView(id);
+      return;
+    }
+    
+    if (doc?.source === 'received' && doc.originalEmail) {
+      // Pour les emails reçus (destinataire), extraire le token du signatureLink
+      const token = doc.originalEmail.signatureLink.split('/').pop();
+      if (token) {
         navigate(`/sign/${token}`);
+      } else {
+        addToast("Lien de signature invalide.", "error");
+      }
     } else {
+      // Fallback (ne devrait normalement pas arriver ici pour 'sent')
+      const token = await getTokenForDocumentSigner(id);
+      if (token) {
+        navigate(`/sign/${token}`);
+      } else {
         addToast("Impossible de trouver le lien de signature pour ce document.", "error");
+      }
     }
   };
 
   const handleView = async (id: string) => {
-    const token = await getTokenForDocumentSigner(id);
-     if (token) {
+    // Trouver le document
+    const doc = documents.find(d => d.id === id);
+    
+    if (doc?.source === 'received' && doc.originalEmail) {
+      // Pour les emails reçus, extraire le token du signatureLink
+      const token = doc.originalEmail.signatureLink.split('/').pop();
+      if (token) {
         navigate(`/sign/${token}`, { state: { readOnly: true } });
+      } else {
+        addToast("Lien de signature invalide.", "error");
+      }
     } else {
+      // Pour les documents envoyés, utiliser la méthode classique
+      const token = await getTokenForDocumentSigner(id);
+      if (token) {
+        navigate(`/sign/${token}`, { state: { readOnly: true } });
+      } else {
         addToast("Impossible de trouver les informations de ce document.", "error");
+      }
     }
   };
 
@@ -137,11 +236,35 @@ const DashboardPage: React.FC = () => {
   const handleDelete = async () => {
     setIsConfirmDeleteOpen(false);
     try {
-        await deleteDocuments(selectedDocuments);
+        // Séparer les documents envoyés et les emails reçus
+        const docsToDelete = selectedDocuments
+          .map(id => documents.find(d => d.id === id))
+          .filter((d): d is UnifiedDocument => d !== undefined);
+        
+        const sentDocIds = docsToDelete
+          .filter(d => d.source === 'sent')
+          .map(d => d.id);
+        
+        const receivedEmailIds = docsToDelete
+          .filter(d => d.source === 'received' && d.emailId)
+          .map(d => d.emailId!);
+
+        // Supprimer les documents envoyés (méthode classique)
+        if (sentDocIds.length > 0) {
+          await deleteDocuments(sentDocIds);
+        }
+
+        // Supprimer les emails reçus (via firebaseApi)
+        if (receivedEmailIds.length > 0) {
+          const { deleteEmails } = await import('../services/firebaseApi');
+          await deleteEmails(receivedEmailIds);
+        }
+
         setDocuments(prev => prev.filter(doc => !selectedDocuments.includes(doc.id)));
         addToast(`${selectedDocuments.length} document(s) supprimé(s) avec succès.`, 'success');
         handleExitSelectionMode();
     } catch(error) {
+        console.error('Erreur lors de la suppression:', error);
         addToast('Échec de la suppression des documents.', 'error');
     }
   };
@@ -344,25 +467,86 @@ const DashboardPage: React.FC = () => {
         </div>
       ) : filteredDocuments.length > 0 ? (
         <div className="space-y-12">
-          {statusOrder.map((status) =>
-            groupedDocuments[status] && groupedDocuments[status].length > 0 ? (
-              <section key={status}>
-                <h2 className="text-xl font-semibold text-onSurface mb-4">{status}</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {groupedDocuments[status].map((doc) => (
-                    <DocumentCard 
-                        key={doc.id} 
-                        document={doc} 
-                        onSign={handleSign} 
-                        onView={handleView}
-                        isSelectionMode={isSelectionMode}
-                        isSelected={selectedDocuments.includes(doc.id)}
-                        onSelect={handleDocumentSelect}
-                    />
-                  ))}
+          {/* Documents reçus (Destinataire) */}
+          {filteredDocuments.filter(d => d.source === 'received').length > 0 && (
+            <div>
+              <div className="mb-6 pb-3 border-b-2 border-blue-500/30">
+                <div className="flex items-center gap-3">
+                  <div className="bg-blue-500/10 p-2 rounded-lg">
+                    <Mail className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-onSurface">Documents reçus</h2>
+                    <p className="text-sm text-onSurfaceVariant">Documents que vous avez reçus pour signature</p>
+                  </div>
                 </div>
-              </section>
-            ) : null
+              </div>
+              <div className="space-y-8">
+                {statusOrder.map((status) => {
+                  const docsInStatus = groupedDocuments[status]?.filter(d => d.source === 'received') || [];
+                  return docsInStatus.length > 0 ? (
+                    <section key={`received-${status}`}>
+                      <h3 className="text-lg font-semibold text-onSurface mb-3 ml-2">{status}</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                        {docsInStatus.map((doc) => (
+                          <DocumentCard 
+                              key={doc.id} 
+                              document={doc} 
+                              onSign={handleSign} 
+                              onView={handleView}
+                              isSelectionMode={isSelectionMode}
+                              isSelected={selectedDocuments.includes(doc.id)}
+                              onSelect={handleDocumentSelect}
+                              documentSource="received"
+                          />
+                        ))}
+                      </div>
+                    </section>
+                  ) : null;
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Documents envoyés (Expéditeur) */}
+          {filteredDocuments.filter(d => d.source === 'sent').length > 0 && (
+            <div>
+              <div className="mb-6 pb-3 border-b-2 border-orange-500/30">
+                <div className="flex items-center gap-3">
+                  <div className="bg-orange-500/10 p-2 rounded-lg">
+                    <Send className="h-6 w-6 text-orange-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-onSurface">Documents envoyés</h2>
+                    <p className="text-sm text-onSurfaceVariant">Documents que vous avez envoyés pour signature</p>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-8">
+                {statusOrder.map((status) => {
+                  const docsInStatus = groupedDocuments[status]?.filter(d => d.source === 'sent') || [];
+                  return docsInStatus.length > 0 ? (
+                    <section key={`sent-${status}`}>
+                      <h3 className="text-lg font-semibold text-onSurface mb-3 ml-2">{status}</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                        {docsInStatus.map((doc) => (
+                          <DocumentCard 
+                              key={doc.id} 
+                              document={doc} 
+                              onSign={handleSign} 
+                              onView={handleView}
+                              isSelectionMode={isSelectionMode}
+                              isSelected={selectedDocuments.includes(doc.id)}
+                              onSelect={handleDocumentSelect}
+                              documentSource="sent"
+                          />
+                        ))}
+                      </div>
+                    </section>
+                  ) : null;
+                })}
+              </div>
+            </div>
           )}
         </div>
       ) : searchTerm ? (

@@ -6,6 +6,7 @@ import { getUnreadEmailCount } from '../services/firebaseApi';
 import { useUser } from './UserContext';
 import Tooltip from './Tooltip';
 import MobileMenu from './MobileMenu';
+import NotificationDropdown from './NotificationDropdown';
 
 const Header: React.FC = () => {
   const [unreadCount, setUnreadCount] = useState(0);
@@ -63,11 +64,16 @@ const Header: React.FC = () => {
   const inactiveLinkClass = "text-onSurfaceVariant state-layer state-layer-primary";
 
   const fetchUnreadCount = async () => {
+    if (!currentUser?.email) return;
+    
     try {
-      const count = await getUnreadEmailCount(currentUser?.email);
-      setUnreadCount(count);
+      const count = await getUnreadEmailCount(currentUser.email);
+      if (count !== unreadCount) { // Mise à jour uniquement si le compteur change
+        setUnreadCount(count);
+        console.log('📧 Notifications non lues:', count);
+      }
     } catch (error) {
-      console.error("Failed to fetch unread email count:", error);
+      console.error("❌ Erreur récupération notifications:", error);
     }
   };
   
@@ -77,10 +83,14 @@ const Header: React.FC = () => {
     // Listen for custom event when storage is updated
     window.addEventListener('storage_updated', fetchUnreadCount);
 
+    // Rafraîchir toutes les 30 secondes
+    const interval = setInterval(fetchUnreadCount, 30000);
+
     return () => {
       window.removeEventListener('storage_updated', fetchUnreadCount);
+      clearInterval(interval);
     };
-  }, []);
+  }, [currentUser]);
 
   // Also refetch when navigating to the inbox, in case the event is missed
   useEffect(() => {
@@ -121,7 +131,7 @@ const Header: React.FC = () => {
                 className={({ isActive }) => `
                   flex items-center min-h-[44px] px-4 py-2 rounded-full
                   text-sm font-medium
-                  ${isActive ? activeLinkClass : inactiveLinkClass}
+                  ${isActive ? 'bg-secondaryContainer text-onSecondaryContainer elevation-1' : 'text-onSurfaceVariant state-layer state-layer-primary'}
                 `.trim().replace(/\s+/g, ' ')}
               >
                 <Inbox className="h-5 w-5 mr-2" />
@@ -156,7 +166,10 @@ const Header: React.FC = () => {
           </nav>
           
           <div className="flex items-center gap-2">
-             {/* Burger Menu - BEFORE Profile */}
+            {/* Notification Dropdown - Toujours visible */}
+            <NotificationDropdown />
+            
+            {/* Burger Menu - Mobile/Tablette uniquement */}
             <div className="lg:hidden">
               <MobileMenu />
             </div>
