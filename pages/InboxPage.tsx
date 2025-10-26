@@ -7,10 +7,9 @@ import {
   where,
 } from "firebase/firestore";
 import {
-  AlertCircle,
   ArrowLeft,
-  BadgeCheck,
   CheckCircle,
+  CheckSquare,
   Clock,
   Eye,
   FileText,
@@ -45,8 +44,8 @@ import {
   getPdfData,
   markEmailAsRead,
 } from "../services/firebaseApi";
-import type { Document, MockEmail } from "../types";
-import { DocumentStatus } from "../types";
+import type { Document, Envelope, Field, MockEmail } from "../types";
+import { DocumentStatus, FieldType } from "../types";
 
 // Configure PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs`;
@@ -64,19 +63,24 @@ const base64ToUint8Array = (dataUrl: string) => {
   return bytes;
 };
 
-// Composant pour afficher une page PDF
+// Composant pour afficher une page PDF avec les champs signés en overlay
 interface PdfPageRendererProps {
   pageNum: number;
   pdf: pdfjsLib.PDFDocumentProxy;
   zoom: number;
+  fields?: Field[];
+  pageDimensions?: { width: number; height: number };
 }
 
 const PdfPageRenderer: React.FC<PdfPageRendererProps> = ({
   pageNum,
   pdf,
   zoom,
+  fields = [],
+  pageDimensions,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!pdf || !canvasRef.current) return;
@@ -105,7 +109,99 @@ const PdfPageRenderer: React.FC<PdfPageRendererProps> = ({
     renderPage();
   }, [pageNum, pdf, zoom]);
 
-  return <canvas ref={canvasRef} className="w-full" />;
+  // Filtrer les champs pour cette page
+  const pageFields = fields.filter((f) => f.page === pageNum - 1);
+
+  useEffect(() => {
+    console.log(`📄 Page ${pageNum}:`, {
+      totalFields: fields.length,
+      allFieldsPages: fields.map((f) => ({
+        page: f.page,
+        type: f.type,
+        hasValue: !!f.value,
+      })),
+      pageFields: pageFields.length,
+      fieldsWithValues: pageFields.filter((f) => f.value).length,
+      pageDimensions,
+    });
+  }, [pageNum, pageFields.length, fields.length, pageDimensions]);
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      <canvas ref={canvasRef} className="w-full" />
+      {/* Afficher les champs signés en overlay */}
+      {pageDimensions &&
+        pageFields.map((field) => {
+          const value = field.value;
+          if (!value) return null;
+
+          // Calculer la position en pixels avec le zoom
+          const baseStyle: React.CSSProperties = {
+            position: "absolute",
+            left: `${field.x * zoom}px`,
+            top: `${field.y * zoom}px`,
+            width: `${field.width * zoom}px`,
+            height: `${field.height * zoom}px`,
+          };
+
+          if (
+            field.type === FieldType.SIGNATURE ||
+            field.type === FieldType.INITIAL
+          ) {
+            return (
+              <div
+                key={field.id}
+                style={baseStyle}
+                className="bg-surface rounded-md border border-outlineVariant flex items-center justify-center p-1 pointer-events-none"
+              >
+                <img
+                  src={String(value)}
+                  alt="signature"
+                  className="object-contain w-full h-full"
+                />
+              </div>
+            );
+          } else if (field.type === FieldType.DATE) {
+            return (
+              <div
+                key={field.id}
+                style={baseStyle}
+                className="bg-surface rounded-md border border-outlineVariant flex items-center justify-center pointer-events-none"
+              >
+                <span className="text-sm font-semibold text-onSurface">
+                  {String(value)}
+                </span>
+              </div>
+            );
+          } else if (field.type === FieldType.TEXT) {
+            return (
+              <div
+                key={field.id}
+                style={baseStyle}
+                className="bg-surface rounded-md border border-outlineVariant flex items-center justify-start p-2 pointer-events-none"
+              >
+                <span className="text-sm text-onSurface whitespace-pre-wrap break-words">
+                  {String(value)}
+                </span>
+              </div>
+            );
+          } else if (field.type === FieldType.CHECKBOX) {
+            return (
+              <div
+                key={field.id}
+                style={baseStyle}
+                className="bg-surface rounded-md border border-outlineVariant flex items-center justify-center pointer-events-none"
+              >
+                {value === true && (
+                  <CheckSquare className="h-full w-full text-primary" />
+                )}
+              </div>
+            );
+          }
+          return null;
+        })}
+    </div>
+  );
 };
 
 // Type unifié pour afficher emails ET documents
@@ -164,6 +260,10 @@ const InboxPage: React.FC = () => {
     useState<pdfjsLib.PDFDocumentProxy | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfZoom, setPdfZoom] = useState(1);
+  const [envelope, setEnvelope] = useState<Envelope | null>(null);
+  const [pageDimensions, setPageDimensions] = useState<
+    { width: number; height: number }[]
+  >([]);
   const viewerRef = useRef<HTMLDivElement>(null);
 
   // Déterminer le rôle de l'utilisateur (récupérer du localStorage si disponible)
@@ -182,7 +282,6 @@ const InboxPage: React.FC = () => {
   ): Folder[] => {
     const allFolders: { [key: string]: Folder } = {
       all: { id: "all", name: "Tous", icon: InboxIcon, count: 0 },
-      // Dossiers destinataire
       to_sign: {
         id: "to_sign",
         name: "À signer",
@@ -190,6 +289,7 @@ const InboxPage: React.FC = () => {
         count: 0,
         unread: 0,
       },
+      sent: { id: "sent", name: "Envoyés", icon: Send, count: 0 },
       signed: { id: "signed", name: "Signés", icon: CheckCircle, count: 0 },
       rejected: {
         id: "rejected",
@@ -197,33 +297,21 @@ const InboxPage: React.FC = () => {
         icon: XCircle,
         count: 0,
       },
-      // Dossiers expéditeur
-      sent: { id: "sent", name: "Envoyés", icon: Send, count: 0 },
-      signed_by_recipient: {
-        id: "signed_by_recipient",
-        name: "Signés par destinataire",
-        icon: BadgeCheck,
-        count: 0,
-      },
-      rejected_by_recipient: {
-        id: "rejected_by_recipient",
-        name: "Rejetés par destinataire",
-        icon: AlertCircle,
-        count: 0,
-      },
     };
 
     let folders: Folder[] = [allFolders.all];
 
-    if (role === "destinataire" || role === "both") {
+    if (role === "destinataire") {
       folders.push(allFolders.to_sign, allFolders.signed, allFolders.rejected);
-    }
-
-    if (role === "expéditeur" || role === "both") {
+    } else if (role === "expéditeur") {
+      folders.push(allFolders.sent, allFolders.signed, allFolders.rejected);
+    } else if (role === "both") {
+      // Les 4 dossiers uniques
       folders.push(
+        allFolders.to_sign,
         allFolders.sent,
-        allFolders.signed_by_recipient,
-        allFolders.rejected_by_recipient
+        allFolders.signed,
+        allFolders.rejected
       );
     }
 
@@ -240,9 +328,8 @@ const InboxPage: React.FC = () => {
     } else if (item.type === "document") {
       // EXPÉDITEUR : Documents envoyés (basé sur le status de la BDD)
       if (item.status === DocumentStatus.SENT) return "sent";
-      if (item.status === DocumentStatus.SIGNED) return "signed_by_recipient";
-      if (item.status === DocumentStatus.REJECTED)
-        return "rejected_by_recipient";
+      if (item.status === DocumentStatus.SIGNED) return "signed";
+      if (item.status === DocumentStatus.REJECTED) return "rejected";
     }
     return "all";
   };
@@ -297,14 +384,14 @@ const InboxPage: React.FC = () => {
           let viewLink = "";
           let recipientName = "";
           let recipientEmail = "";
-          
+
           try {
             const envelopeId = `env${document.id.substring(3)}`;
-            
+
             // Récupérer l'enveloppe pour obtenir les infos du destinataire
             const envelopeDocRef = doc(db, "envelopes", envelopeId);
             const envelopeDoc = await getDoc(envelopeDocRef);
-            
+
             if (envelopeDoc.exists()) {
               const envelopeData = envelopeDoc.data();
               if (
@@ -316,7 +403,7 @@ const InboxPage: React.FC = () => {
                 recipientEmail = recipient.email || "";
               }
             }
-            
+
             // Chercher le token existant pour ce document
             const tokensQuery = query(
               collection(db, "tokens"),
@@ -331,21 +418,27 @@ const InboxPage: React.FC = () => {
             console.error("Erreur lors de la récupération des infos:", err);
           }
 
-          console.log(`📄 Document ${document.name} - Status: "${document.status}" - Folder assigné:`, assignFolder({
-            id: document.id,
-            type: "document",
-            title: `${document.name} (${document.status})`,
-            documentName: document.name,
-            timestamp: document.updatedAt,
-            read: true,
-            status: document.status,
-            source: "Envoyé",
-            signatureLink: viewLink,
-            recipientName,
-            recipientEmail,
-            rawData: document,
-            folder: "all",
-          }, role));
+          console.log(
+            `📄 Document ${document.name} - Status: "${document.status}" - Folder assigné:`,
+            assignFolder(
+              {
+                id: document.id,
+                type: "document",
+                title: `${document.name} (${document.status})`,
+                documentName: document.name,
+                timestamp: document.updatedAt,
+                read: true,
+                status: document.status,
+                source: "Envoyé",
+                signatureLink: viewLink,
+                recipientName,
+                recipientEmail,
+                rawData: document,
+                folder: "all",
+              },
+              role
+            )
+          );
 
           return {
             id: document.id,
@@ -439,7 +532,7 @@ const InboxPage: React.FC = () => {
       });
     }
 
-    // Charger le PDF
+    // Charger le PDF pour tous les types
     loadPdfDocument(item);
   };
 
@@ -447,31 +540,61 @@ const InboxPage: React.FC = () => {
   const loadPdfDocument = async (item: UnifiedItem) => {
     setPdfLoading(true);
     setPdfDocument(null);
+    setEnvelope(null);
+    setPageDimensions([]);
+
     try {
       let pdfData: string | null = null;
+      let documentId: string | null = null;
 
       if (item.type === "email" && item.rawData) {
         // Pour les emails, extraire le token depuis le signatureLink
         const email = item.rawData as MockEmail;
-        const token = email.signatureLink.split("/").pop(); // Extrait le token de la fin de l'URL
+        const token = email.signatureLink.split("/").pop();
 
         if (token) {
-          const docId = await getDocumentIdFromToken(token);
-          if (docId) {
-            pdfData = await getPdfData(docId);
+          documentId = await getDocumentIdFromToken(token);
+          if (documentId) {
+            pdfData = await getPdfData(documentId);
           }
         }
       } else if (item.type === "document" && item.rawData) {
         // Pour les documents, récupérer le PDF via le document id
         const doc = item.rawData as Document;
+        documentId = doc.id;
         pdfData = await getPdfData(doc.id);
       }
 
-      if (pdfData) {
+      if (pdfData && documentId) {
         const uint8Array = base64ToUint8Array(pdfData);
         const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
         setPdfDocument(pdf);
         setPdfZoom(window.innerWidth < 768 ? 0.5 : 0.8);
+
+        // Charger les dimensions des pages
+        const dims: { width: number; height: number }[] = [];
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 1 });
+          dims.push({ width: viewport.width, height: viewport.height });
+        }
+        setPageDimensions(dims);
+
+        // Charger l'enveloppe pour afficher les champs (signatures, dates, etc.)
+        const envelopeId = `env${documentId.substring(3)}`;
+        console.log("📦 Chargement enveloppe:", envelopeId);
+        const envelopeDoc = await getDoc(doc(db, "envelopes", envelopeId));
+        if (envelopeDoc.exists()) {
+          const envelopeData = envelopeDoc.data() as Envelope;
+          console.log("✅ Enveloppe chargée:", {
+            totalFields: envelopeData.fields.length,
+            fieldsWithValues: envelopeData.fields.filter((f) => f.value).length,
+            fields: envelopeData.fields,
+          });
+          setEnvelope(envelopeData);
+        } else {
+          console.error("❌ Enveloppe introuvable:", envelopeId);
+        }
       }
     } catch (error) {
       console.error("Erreur lors du chargement du PDF:", error);
@@ -816,17 +939,27 @@ const InboxPage: React.FC = () => {
                     <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1"></div>
                   )}
                   {/* Bouton Supprimer qui apparaît au survol */}
-                  <button
+                  <div
+                    role="button"
+                    tabIndex={0}
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedItems([item.id]);
                       handleDeleteItems();
                     }}
-                    className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded hover:bg-error/10 text-error flex-shrink-0"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        setSelectedItems([item.id]);
+                        handleDeleteItems();
+                      }
+                    }}
+                    className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded hover:bg-error/10 text-error flex-shrink-0 cursor-pointer"
                     title="Supprimer"
                   >
                     <Trash2 className="h-4 w-4" />
-                  </button>
+                  </div>
                 </div>
               </button>
             ))
@@ -894,12 +1027,14 @@ const InboxPage: React.FC = () => {
                         pageNum={index + 1}
                         pdf={pdfDocument}
                         zoom={pdfZoom}
+                        fields={envelope?.fields || []}
+                        pageDimensions={pageDimensions[index]}
                       />
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center h-full text-onSurfaceVariant">
+                <div className="flex flex-col items-center justify-center h-full text-onSurfaceVariant px-4">
                   <FileText className="h-12 w-12 mb-4 opacity-30" />
                   <p className="text-sm">Aucun PDF à afficher</p>
                 </div>
