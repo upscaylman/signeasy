@@ -1,58 +1,60 @@
 // Service Firebase API - Remplace localStorageApi.ts
 import {
   collection,
+  deleteDoc,
   doc,
   getDoc,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  query,
   getDocs,
   orderBy,
+  query,
+  setDoc,
+  updateDoc,
   where,
-  Timestamp
-} from 'firebase/firestore';
-import {
-  ref,
-  uploadString,
-  getDownloadURL,
-  deleteObject,
-  getBlob
-} from 'firebase/storage';
-import { db, storage } from '../config/firebase';
-import type { Document, Envelope, Recipient, Field, MockEmail, AuditEvent } from '../types';
-import { DocumentStatus, FieldType } from '../types';
-import * as forge from 'node-forge';
+} from "firebase/firestore";
+import { deleteObject, getBlob, ref, uploadString } from "firebase/storage";
+import * as forge from "node-forge";
+import { db, storage } from "../config/firebase";
+import type {
+  AuditEvent,
+  Document,
+  Envelope,
+  Field,
+  MockEmail,
+  Recipient,
+} from "../types";
+import { DocumentStatus, FieldType } from "../types";
 
 // ===== WHITELISTING & AUTHORIZATION =====
 
 // Liste prédéfinie d'emails autorisés FO Metaux
 const PREDEFINED_AUTHORIZED_EMAILS = [
-  'marie-helenegl@fo-metaux.fr',
-  'corinnel@fo-metaux.fr',
-  'contact@fo-metaux.fr',
-  'vrodriguez@fo-metaux.fr',
-  'aguillermin@fo-metaux.fr',
-  'bouvier.jul@gmail.com' // Admin
+  "marie-helenegl@fo-metaux.fr",
+  "corinnel@fo-metaux.fr",
+  "contact@fo-metaux.fr",
+  "vrodriguez@fo-metaux.fr",
+  "aguillermin@fo-metaux.fr",
+  "bouvier.jul@gmail.com", // Admin
 ];
 
 // Email admin
-const ADMIN_EMAIL = 'bouvier.jul@gmail.com';
+const ADMIN_EMAIL = "bouvier.jul@gmail.com";
 
 export const checkEmailAccess = async (email: string): Promise<boolean> => {
   try {
     const emailLower = email.toLowerCase();
-    
+
     // Vérifier si dans la liste prédéfinie
     if (PREDEFINED_AUTHORIZED_EMAILS.includes(emailLower)) {
       return true;
     }
 
     // Vérifier si a reçu un fichier à signer (destinataire d'une enveloppe)
-    const envelopesSnapshot = await getDocs(collection(db, 'envelopes'));
+    const envelopesSnapshot = await getDocs(collection(db, "envelopes"));
     for (const env of envelopesSnapshot.docs) {
       const envelopeData = env.data() as Envelope;
-      const isRecipient = envelopeData.recipients.some(r => r.email.toLowerCase() === emailLower);
+      const isRecipient = envelopeData.recipients.some(
+        (r) => r.email.toLowerCase() === emailLower
+      );
       if (isRecipient) {
         return true;
       }
@@ -60,11 +62,11 @@ export const checkEmailAccess = async (email: string): Promise<boolean> => {
 
     // Vérifier si dans la whitelist dynamique (ajoutée par admin)
     const whitelistSnapshot = await getDocs(
-      query(collection(db, 'authorizedUsers'), where('email', '==', emailLower))
+      query(collection(db, "authorizedUsers"), where("email", "==", emailLower))
     );
     return whitelistSnapshot.size > 0;
   } catch (error) {
-    console.error('Erreur checkEmailAccess:', error);
+    console.error("Erreur checkEmailAccess:", error);
     return false;
   }
 };
@@ -73,98 +75,118 @@ export const isAdmin = (email: string): boolean => {
   return email.toLowerCase() === ADMIN_EMAIL;
 };
 
-export const getAuthorizedUsers = async (): Promise<{id: string, email: string, addedAt: string}[]> => {
+export const getAuthorizedUsers = async (): Promise<
+  { id: string; email: string; addedAt: string }[]
+> => {
   try {
     const snapshot = await getDocs(
-      query(collection(db, 'authorizedUsers'), orderBy('addedAt', 'desc'))
+      query(collection(db, "authorizedUsers"), orderBy("addedAt", "desc"))
     );
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as {id: string, email: string, addedAt: string}));
+    return snapshot.docs.map(
+      (doc) =>
+        ({
+          id: doc.id,
+          ...doc.data(),
+        } as { id: string; email: string; addedAt: string })
+    );
   } catch (error) {
-    console.error('Erreur getAuthorizedUsers:', error);
+    console.error("Erreur getAuthorizedUsers:", error);
     return [];
   }
 };
 
-export const addAuthorizedUser = async (email: string): Promise<{success: boolean, message: string}> => {
+export const addAuthorizedUser = async (
+  email: string
+): Promise<{ success: boolean; message: string }> => {
   try {
     const emailLower = email.toLowerCase();
-    
+
     // Vérifier si déjà autorisé
     if (PREDEFINED_AUTHORIZED_EMAILS.includes(emailLower)) {
-      return { success: false, message: 'Cet email est déjà dans la liste FO Metaux' };
+      return {
+        success: false,
+        message: "Cet email est déjà dans la liste FO Metaux",
+      };
     }
 
     const existing = await getDocs(
-      query(collection(db, 'authorizedUsers'), where('email', '==', emailLower))
+      query(collection(db, "authorizedUsers"), where("email", "==", emailLower))
     );
     if (existing.size > 0) {
-      return { success: false, message: 'Cet email est déjà autorisé' };
+      return { success: false, message: "Cet email est déjà autorisé" };
     }
 
     // Ajouter l'email
-    await setDoc(doc(collection(db, 'authorizedUsers')), {
+    await setDoc(doc(collection(db, "authorizedUsers")), {
       email: emailLower,
-      addedAt: new Date().toISOString()
+      addedAt: new Date().toISOString(),
     });
 
-    return { success: true, message: 'Email ajouté avec succès' };
+    return { success: true, message: "Email ajouté avec succès" };
   } catch (error) {
-    console.error('Erreur addAuthorizedUser:', error);
-    return { success: false, message: 'Erreur lors de l\'ajout' };
+    console.error("Erreur addAuthorizedUser:", error);
+    return { success: false, message: "Erreur lors de l'ajout" };
   }
 };
 
-export const removeAuthorizedUser = async (email: string): Promise<{success: boolean, message: string}> => {
+export const removeAuthorizedUser = async (
+  email: string
+): Promise<{ success: boolean; message: string }> => {
   try {
     const emailLower = email.toLowerCase();
-    
+
     // Ne pas supprimer les emails prédéfinis
     if (PREDEFINED_AUTHORIZED_EMAILS.includes(emailLower)) {
-      return { success: false, message: 'Impossible de supprimer les emails FO Metaux' };
+      return {
+        success: false,
+        message: "Impossible de supprimer les emails FO Metaux",
+      };
     }
 
     const snapshot = await getDocs(
-      query(collection(db, 'authorizedUsers'), where('email', '==', emailLower))
+      query(collection(db, "authorizedUsers"), where("email", "==", emailLower))
     );
-    
+
     for (const doc of snapshot.docs) {
       await deleteDoc(doc.ref);
     }
 
-    return { success: true, message: 'Email supprimé avec succès' };
+    return { success: true, message: "Email supprimé avec succès" };
   } catch (error) {
-    console.error('Erreur removeAuthorizedUser:', error);
-    return { success: false, message: 'Erreur lors de la suppression' };
+    console.error("Erreur removeAuthorizedUser:", error);
+    return { success: false, message: "Erreur lors de la suppression" };
   }
 };
 
 // ===== DOCUMENTS =====
 
-export const getExistingRecipients = async (userEmail?: string): Promise<{id: string, name: string, email: string}[]> => {
+export const getExistingRecipients = async (
+  userEmail?: string
+): Promise<{ id: string; name: string; email: string }[]> => {
   try {
     if (!userEmail) {
       return [];
     }
 
     // Récupérer toutes les enveloppes créées par cet utilisateur
-    const envelopesSnapshot = await getDocs(collection(db, 'envelopes'));
-    const existingRecipients = new Map<string, {id: string, name: string, email: string}>();
+    const envelopesSnapshot = await getDocs(collection(db, "envelopes"));
+    const existingRecipients = new Map<
+      string,
+      { id: string; name: string; email: string }
+    >();
 
-    envelopesSnapshot.docs.forEach(env => {
+    envelopesSnapshot.docs.forEach((env) => {
       const envelopeData = env.data() as Envelope;
       // Vérifier si l'utilisateur est le créateur du document (normaliser en minuscules)
       if (envelopeData.document.creatorEmail === userEmail.toLowerCase()) {
         // Ajouter tous les destinataires (sans doublon, par email)
-        envelopeData.recipients.forEach(recipient => {
+        envelopeData.recipients.forEach((recipient) => {
           const key = recipient.email.toLowerCase();
           if (!existingRecipients.has(key)) {
             existingRecipients.set(key, {
               id: recipient.id,
               name: recipient.name,
-              email: recipient.email
+              email: recipient.email,
             });
           }
         });
@@ -172,9 +194,11 @@ export const getExistingRecipients = async (userEmail?: string): Promise<{id: st
     });
 
     // Retourner sous forme de tableau, trié par nom
-    return Array.from(existingRecipients.values()).sort((a, b) => a.name.localeCompare(b.name));
+    return Array.from(existingRecipients.values()).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
   } catch (error) {
-    console.error('Erreur getExistingRecipients:', error);
+    console.error("Erreur getExistingRecipients:", error);
     return [];
   }
 };
@@ -187,34 +211,40 @@ export const getDocuments = async (userEmail?: string): Promise<Document[]> => {
     }
 
     // Récupérer tous les documents d'abord
-    const q = query(
-      collection(db, 'documents'),
-      orderBy('updatedAt', 'desc')
-    );
+    const q = query(collection(db, "documents"), orderBy("updatedAt", "desc"));
     const snapshot = await getDocs(q);
-    const allDocuments = snapshot.docs.map(doc => ({
-      ...doc.data(),
-      id: doc.id
-    } as Document));
+    const allDocuments = snapshot.docs.map(
+      (doc) =>
+        ({
+          ...doc.data(),
+          id: doc.id,
+        } as Document)
+    );
 
     // 🔒 SÉCURITÉ: Afficher UNIQUEMENT les documents créés par l'utilisateur
     // Les destinataires voient leurs demandes de signature dans /inbox (via emails)
     // Pas dans le dashboard pour éviter la faille de sécurité
-    const visibleDocuments = allDocuments.filter(doc => doc.creatorEmail === userEmail);
+    const visibleDocuments = allDocuments.filter(
+      (doc) => doc.creatorEmail === userEmail
+    );
 
     return visibleDocuments;
   } catch (error) {
-    console.error('Erreur getDocuments:', error);
+    console.error("Erreur getDocuments:", error);
     return [];
   }
 };
 
-export const getEnvelopeByToken = async (token: string): Promise<(Envelope & { currentSignerId: string; isExpired?: boolean }) | null> => {
+export const getEnvelopeByToken = async (
+  token: string
+): Promise<
+  (Envelope & { currentSignerId: string; isExpired?: boolean }) | null
+> => {
   try {
     // Récupérer le token
-    const tokenDoc = await getDoc(doc(db, 'tokens', token));
+    const tokenDoc = await getDoc(doc(db, "tokens", token));
     if (!tokenDoc.exists()) {
-      console.error('Token non trouvé:', token);
+      console.error("Token non trouvé:", token);
       return null;
     }
 
@@ -222,32 +252,39 @@ export const getEnvelopeByToken = async (token: string): Promise<(Envelope & { c
     const { envelopeId, recipientId } = tokenData;
 
     // Récupérer l'enveloppe
-    const envelopeDoc = await getDoc(doc(db, 'envelopes', envelopeId));
+    const envelopeDoc = await getDoc(doc(db, "envelopes", envelopeId));
     if (!envelopeDoc.exists()) {
-      console.error('Enveloppe non trouvée:', envelopeId);
+      console.error("Enveloppe non trouvée:", envelopeId);
       return null;
     }
 
     const envelopeData = envelopeDoc.data() as Envelope;
-    
+
     // 🔒 VÉRIFICATION D'EXPIRATION : Vérifier si le document a expiré
     const now = new Date();
     const expiresAt = new Date(envelopeData.document.expiresAt);
     const isExpired = expiresAt < now;
-    
+
     if (isExpired) {
-      console.warn('⚠️ Document expiré:', envelopeData.document.name, 'Expiration:', expiresAt.toLocaleString('fr-FR'));
+      console.warn(
+        "⚠️ Document expiré:",
+        envelopeData.document.name,
+        "Expiration:",
+        expiresAt.toLocaleString("fr-FR")
+      );
     }
-    
+
     return { ...envelopeData, currentSignerId: recipientId, isExpired };
   } catch (error) {
-    console.error('Erreur getEnvelopeByToken:', error);
+    console.error("Erreur getEnvelopeByToken:", error);
     return null;
   }
 };
 
 // Nouvelle fonction : Récupérer le document ID depuis un token ou email
-export const getDocumentIdFromToken = async (token: string): Promise<string | null> => {
+export const getDocumentIdFromToken = async (
+  token: string
+): Promise<string | null> => {
   try {
     const envelope = await getEnvelopeByToken(token);
     if (envelope) {
@@ -255,18 +292,20 @@ export const getDocumentIdFromToken = async (token: string): Promise<string | nu
     }
     return null;
   } catch (error) {
-    console.error('Erreur getDocumentIdFromToken:', error);
+    console.error("Erreur getDocumentIdFromToken:", error);
     return null;
   }
 };
 
-export const getPdfData = async (documentId: string): Promise<string | null> => {
+export const getPdfData = async (
+  documentId: string
+): Promise<string | null> => {
   try {
     // 1. Essayer d'abord dans Storage (nouveaux documents)
     try {
       const pdfRef = ref(storage, `pdfs/${documentId}.pdf`);
       const blob = await getBlob(pdfRef);
-      
+
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = () => resolve(reader.result as string);
@@ -275,10 +314,12 @@ export const getPdfData = async (documentId: string): Promise<string | null> => 
       });
     } catch (storageError: any) {
       // Si non trouvé dans Storage, chercher dans Firestore (anciens documents)
-      if (storageError.code === 'storage/object-not-found') {
-        console.log('   PDF non trouvé dans Storage, recherche dans Firestore...');
-        const pdfDoc = await getDoc(doc(db, 'pdfs', documentId));
-        
+      if (storageError.code === "storage/object-not-found") {
+        console.log(
+          "   PDF non trouvé dans Storage, recherche dans Firestore..."
+        );
+        const pdfDoc = await getDoc(doc(db, "pdfs", documentId));
+
         if (pdfDoc.exists()) {
           const data = pdfDoc.data();
           return data.base64Data || null;
@@ -287,17 +328,20 @@ export const getPdfData = async (documentId: string): Promise<string | null> => 
       throw storageError;
     }
   } catch (error) {
-    console.error('❌ Erreur getPdfData:', error);
+    console.error("❌ Erreur getPdfData:", error);
     return null;
   }
 };
 
 export const createEnvelope = async (
-  fileData: { name: string, base64: string, totalPages: number },
-  recipients: (Omit<Recipient, 'id'> & { id: number })[],
-  fields: (Omit<Field, 'id' | 'recipientId'> & { tempRecipientId: number })[],
-  creatorEmail: string = 'creator@signeasyfo.com' // Email de l'expéditeur
-): Promise<{ envelope: Envelope, tokens: { recipientId: string, token: string }[] }> => {
+  fileData: { name: string; base64: string; totalPages: number },
+  recipients: (Omit<Recipient, "id"> & { id: number })[],
+  fields: (Omit<Field, "id" | "recipientId"> & { tempRecipientId: number })[],
+  creatorEmail: string = "creator@signeasyfo.com" // Email de l'expéditeur
+): Promise<{
+  envelope: Envelope;
+  tokens: { recipientId: string; token: string }[];
+}> => {
   try {
     // Générer des IDs uniques avec timestamp + random (évite les collisions)
     const timestamp = Date.now();
@@ -305,9 +349,13 @@ export const createEnvelope = async (
     const newDocId = `doc${timestamp}-${random}`;
     const newEnvelopeId = `env${timestamp}-${random}`;
 
-    console.log('🔥 Création via Firebase...');
-    console.log('   Document ID:', newDocId);
-    console.log('   PDF taille:', (fileData.base64.length / 1024).toFixed(2), 'KB');
+    console.log("🔥 Création via Firebase...");
+    console.log("   Document ID:", newDocId);
+    console.log(
+      "   PDF taille:",
+      (fileData.base64.length / 1024).toFixed(2),
+      "KB"
+    );
 
     // Calculer la date d'expiration (7 jours à partir de maintenant)
     const expirationDate = new Date();
@@ -325,16 +373,19 @@ export const createEnvelope = async (
       creatorEmail: creatorEmail, // Email de l'expéditeur pour notifications
     };
 
-    console.log('   📅 Date d\'expiration:', expirationDate.toLocaleString('fr-FR'));
-    console.log('   📧 Expéditeur:', creatorEmail);
+    console.log(
+      "   📅 Date d'expiration:",
+      expirationDate.toLocaleString("fr-FR")
+    );
+    console.log("   📧 Expéditeur:", creatorEmail);
 
-    await setDoc(doc(db, 'documents', newDocId), newDoc);
-    console.log('   ✅ Document créé dans Firestore');
+    await setDoc(doc(db, "documents", newDocId), newDoc);
+    console.log("   ✅ Document créé dans Firestore");
 
     // 2. Uploader le PDF dans Firebase Storage (sans limitation de taille)
     const pdfRef = ref(storage, `pdfs/${newDocId}.pdf`);
-    await uploadString(pdfRef, fileData.base64, 'data_url');
-    console.log('   ✅ PDF uploadé dans Storage');
+    await uploadString(pdfRef, fileData.base64, "data_url");
+    console.log("   ✅ PDF uploadé dans Storage");
 
     // 3. Créer les destinataires
     const recipientIdMap = new Map<number, string>();
@@ -347,9 +398,14 @@ export const createEnvelope = async (
 
     // 4. Créer les champs
     const newFields: Field[] = fields.map((f, i) => {
-      const finalRecipientId = recipientIdMap.get(f.tempRecipientId) || 'unknown';
+      const finalRecipientId =
+        recipientIdMap.get(f.tempRecipientId) || "unknown";
       const { tempRecipientId, ...rest } = f;
-      return { ...rest, id: `f-${newDocId}-${i + 1}`, recipientId: finalRecipientId };
+      return {
+        ...rest,
+        id: `f-${newDocId}-${i + 1}`,
+        recipientId: finalRecipientId,
+      };
     });
 
     // 5. Créer l'enveloppe
@@ -357,11 +413,11 @@ export const createEnvelope = async (
       id: newEnvelopeId,
       document: newDoc,
       recipients: newRecipients,
-      fields: newFields
+      fields: newFields,
     };
 
-    await setDoc(doc(db, 'envelopes', newEnvelopeId), newEnvelope);
-    console.log('   ✅ Enveloppe créée dans Firestore');
+    await setDoc(doc(db, "envelopes", newEnvelopeId), newEnvelope);
+    console.log("   ✅ Enveloppe créée dans Firestore");
 
     // 6. Créer les tokens
     const newTokens = await Promise.all(
@@ -370,20 +426,20 @@ export const createEnvelope = async (
         const random = Math.random().toString(36).substring(2, 15);
         const token = `token-${newDocId}-${timestamp}-${random}-${index}`;
 
-        await setDoc(doc(db, 'tokens', token), {
+        await setDoc(doc(db, "tokens", token), {
           envelopeId: newEnvelopeId,
-          recipientId: r.id
+          recipientId: r.id,
         });
 
         return { recipientId: r.id, token };
       })
     );
-    console.log('   ✅ Tokens créés dans Firestore');
+    console.log("   ✅ Tokens créés dans Firestore");
 
     // 7. Créer des emails simulés pour chaque destinataire
     await Promise.all(
       newTokens.map(async ({ recipientId, token }) => {
-        const recipient = newRecipients.find(r => r.id === recipientId);
+        const recipient = newRecipients.find((r) => r.id === recipientId);
         if (!recipient) return;
 
         const emailId = `email-${token}`;
@@ -397,13 +453,13 @@ export const createEnvelope = async (
           signatureLink: `${window.location.origin}/#/sign/${token}`,
           documentName: fileData.name,
           sentAt: new Date().toISOString(),
-          read: false
+          read: false,
         };
 
-        await setDoc(doc(db, 'emails', emailId), mockEmail);
+        await setDoc(doc(db, "emails", emailId), mockEmail);
       })
     );
-    console.log('   ✅ Emails créés dans Firestore');
+    console.log("   ✅ Emails créés dans Firestore");
 
     // 8. Créer l'audit trail
     const auditEvents: AuditEvent[] = [
@@ -412,24 +468,24 @@ export const createEnvelope = async (
         action: "Document Créé",
         user: newDoc.creatorEmail,
         ip: "127.0.0.1",
-        type: 'CREATE'
+        type: "CREATE",
       },
       {
         timestamp: newDoc.updatedAt,
         action: "Enveloppe Envoyée",
-        recipients: newRecipients.map(r => r.email),
-        type: 'SEND'
-      }
+        recipients: newRecipients.map((r) => r.email),
+        type: "SEND",
+      },
     ];
 
-    await setDoc(doc(db, 'auditTrails', newDocId), { events: auditEvents });
-    console.log('   ✅ Audit trail créé');
+    await setDoc(doc(db, "auditTrails", newDocId), { events: auditEvents });
+    console.log("   ✅ Audit trail créé");
 
-    console.log('✅ Création Firebase terminée !');
+    console.log("✅ Création Firebase terminée !");
 
     return { envelope: newEnvelope, tokens: newTokens };
   } catch (error) {
-    console.error('❌ Erreur createEnvelope Firebase:', error);
+    console.error("❌ Erreur createEnvelope Firebase:", error);
     throw error;
   }
 };
@@ -441,16 +497,16 @@ const sendEmailViaDualServices = async (
   recipientEmail: string
 ): Promise<{ success: boolean; results: any[] }> => {
   // @ts-ignore - emailjs est chargé depuis un script tag dans index.html
-  if (typeof emailjs === 'undefined') {
+  if (typeof emailjs === "undefined") {
     console.error("EmailJS SDK n'est pas chargé.");
     return { success: false, results: [] };
   }
 
   const SERVICES = [
-    { id: 'service_tcdw2fd', name: 'Gmail' },
-    { id: 'service_ltiackr', name: 'Outlook' }
+    { id: "service_tcdw2fd", name: "Gmail" },
+    { id: "service_ltiackr", name: "Outlook" },
   ];
-  const PUBLIC_KEY = 'g2n34kxUJPlU6tsI0';
+  const PUBLIC_KEY = "g2n34kxUJPlU6tsI0";
 
   // Essayer d'envoyer via Gmail d'abord, fallback sur Outlook
   const results = [];
@@ -482,7 +538,7 @@ export const sendSignatureConfirmationEmail = async (
   creatorEmail: string,
   viewToken: string
 ): Promise<{ success: boolean; error?: any }> => {
-  const TEMPLATE_ID = 'template_6t8rxgv'; // ✅ Template pour notification de signature
+  const TEMPLATE_ID = "template_6t8rxgv"; // ✅ Template pour notification de signature
 
   const templateParams = {
     recipient_email: creatorEmail,
@@ -490,12 +546,16 @@ export const sendSignatureConfirmationEmail = async (
     document_id: documentId,
     signer_name: signerName,
     signer_email: signerEmail,
-    signature_date: new Date().toLocaleString('fr-FR'),
+    signature_date: new Date().toLocaleString("fr-FR"),
     view_link: `${window.location.origin}${window.location.pathname}#/sign/${viewToken}`,
     verify_link: `${window.location.origin}${window.location.pathname}#/verify?doc=${documentId}`, // 🔐 Nouveau lien de vérification
   };
 
-  const result = await sendEmailViaDualServices(TEMPLATE_ID, templateParams, creatorEmail);
+  const result = await sendEmailViaDualServices(
+    TEMPLATE_ID,
+    templateParams,
+    creatorEmail
+  );
   return { success: result.success };
 };
 
@@ -505,52 +565,55 @@ export const submitSignature = async (
 ): Promise<{ success: boolean }> => {
   try {
     // Récupérer le token
-    const tokenDoc = await getDoc(doc(db, 'tokens', token));
+    const tokenDoc = await getDoc(doc(db, "tokens", token));
     if (!tokenDoc.exists()) return { success: false };
 
     const tokenData = tokenDoc.data();
     const { envelopeId, recipientId } = tokenData;
 
     // Récupérer l'enveloppe
-    const envelopeDoc = await getDoc(doc(db, 'envelopes', envelopeId));
+    const envelopeDoc = await getDoc(doc(db, "envelopes", envelopeId));
     if (!envelopeDoc.exists()) return { success: false };
 
     const envelope = envelopeDoc.data() as Envelope;
-    const signer = envelope.recipients.find(r => r.id === recipientId);
+    const signer = envelope.recipients.find((r) => r.id === recipientId);
 
     if (!signer) return { success: false };
 
     // Mettre à jour les champs
-    const updatedFields = envelope.fields.map(field => {
-      const signedField = signedFields.find(sf => sf.id === field.id);
+    const updatedFields = envelope.fields.map((field) => {
+      const signedField = signedFields.find((sf) => sf.id === field.id);
       return signedField ? { ...field, value: signedField.value } : field;
     });
 
     // Vérifier si tous les champs de signature sont signés
-    const allSigned = envelope.recipients.every(recipient =>
+    const allSigned = envelope.recipients.every((recipient) =>
       updatedFields
-        .filter(f => f.recipientId === recipient.id && f.type === FieldType.SIGNATURE)
-        .every(f => f.value != null)
+        .filter(
+          (f) =>
+            f.recipientId === recipient.id && f.type === FieldType.SIGNATURE
+        )
+        .every((f) => f.value != null)
     );
 
     // Mettre à jour l'enveloppe
-    await updateDoc(doc(db, 'envelopes', envelopeId), {
-      fields: updatedFields
+    await updateDoc(doc(db, "envelopes", envelopeId), {
+      fields: updatedFields,
     });
 
     // Mettre à jour le document
     const docUpdate: any = {
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     };
 
     if (allSigned) {
       docUpdate.status = DocumentStatus.SIGNED;
     }
 
-    await updateDoc(doc(db, 'documents', envelope.document.id), docUpdate);
+    await updateDoc(doc(db, "documents", envelope.document.id), docUpdate);
 
     // Ajouter à l'audit trail
-    const auditDoc = await getDoc(doc(db, 'auditTrails', envelope.document.id));
+    const auditDoc = await getDoc(doc(db, "auditTrails", envelope.document.id));
     const existingEvents = auditDoc.exists() ? auditDoc.data().events : [];
 
     // 🔐 Générer les métadonnées de signature conformes PAdES
@@ -564,156 +627,172 @@ export const submitSignature = async (
       ...existingEvents,
       {
         timestamp: new Date().toISOString(),
-        action: 'Document Signé',
+        action: "Document Signé",
         user: signer.email,
-        ip: '127.0.0.1',
-        type: 'SIGN',
+        ip: "127.0.0.1",
+        type: "SIGN",
         // 🔐 Métadonnées PAdES/eIDAS
         signatureMetadata: {
           signer: signatureMetadata.signer,
           conformance: signatureMetadata.conformance,
           reason: signatureMetadata.reason,
           location: signatureMetadata.location,
-          contact: signatureMetadata.contact
-        }
-      }
+          contact: signatureMetadata.contact,
+        },
+      },
     ];
 
     if (allSigned) {
       // 🔐 Récupérer le PDF pour calculer le hash d'intégrité
       try {
         const pdfData = await getPdfData(envelope.document.id);
-        
+
         if (pdfData) {
           // Convertir data URL en bytes
-          const base64Data = pdfData.split(',')[1];
+          const base64Data = pdfData.split(",")[1];
           const binaryString = atob(base64Data);
           const pdfBytes = new Uint8Array(binaryString.length);
           for (let i = 0; i < binaryString.length; i++) {
             pdfBytes[i] = binaryString.charCodeAt(i);
           }
-          
+
           // Calculer le hash du PDF
           const md = forge.md.sha256.create();
           md.update(new forge.util.ByteStringBuffer(pdfBytes).getBytes());
           const pdfHash = md.digest().toHex();
-          
+
           // Générer la preuve HMAC du hash
-          const signatureKey = process.env.SIGNATURE_KEY || 'default-dev-key';
+          const signatureKey = process.env.SIGNATURE_KEY || "default-dev-key";
           const hmac = forge.hmac.create();
-          hmac.start('sha256', signatureKey);
+          hmac.start("sha256", signatureKey);
           hmac.update(pdfHash);
           const proof = hmac.digest().toHex();
-          
+
           const timestamp = new Date().toISOString();
-          
+
           newEvents.push(
             {
               timestamp,
               action: "Horodatage Qualifié Appliqué",
               tsa: "SignEase Qualified Timestamp Authority",
-              type: 'TIMESTAMP',
+              type: "TIMESTAMP",
               // 🔐 Preuve cryptographique d'horodatage avec hash du PDF
               timestampProof: {
                 hash: pdfHash,
                 proof: proof,
-                algorithm: 'SHA-256-HMAC'
-              }
+                algorithm: "SHA-256-HMAC",
+              },
             },
             {
               timestamp: new Date().toISOString(),
               action: "Document Terminé - Conformité eIDAS/PAdES",
               finalHash: pdfHash,
-              type: 'COMPLETE',
-              conformanceLevel: 'PAdES-Level-B-T'
+              type: "COMPLETE",
+              conformanceLevel: "PAdES-Level-B-T",
             }
           );
-          
-          console.log('✅ Hash d\'intégrité PDF calculé et stocké:', pdfHash);
+
+          console.log("✅ Hash d'intégrité PDF calculé et stocké:", pdfHash);
         } else {
-          console.warn('⚠️ Impossible de récupérer le PDF pour calculer le hash');
+          console.warn(
+            "⚠️ Impossible de récupérer le PDF pour calculer le hash"
+          );
           const qualifiedTimestamp = generateQualifiedTimestamp();
           newEvents.push(
             {
               timestamp: qualifiedTimestamp.timestamp,
               action: "Horodatage Qualifié Appliqué",
               tsa: "SignEase Qualified Timestamp Authority",
-              type: 'TIMESTAMP',
+              type: "TIMESTAMP",
               timestampProof: {
                 hash: qualifiedTimestamp.hash,
                 proof: qualifiedTimestamp.proof,
-                algorithm: 'SHA-256-HMAC'
-              }
+                algorithm: "SHA-256-HMAC",
+              },
             },
             {
               timestamp: new Date().toISOString(),
               action: "Document Terminé - Conformité eIDAS/PAdES",
               finalHash: qualifiedTimestamp.hash,
-              type: 'COMPLETE',
-              conformanceLevel: 'PAdES-Level-B-T'
+              type: "COMPLETE",
+              conformanceLevel: "PAdES-Level-B-T",
             }
           );
         }
       } catch (error) {
-        console.error('❌ Erreur lors du calcul du hash PDF:', error);
+        console.error("❌ Erreur lors du calcul du hash PDF:", error);
         const qualifiedTimestamp = generateQualifiedTimestamp();
         newEvents.push(
           {
             timestamp: qualifiedTimestamp.timestamp,
             action: "Horodatage Qualifié Appliqué",
             tsa: "SignEase Qualified Timestamp Authority",
-            type: 'TIMESTAMP',
+            type: "TIMESTAMP",
             timestampProof: {
               hash: qualifiedTimestamp.hash,
               proof: qualifiedTimestamp.proof,
-              algorithm: 'SHA-256-HMAC'
-            }
+              algorithm: "SHA-256-HMAC",
+            },
           },
           {
             timestamp: new Date().toISOString(),
             action: "Document Terminé - Conformité eIDAS/PAdES",
             finalHash: qualifiedTimestamp.hash,
-            type: 'COMPLETE',
-            conformanceLevel: 'PAdES-Level-B-T'
+            type: "COMPLETE",
+            conformanceLevel: "PAdES-Level-B-T",
           }
         );
       }
     }
 
-    await setDoc(doc(db, 'auditTrails', envelope.document.id), { events: newEvents });
+    await setDoc(doc(db, "auditTrails", envelope.document.id), {
+      events: newEvents,
+    });
 
     // 📧 NOTIFICATION : Si le document est complètement signé, envoyer un email à l'expéditeur
     if (allSigned) {
-      console.log('📧 Document complètement signé - Envoi de notification à l\'expéditeur...');
-      
+      console.log(
+        "📧 Document complètement signé - Envoi de notification à l'expéditeur..."
+      );
+
       // Créer un token de lecture seule pour l'expéditeur
-      const viewToken = `view-${envelope.document.id}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
-      
+      const viewToken = `view-${
+        envelope.document.id
+      }-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+
       // Stocker le token avec le premier destinataire (pour affichage en lecture seule)
-      await setDoc(doc(db, 'tokens', viewToken), {
+      await setDoc(doc(db, "tokens", viewToken), {
         envelopeId: envelopeId,
         recipientId: envelope.recipients[0].id, // Premier destinataire par défaut
-        isViewOnly: true // Flag pour indiquer que c'est un token de lecture seule
+        isViewOnly: true, // Flag pour indiquer que c'est un token de lecture seule
       });
-      
+
       // 📧 Créer un email Firestore pour le créateur du document
-      const confirmationEmailId = `email-signed-${envelope.document.id}-${Date.now()}`;
+      const confirmationEmailId = `email-signed-${
+        envelope.document.id
+      }-${Date.now()}`;
       const confirmationEmail: MockEmail = {
         id: confirmationEmailId,
         from: "noreply@signeasyfo.com",
         to: envelope.document.creatorEmail.toLowerCase(),
         toEmail: envelope.document.creatorEmail.toLowerCase(),
         subject: `✅ Document signé : ${envelope.document.name}`,
-        body: `Bonjour,\n\nLe document "${envelope.document.name}" a été complètement signé par ${signer.name} (${signer.email}).\n\nDate de signature : ${new Date().toLocaleString('fr-FR')}\n\nCliquez sur le lien ci-dessous pour consulter le document signé.`,
+        body: `Bonjour,\n\nLe document "${
+          envelope.document.name
+        }" a été complètement signé par ${signer.name} (${
+          signer.email
+        }).\n\nDate de signature : ${new Date().toLocaleString(
+          "fr-FR"
+        )}\n\nCliquez sur le lien ci-dessous pour consulter le document signé.`,
         signatureLink: `${window.location.origin}/#/sign/${viewToken}`,
         documentName: envelope.document.name,
         sentAt: new Date().toISOString(),
-        read: false
+        read: false,
       };
-      
-      await setDoc(doc(db, 'emails', confirmationEmailId), confirmationEmail);
-      console.log('   ✅ Email de confirmation créé dans Firestore');
-      
+
+      await setDoc(doc(db, "emails", confirmationEmailId), confirmationEmail);
+      console.log("   ✅ Email de confirmation créé dans Firestore");
+
       // Envoyer l'email de confirmation externe
       const confirmationResult = await sendSignatureConfirmationEmail(
         envelope.document.id,
@@ -723,15 +802,17 @@ export const submitSignature = async (
         envelope.document.creatorEmail,
         viewToken
       );
-      
+
       if (!confirmationResult.success) {
-        console.warn('⚠️ Email externe de confirmation non envoyé, mais email interne est enregistré');
+        console.warn(
+          "⚠️ Email externe de confirmation non envoyé, mais email interne est enregistré"
+        );
       }
     }
 
     return { success: true };
   } catch (error) {
-    console.error('Erreur submitSignature:', error);
+    console.error("Erreur submitSignature:", error);
     return { success: false };
   }
 };
@@ -741,71 +822,73 @@ export const rejectSignature = async (
   reason: string
 ): Promise<{ success: boolean }> => {
   try {
-    const tokenDoc = await getDoc(doc(db, 'tokens', token));
+    const tokenDoc = await getDoc(doc(db, "tokens", token));
     if (!tokenDoc.exists()) return { success: false };
 
     const tokenData = tokenDoc.data();
     const { envelopeId, recipientId } = tokenData;
 
-    const envelopeDoc = await getDoc(doc(db, 'envelopes', envelopeId));
+    const envelopeDoc = await getDoc(doc(db, "envelopes", envelopeId));
     if (!envelopeDoc.exists()) return { success: false };
 
     const envelope = envelopeDoc.data() as Envelope;
-    const signer = envelope.recipients.find(r => r.id === recipientId);
+    const signer = envelope.recipients.find((r) => r.id === recipientId);
 
     if (!signer) return { success: false };
 
     // Mettre à jour le document
-    await updateDoc(doc(db, 'documents', envelope.document.id), {
+    await updateDoc(doc(db, "documents", envelope.document.id), {
       status: DocumentStatus.REJECTED,
       rejectionReason: reason,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     });
 
     // Audit trail
-    const auditDoc = await getDoc(doc(db, 'auditTrails', envelope.document.id));
+    const auditDoc = await getDoc(doc(db, "auditTrails", envelope.document.id));
     const existingEvents = auditDoc.exists() ? auditDoc.data().events : [];
 
-    await setDoc(doc(db, 'auditTrails', envelope.document.id), {
+    await setDoc(doc(db, "auditTrails", envelope.document.id), {
       events: [
         ...existingEvents,
         {
           timestamp: new Date().toISOString(),
-          action: 'Document Rejeté',
+          action: "Document Rejeté",
           user: signer.email,
-          ip: '127.0.0.1',
+          ip: "127.0.0.1",
           reason,
-          type: 'REJECT'
-        }
-      ]
+          type: "REJECT",
+        },
+      ],
     });
 
     return { success: true };
   } catch (error) {
-    console.error('Erreur rejectSignature:', error);
+    console.error("Erreur rejectSignature:", error);
     return { success: false };
   }
 };
 
-export const deleteDocuments = async (documentIds: string[]): Promise<{ success: boolean }> => {
+export const deleteDocuments = async (
+  documentIds: string[]
+): Promise<{ success: boolean }> => {
   try {
     // Supprimer les documents, enveloppes, tokens, PDFs, etc.
     for (const docId of documentIds) {
       // Supprimer le document
-      await deleteDoc(doc(db, 'documents', docId));
+      await deleteDoc(doc(db, "documents", docId));
 
       // Supprimer le PDF depuis Storage
       try {
         const pdfRef = ref(storage, `pdfs/${docId}.pdf`);
         await deleteObject(pdfRef);
       } catch (e) {
-        console.warn('PDF déjà supprimé ou inexistant:', docId);
+        console.warn("PDF déjà supprimé ou inexistant:", docId);
       }
 
       // Trouver et supprimer l'enveloppe
       const envelopesQuery = query(
-        collection(db, 'envelopes'),
-        where('document.id', '==', docId)
+        collection(db, "envelopes"),
+        where("document.id", "==", docId)
       );
       const envelopesDocs = await getDocs(envelopesQuery);
       for (const envDoc of envelopesDocs.docs) {
@@ -814,8 +897,8 @@ export const deleteDocuments = async (documentIds: string[]): Promise<{ success:
 
       // Trouver et supprimer les tokens
       const tokensQuery = query(
-        collection(db, 'tokens'),
-        where('envelopeId', '==', `env${docId.substring(3)}`)
+        collection(db, "tokens"),
+        where("envelopeId", "==", `env${docId.substring(3)}`)
       );
       const tokensDocs = await getDocs(tokensQuery);
       for (const tokenDoc of tokensDocs.docs) {
@@ -823,12 +906,12 @@ export const deleteDocuments = async (documentIds: string[]): Promise<{ success:
       }
 
       // Supprimer l'audit trail
-      await deleteDoc(doc(db, 'auditTrails', docId));
+      await deleteDoc(doc(db, "auditTrails", docId));
     }
 
     return { success: true };
   } catch (error) {
-    console.error('Erreur deleteDocuments:', error);
+    console.error("Erreur deleteDocuments:", error);
     return { success: false };
   }
 };
@@ -840,71 +923,79 @@ export const getEmails = async (userEmail?: string): Promise<MockEmail[]> => {
     if (!userEmail) {
       return [];
     }
-    
+
     // 🔒 Récupérer les emails filtrés (sans orderBy pour éviter l'index composite manquant)
     const emailsQuery = query(
-      collection(db, 'emails'),
-      where('toEmail', '==', userEmail.toLowerCase())
+      collection(db, "emails"),
+      where("toEmail", "==", userEmail.toLowerCase())
     );
     const snapshot = await getDocs(emailsQuery);
-    const emails = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MockEmail));
-    
+    const emails = snapshot.docs.map(
+      (doc) => ({ id: doc.id, ...doc.data() } as MockEmail)
+    );
+
     // Trier côté client par date décroissante
-    return emails.sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime());
+    return emails.sort(
+      (a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime()
+    );
   } catch (error) {
-    console.error('❌ Erreur getEmails Firebase:', error);
+    console.error("❌ Erreur getEmails Firebase:", error);
     return [];
   }
 };
 
-export const markEmailAsRead = async (emailId: string): Promise<{ success: boolean }> => {
+export const markEmailAsRead = async (
+  emailId: string
+): Promise<{ success: boolean }> => {
   try {
-    const emailRef = doc(db, 'emails', emailId);
+    const emailRef = doc(db, "emails", emailId);
     await updateDoc(emailRef, { read: true });
     return { success: true };
   } catch (error) {
-    console.error('❌ Erreur markEmailAsRead Firebase:', error);
+    console.error("❌ Erreur markEmailAsRead Firebase:", error);
     return { success: false };
   }
 };
 
-export const getUnreadEmailCount = async (userEmail?: string): Promise<number> => {
+export const getUnreadEmailCount = async (
+  userEmail?: string
+): Promise<number> => {
   try {
     if (!userEmail) {
       return 0;
     }
-    
+
     const emailsQuery = query(
-      collection(db, 'emails'),
-      where('toEmail', '==', userEmail),
-      where('read', '==', false)
+      collection(db, "emails"),
+      where("toEmail", "==", userEmail),
+      where("read", "==", false)
     );
     const snapshot = await getDocs(emailsQuery);
     return snapshot.size;
   } catch (error) {
-    console.error('❌ Erreur getUnreadEmailCount Firebase:', error);
+    console.error("❌ Erreur getUnreadEmailCount Firebase:", error);
     return 0;
   }
 };
 
-export const deleteEmails = async (emailIds: string[]): Promise<{ success: boolean }> => {
+export const deleteEmails = async (
+  emailIds: string[]
+): Promise<{ success: boolean }> => {
   try {
-    console.log('🗑️ Suppression des emails:', emailIds);
-    await Promise.all(
-      emailIds.map(id => deleteDoc(doc(db, 'emails', id)))
-    );
-    console.log('✅ Emails supprimés avec succès');
+    console.log("🗑️ Suppression des emails:", emailIds);
+    await Promise.all(emailIds.map((id) => deleteDoc(doc(db, "emails", id))));
+    console.log("✅ Emails supprimés avec succès");
     return { success: true };
   } catch (error) {
-    console.error('❌ Erreur deleteEmails Firebase:', error);
+    console.error("❌ Erreur deleteEmails Firebase:", error);
     return { success: false };
   }
 };
 
 export const getAuditTrail = async (documentId: string): Promise<string> => {
   try {
-    const auditDoc = await getDoc(doc(db, 'auditTrails', documentId));
-    const docDoc = await getDoc(doc(db, 'documents', documentId));
+    const auditDoc = await getDoc(doc(db, "auditTrails", documentId));
+    const docDoc = await getDoc(doc(db, "documents", documentId));
 
     if (!docDoc.exists()) {
       return JSON.stringify({ error: "Document non trouvé." });
@@ -914,13 +1005,15 @@ export const getAuditTrail = async (documentId: string): Promise<string> => {
     const auditData = {
       documentId,
       documentName: docData.name,
-      events: auditDoc.exists() ? auditDoc.data().events : []
+      events: auditDoc.exists() ? auditDoc.data().events : [],
     };
 
     return JSON.stringify(auditData, null, 2);
   } catch (error) {
-    console.error('Erreur getAuditTrail:', error);
-    return JSON.stringify({ error: "Erreur lors de la récupération de l'audit trail." });
+    console.error("Erreur getAuditTrail:", error);
+    return JSON.stringify({
+      error: "Erreur lors de la récupération de l'audit trail.",
+    });
   }
 };
 
@@ -930,7 +1023,7 @@ export const getTokenForDocumentSigner = async (
 ): Promise<string | null> => {
   try {
     const envelopeId = `env${documentId.substring(3)}`;
-    const envelopeDoc = await getDoc(doc(db, 'envelopes', envelopeId));
+    const envelopeDoc = await getDoc(doc(db, "envelopes", envelopeId));
 
     if (!envelopeDoc.exists()) return null;
 
@@ -941,9 +1034,9 @@ export const getTokenForDocumentSigner = async (
 
     // Trouver le token
     const tokensQuery = query(
-      collection(db, 'tokens'),
-      where('envelopeId', '==', envelopeId),
-      where('recipientId', '==', recipient.id)
+      collection(db, "tokens"),
+      where("envelopeId", "==", envelopeId),
+      where("recipientId", "==", recipient.id)
     );
 
     const tokensDocs = await getDocs(tokensQuery);
@@ -952,58 +1045,63 @@ export const getTokenForDocumentSigner = async (
 
     return tokensDocs.docs[0].id;
   } catch (error) {
-    console.error('Erreur getTokenForDocumentSigner:', error);
+    console.error("Erreur getTokenForDocumentSigner:", error);
     return null;
   }
 };
 
 // 🗑️ NETTOYAGE AUTOMATIQUE : Supprimer les documents expirés (> 7 jours)
 
-export const cleanupExpiredDocuments = async (): Promise<{ 
-  success: boolean; 
+export const cleanupExpiredDocuments = async (): Promise<{
+  success: boolean;
   deletedCount: number;
   deletedDocuments: string[];
 }> => {
   try {
-    console.log('🧹 Vérification des documents expirés...');
-    
+    console.log("🧹 Vérification des documents expirés...");
+
     const now = new Date();
-    const docsQuery = query(collection(db, 'documents'));
+    const docsQuery = query(collection(db, "documents"));
     const snapshot = await getDocs(docsQuery);
-    
+
     const expiredDocIds: string[] = [];
     const expiredDocNames: string[] = [];
-    
-    snapshot.docs.forEach(docSnapshot => {
+
+    snapshot.docs.forEach((docSnapshot) => {
       const docData = docSnapshot.data() as Document;
       const expiresAt = new Date(docData.expiresAt);
-      
+
       // Si la date d'expiration est dépassée
       if (expiresAt < now) {
         expiredDocIds.push(docData.id);
         expiredDocNames.push(docData.name);
       }
     });
-    
+
     if (expiredDocIds.length === 0) {
-      console.log('✅ Aucun document expiré à supprimer');
+      console.log("✅ Aucun document expiré à supprimer");
       return { success: true, deletedCount: 0, deletedDocuments: [] };
     }
-    
-    console.log(`🗑️ ${expiredDocIds.length} document(s) expiré(s) trouvé(s) :`, expiredDocNames);
-    
+
+    console.log(
+      `🗑️ ${expiredDocIds.length} document(s) expiré(s) trouvé(s) :`,
+      expiredDocNames
+    );
+
     // Supprimer les documents expirés en utilisant deleteDocuments existante
     await deleteDocuments(expiredDocIds);
-    
-    console.log(`✅ ${expiredDocIds.length} document(s) expiré(s) supprimé(s) avec succès`);
-    
-    return { 
-      success: true, 
+
+    console.log(
+      `✅ ${expiredDocIds.length} document(s) expiré(s) supprimé(s) avec succès`
+    );
+
+    return {
+      success: true,
       deletedCount: expiredDocIds.length,
-      deletedDocuments: expiredDocNames
+      deletedDocuments: expiredDocNames,
     };
   } catch (error) {
-    console.error('❌ Erreur cleanupExpiredDocuments:', error);
+    console.error("❌ Erreur cleanupExpiredDocuments:", error);
     return { success: false, deletedCount: 0, deletedDocuments: [] };
   }
 };
@@ -1015,13 +1113,13 @@ export const cleanupExpiredDocuments = async (): Promise<{
  * En production: Certificat émis par une Autorité de Certification Qualifiée (QCA)
  */
 interface SignatureConfig {
-    mode: 'development' | 'production';
-    certificate: string;      // Certificat PEM
-    privateKey: string;       // Clé privée PEM
-    publicKey: string;        // Clé publique PEM
-    issuer: string;          // Nom de l'émetteur (AC, QCA, etc.)
-    validFrom: Date;
-    validUntil: Date;
+  mode: "development" | "production";
+  certificate: string; // Certificat PEM
+  privateKey: string; // Clé privée PEM
+  publicKey: string; // Clé publique PEM
+  issuer: string; // Nom de l'émetteur (AC, QCA, etc.)
+  validFrom: Date;
+  validUntil: Date;
 }
 
 /**
@@ -1033,43 +1131,47 @@ interface SignatureConfig {
  * 4. Rotatés régulièrement
  */
 const getSignatureConfig = (): SignatureConfig => {
-    const nodeEnv = process.env.NODE_ENV || 'development';
-    
-    if (nodeEnv === 'production') {
-        // ✅ PRODUCTION: Charge depuis variables d'environnement sécurisées
-        const cert = process.env.SIGNING_CERTIFICATE;
-        const key = process.env.SIGNING_PRIVATE_KEY;
-        const pubKey = process.env.SIGNING_PUBLIC_KEY;
-        
-        if (!cert || !key || !pubKey) {
-            throw new Error('❌ ERREUR: Certificats de production manquants. ' +
-                'Configurez SIGNING_CERTIFICATE, SIGNING_PRIVATE_KEY, SIGNING_PUBLIC_KEY');
-        }
-        
-        return {
-            mode: 'production',
-            certificate: cert,
-            privateKey: key,
-            publicKey: pubKey,
-            issuer: process.env.SIGNING_CERTIFICATE_ISSUER || 'Autorité de Certification Qualifiée',
-            validFrom: new Date(process.env.SIGNING_CERT_VALID_FROM || ''),
-            validUntil: new Date(process.env.SIGNING_CERT_VALID_UNTIL || '')
-        };
-    } else {
-        // 🔧 DÉVELOPPEMENT: Génère un certificat auto-signé
-        console.log('🔧 Mode développement: Utilisation certificat auto-signé');
-        const devCert = generateSigningCertificate();
-        
-        return {
-            mode: 'development',
-            certificate: devCert.cert,
-            privateKey: devCert.privateKey,
-            publicKey: devCert.publicKey,
-            issuer: 'Development Auto-Signed (Non valide en production)',
-            validFrom: new Date(),
-            validUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
-        };
+  const nodeEnv = process.env.NODE_ENV || "development";
+
+  if (nodeEnv === "production") {
+    // ✅ PRODUCTION: Charge depuis variables d'environnement sécurisées
+    const cert = process.env.SIGNING_CERTIFICATE;
+    const key = process.env.SIGNING_PRIVATE_KEY;
+    const pubKey = process.env.SIGNING_PUBLIC_KEY;
+
+    if (!cert || !key || !pubKey) {
+      throw new Error(
+        "❌ ERREUR: Certificats de production manquants. " +
+          "Configurez SIGNING_CERTIFICATE, SIGNING_PRIVATE_KEY, SIGNING_PUBLIC_KEY"
+      );
     }
+
+    return {
+      mode: "production",
+      certificate: cert,
+      privateKey: key,
+      publicKey: pubKey,
+      issuer:
+        process.env.SIGNING_CERTIFICATE_ISSUER ||
+        "Autorité de Certification Qualifiée",
+      validFrom: new Date(process.env.SIGNING_CERT_VALID_FROM || ""),
+      validUntil: new Date(process.env.SIGNING_CERT_VALID_UNTIL || ""),
+    };
+  } else {
+    // 🔧 DÉVELOPPEMENT: Génère un certificat auto-signé
+    console.log("🔧 Mode développement: Utilisation certificat auto-signé");
+    const devCert = generateSigningCertificate();
+
+    return {
+      mode: "development",
+      certificate: devCert.cert,
+      privateKey: devCert.privateKey,
+      publicKey: devCert.publicKey,
+      issuer: "Development Auto-Signed (Non valide en production)",
+      validFrom: new Date(),
+      validUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+    };
+  }
 };
 
 /**
@@ -1077,26 +1179,26 @@ const getSignatureConfig = (): SignatureConfig => {
  * Conforme norme eIDAS: horodatage immuable avec preuve cryptographique
  */
 export const generateQualifiedTimestamp = (): {
-    timestamp: string;
-    hash: string;
-    proof: string;
+  timestamp: string;
+  hash: string;
+  proof: string;
 } => {
-    const timestamp = new Date().toISOString();
-    
-    // Générer un hash SHA-256 du timestamp
-    const md = forge.md.sha256.create();
-    md.update(timestamp);
-    const hash = md.digest().toHex();
-    
-    // Générer une preuve cryptographique (signature HMAC du hash)
-    // En production, utiliser une clé stockée de manière sécurisée
-    const signatureKey = process.env.SIGNATURE_KEY || 'default-dev-key';
-    const hmac = forge.hmac.create();
-    hmac.start('sha256', signatureKey);
-    hmac.update(hash);
-    const proof = hmac.digest().toHex();
-    
-    return { timestamp, hash, proof };
+  const timestamp = new Date().toISOString();
+
+  // Générer un hash SHA-256 du timestamp
+  const md = forge.md.sha256.create();
+  md.update(timestamp);
+  const hash = md.digest().toHex();
+
+  // Générer une preuve cryptographique (signature HMAC du hash)
+  // En production, utiliser une clé stockée de manière sécurisée
+  const signatureKey = process.env.SIGNATURE_KEY || "default-dev-key";
+  const hmac = forge.hmac.create();
+  hmac.start("sha256", signatureKey);
+  hmac.update(hash);
+  const proof = hmac.digest().toHex();
+
+  return { timestamp, hash, proof };
 };
 
 /**
@@ -1104,47 +1206,54 @@ export const generateQualifiedTimestamp = (): {
  * ⚠️ EN PRODUCTION: Utiliser un certificat émis par une AC qualifiée
  */
 export const generateSigningCertificate = () => {
-    const keys = forge.pki.rsa.generateKeyPair(2048);
-    
-    const cert = forge.pki.createCertificate();
-    cert.publicKey = keys.publicKey;
-    cert.serialNumber = '01';
-    cert.validity.notBefore = new Date();
-    cert.validity.notAfter = new Date();
-    cert.validity.notAfter.setFullYear(cert.validity.notAfter.getFullYear() + 1);
-    
-    const attrs = [{
-        name: 'commonName',
-        value: 'SignEase Document Signature'
-    }, {
-        name: 'organizationName',
-        value: 'FO Metaux'
-    }, {
-        name: 'countryName',
-        value: 'FR'
-    }];
-    
-    cert.setSubject(attrs);
-    cert.setIssuer(attrs);
-    
-    // Auto-signer le certificat
-    cert.setExtensions([{
-        name: 'basicConstraints',
-        cA: false
-    }, {
-        name: 'keyUsage',
-        keyCertSign: true,
-        digitalSignature: true,
-        nonRepudiation: true
-    }]);
-    
-    cert.sign(keys.privateKey, forge.md.sha256.create());
-    
-    return {
-        cert: forge.pki.certificateToPem(cert),
-        privateKey: forge.pki.privateKeyToPem(keys.privateKey),
-        publicKey: forge.pki.publicKeyToPem(keys.publicKey)
-    };
+  const keys = forge.pki.rsa.generateKeyPair(2048);
+
+  const cert = forge.pki.createCertificate();
+  cert.publicKey = keys.publicKey;
+  cert.serialNumber = "01";
+  cert.validity.notBefore = new Date();
+  cert.validity.notAfter = new Date();
+  cert.validity.notAfter.setFullYear(cert.validity.notAfter.getFullYear() + 1);
+
+  const attrs = [
+    {
+      name: "commonName",
+      value: "SignEase Document Signature",
+    },
+    {
+      name: "organizationName",
+      value: "FO Metaux",
+    },
+    {
+      name: "countryName",
+      value: "FR",
+    },
+  ];
+
+  cert.setSubject(attrs);
+  cert.setIssuer(attrs);
+
+  // Auto-signer le certificat
+  cert.setExtensions([
+    {
+      name: "basicConstraints",
+      cA: false,
+    },
+    {
+      name: "keyUsage",
+      keyCertSign: true,
+      digitalSignature: true,
+      nonRepudiation: true,
+    },
+  ]);
+
+  cert.sign(keys.privateKey, forge.md.sha256.create());
+
+  return {
+    cert: forge.pki.certificateToPem(cert),
+    privateKey: forge.pki.privateKeyToPem(keys.privateKey),
+    publicKey: forge.pki.publicKeyToPem(keys.publicKey),
+  };
 };
 
 /**
@@ -1152,27 +1261,27 @@ export const generateSigningCertificate = () => {
  * Inclut: signer, timestamp qualifié, reason, location, contact
  */
 export const createPAdESSignatureMetadata = (
-    signerEmail: string,
-    signerName: string,
-    reason: string = 'Signature de document électronique'
+  signerEmail: string,
+  signerName: string,
+  reason: string = "Signature de document électronique"
 ): {
-    signer: string;
-    timestamp: ReturnType<typeof generateQualifiedTimestamp>;
-    reason: string;
-    location: string;
-    contact: string;
-    conformance: 'PAdES-Level-B' | 'PAdES-Level-T';
+  signer: string;
+  timestamp: ReturnType<typeof generateQualifiedTimestamp>;
+  reason: string;
+  location: string;
+  contact: string;
+  conformance: "PAdES-Level-B" | "PAdES-Level-T";
 } => {
-    const qualifiedTimestamp = generateQualifiedTimestamp();
-    
-    return {
-        signer: signerName,
-        timestamp: qualifiedTimestamp,
-        reason,
-        location: 'France',
-        contact: signerEmail,
-        conformance: 'PAdES-Level-B' // Peut être Level-T avec timestamps externes
-    };
+  const qualifiedTimestamp = generateQualifiedTimestamp();
+
+  return {
+    signer: signerName,
+    timestamp: qualifiedTimestamp,
+    reason,
+    location: "France",
+    contact: signerEmail,
+    conformance: "PAdES-Level-B", // Peut être Level-T avec timestamps externes
+  };
 };
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1181,14 +1290,14 @@ export const createPAdESSignatureMetadata = (
 
 /**
  * 🎯 Signe un PDF avec une signature électronique PAdES conforme eIDAS
- * 
+ *
  * Fonctionnalités :
  * - Ajoute la signature visuelle au PDF (image PNG)
  * - Ajoute la signature électronique cryptographique
  * - Génère le timestamp qualifié
  * - Métadonnées PAdES Level-B
  * - Hash SHA-256 pour intégrité
- * 
+ *
  * @param pdfBytes - Buffer du PDF original
  * @param signatureImage - Image de signature en base64
  * @param signatureMetadata - Métadonnées PAdES (signer, reason, etc.)
@@ -1201,69 +1310,79 @@ export const createPAdESSignatureMetadata = (
  * Cette fonction est appelée depuis le navigateur
  */
 export const signPDFWithPAdES = async (
-    pdfBytes: Uint8Array,
-    signatureImage: string,
-    signatureMetadata: ReturnType<typeof createPAdESSignatureMetadata>,
-    signaturePosition: { page: number; x: number; y: number; width: number; height: number }
+  pdfBytes: Uint8Array,
+  signatureImage: string,
+  signatureMetadata: ReturnType<typeof createPAdESSignatureMetadata>,
+  signaturePosition: {
+    page: number;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }
 ): Promise<Uint8Array> => {
-    try {
-        // 🎨 Étape 1: Ajouter la signature visuelle avec pdf-lib
-        const { PDFDocument } = await import('pdf-lib');
-        const pdfDoc = await PDFDocument.load(pdfBytes);
-        
-        // Extraire l'image PNG de la signature (dataUrl → bytes)
-        const imageBytes = signatureImage.split(',')[1]; // Enlever "data:image/png;base64,"
-        const pngImage = await pdfDoc.embedPng(imageBytes);
-        
-        // Ajouter l'image sur la page spécifiée
-        const page = pdfDoc.getPage(signaturePosition.page);
-        page.drawImage(pngImage, {
-            x: signaturePosition.x,
-            y: signaturePosition.y,
-            width: signaturePosition.width,
-            height: signaturePosition.height,
-        });
-        
-        // Ajouter métadonnées au PDF
-        pdfDoc.setTitle(signatureMetadata.reason);
-        pdfDoc.setAuthor(signatureMetadata.signer);
-        pdfDoc.setSubject('Document signé électroniquement');
-        pdfDoc.setKeywords(['eIDAS', 'PAdES', 'signature', signatureMetadata.conformance]);
-        pdfDoc.setProducer('SignEase by FO Metaux');
-        pdfDoc.setCreator('SignEase');
-        pdfDoc.setCreationDate(new Date(signatureMetadata.timestamp.timestamp));
-        pdfDoc.setModificationDate(new Date());
-        
-        // Sauvegarder le PDF avec l'image et métadonnées
-        const modifiedPdfBytes = await pdfDoc.save({ 
-            addDefaultPage: false,
-            useObjectStreams: false // Meilleure compatibilité
-        });
-        
-        console.log('✅ PDF signé visuellement avec métadonnées PAdES');
-        
-        // 🔐 Note: La signature cryptographique doit être ajoutée côté serveur
-        // Voir: signPDFWithCryptographicSignature() pour backend/Firebase Functions
-        
-        return new Uint8Array(modifiedPdfBytes);
-        
-    } catch (error) {
-        console.error('❌ Erreur lors de la signature du PDF:', error);
-        throw new Error('Échec de la signature du PDF');
-    }
+  try {
+    // 🎨 Étape 1: Ajouter la signature visuelle avec pdf-lib
+    const { PDFDocument } = await import("pdf-lib");
+    const pdfDoc = await PDFDocument.load(pdfBytes);
+
+    // Extraire l'image PNG de la signature (dataUrl → bytes)
+    const imageBytes = signatureImage.split(",")[1]; // Enlever "data:image/png;base64,"
+    const pngImage = await pdfDoc.embedPng(imageBytes);
+
+    // Ajouter l'image sur la page spécifiée
+    const page = pdfDoc.getPage(signaturePosition.page);
+    page.drawImage(pngImage, {
+      x: signaturePosition.x,
+      y: signaturePosition.y,
+      width: signaturePosition.width,
+      height: signaturePosition.height,
+    });
+
+    // Ajouter métadonnées au PDF
+    pdfDoc.setTitle(signatureMetadata.reason);
+    pdfDoc.setAuthor(signatureMetadata.signer);
+    pdfDoc.setSubject("Document signé électroniquement");
+    pdfDoc.setKeywords([
+      "eIDAS",
+      "PAdES",
+      "signature",
+      signatureMetadata.conformance,
+    ]);
+    pdfDoc.setProducer("SignEase by FO Metaux");
+    pdfDoc.setCreator("SignEase");
+    pdfDoc.setCreationDate(new Date(signatureMetadata.timestamp.timestamp));
+    pdfDoc.setModificationDate(new Date());
+
+    // Sauvegarder le PDF avec l'image et métadonnées
+    const modifiedPdfBytes = await pdfDoc.save({
+      addDefaultPage: false,
+      useObjectStreams: false, // Meilleure compatibilité
+    });
+
+    console.log("✅ PDF signé visuellement avec métadonnées PAdES");
+
+    // 🔐 Note: La signature cryptographique doit être ajoutée côté serveur
+    // Voir: signPDFWithCryptographicSignature() pour backend/Firebase Functions
+
+    return new Uint8Array(modifiedPdfBytes);
+  } catch (error) {
+    console.error("❌ Erreur lors de la signature du PDF:", error);
+    throw new Error("Échec de la signature du PDF");
+  }
 };
 
 /**
  * 🔐 BACKEND/SERVER: Ajoute la signature cryptographique PAdES
  * ⚠️ Cette fonction doit être exécutée côté serveur (Node.js)
  * Ne fonctionne PAS dans le navigateur!
- * 
+ *
  * @param pdfBytes - PDF déjà préparé avec signature visuelle
  * @param p12CertificatePath - Chemin vers le fichier P12
  * @param p12Password - Mot de passe du certificat P12
  * @param signatureMetadata - Métadonnées PAdES
  * @returns PDF signé cryptographiquement
- * 
+ *
  * Usage (côté serveur uniquement):
  * ```typescript
  * // Firebase Functions ou backend Node.js
@@ -1276,205 +1395,226 @@ export const signPDFWithPAdES = async (
  * ```
  */
 export const signPDFWithCryptographicSignature = async (
-    pdfBytes: Uint8Array | Buffer,
-    p12CertificatePath: string,
-    p12Password: string,
-    signatureMetadata: ReturnType<typeof createPAdESSignatureMetadata>
+  pdfBytes: Uint8Array | Buffer,
+  p12CertificatePath: string,
+  p12Password: string,
+  signatureMetadata: ReturnType<typeof createPAdESSignatureMetadata>
 ): Promise<Buffer> => {
-    // ⚠️ Cette fonction ne peut être exécutée que côté serveur (Node.js)
-    if (typeof window !== 'undefined') {
-        throw new Error('signPDFWithCryptographicSignature ne peut être exécuté que côté serveur');
-    }
-    
-    try {
-        // Import dynamique des modules serveur
-        const fs = await import('fs');
-        const { SignPdf } = await import('@signpdf/signpdf');
-        const { P12Signer } = await import('@signpdf/signer-p12');
-        const { plainAddPlaceholder } = await import('@signpdf/placeholder-plain');
-        
-        console.log('🔐 Ajout de la signature cryptographique PAdES...');
-        
-        // 1️⃣ Charger le certificat P12
-        const p12Buffer = fs.readFileSync(p12CertificatePath);
-        
-        // 2️⃣ Créer le signer avec le certificat
-        const signer = new P12Signer(p12Buffer, {
-            passphrase: p12Password,
-        });
-        
-        // 3️⃣ Convertir en Buffer si nécessaire
-        const pdfBuffer = Buffer.isBuffer(pdfBytes) ? pdfBytes : Buffer.from(pdfBytes);
-        
-        // 4️⃣ Ajouter un placeholder pour la signature
-        const pdfWithPlaceholder = plainAddPlaceholder({
-            pdfBuffer,
-            reason: signatureMetadata.reason,
-            contactInfo: signatureMetadata.contact,
-            name: signatureMetadata.signer,
-            location: signatureMetadata.location,
-        });
-        
-        // 5️⃣ Signer le PDF
-        const signPdfInstance = new SignPdf();
-        const signedPdf = await signPdfInstance.sign(pdfWithPlaceholder, signer);
-        
-        console.log('✅ Signature cryptographique PAdES ajoutée avec succès');
-        console.log(`   • Signataire: ${signatureMetadata.signer}`);
-        console.log(`   • Conformité: ${signatureMetadata.conformance}`);
-        console.log(`   • Timestamp: ${signatureMetadata.timestamp.timestamp}`);
-        
-        return signedPdf;
-        
-    } catch (error) {
-        console.error('❌ Erreur lors de la signature cryptographique:', error);
-        throw new Error(`Échec de la signature cryptographique: ${error.message}`);
-    }
+  // ⚠️ Cette fonction ne peut être exécutée que côté serveur (Node.js)
+  if (typeof window !== "undefined") {
+    throw new Error(
+      "signPDFWithCryptographicSignature ne peut être exécuté que côté serveur"
+    );
+  }
+
+  try {
+    // Import dynamique des modules serveur
+    const fs = await import("fs");
+    const { SignPdf } = await import("@signpdf/signpdf");
+    const { P12Signer } = await import("@signpdf/signer-p12");
+    const { plainAddPlaceholder } = await import("@signpdf/placeholder-plain");
+
+    console.log("🔐 Ajout de la signature cryptographique PAdES...");
+
+    // 1️⃣ Charger le certificat P12
+    const p12Buffer = fs.readFileSync(p12CertificatePath);
+
+    // 2️⃣ Créer le signer avec le certificat
+    const signer = new P12Signer(p12Buffer, {
+      passphrase: p12Password,
+    });
+
+    // 3️⃣ Convertir en Buffer si nécessaire
+    const pdfBuffer = Buffer.isBuffer(pdfBytes)
+      ? pdfBytes
+      : Buffer.from(pdfBytes);
+
+    // 4️⃣ Ajouter un placeholder pour la signature
+    const pdfWithPlaceholder = plainAddPlaceholder({
+      pdfBuffer,
+      reason: signatureMetadata.reason,
+      contactInfo: signatureMetadata.contact,
+      name: signatureMetadata.signer,
+      location: signatureMetadata.location,
+    });
+
+    // 5️⃣ Signer le PDF
+    const signPdfInstance = new SignPdf();
+    const signedPdf = await signPdfInstance.sign(pdfWithPlaceholder, signer);
+
+    console.log("✅ Signature cryptographique PAdES ajoutée avec succès");
+    console.log(`   • Signataire: ${signatureMetadata.signer}`);
+    console.log(`   • Conformité: ${signatureMetadata.conformance}`);
+    console.log(`   • Timestamp: ${signatureMetadata.timestamp.timestamp}`);
+
+    return signedPdf;
+  } catch (error) {
+    console.error("❌ Erreur lors de la signature cryptographique:", error);
+    throw new Error(`Échec de la signature cryptographique: ${error.message}`);
+  }
 };
 
 /**
  * ✅ Vérifie l'intégrité et l'authenticité d'un PDF signé
- * 
+ *
  * Vérifications effectuées :
  * - Signature électronique valide
  * - Certificat valide et non révoqué
  * - Timestamp valide
  * - Hash d'intégrité (pas de modification post-signature)
- * 
+ *
  * @param pdfBytes - Buffer du PDF à vérifier
  * @param documentId - ID du document pour récupérer l'audit trail
  * @returns Résultat de la vérification avec détails
  */
 export const verifyPDFSignature = async (
-    pdfBytes: Uint8Array,
-    documentId: string
+  pdfBytes: Uint8Array,
+  documentId: string
 ): Promise<{
-    valid: boolean;
-    signer: string | null;
-    timestamp: string | null;
-    conformanceLevel: string | null;
-    errors: string[];
-    warnings: string[];
+  valid: boolean;
+  signer: string | null;
+  timestamp: string | null;
+  conformanceLevel: string | null;
+  errors: string[];
+  warnings: string[];
 }> => {
-    try {
-        const errors: string[] = [];
-        const warnings: string[] = [];
-        
-        // 📋 Étape 1: Récupérer l'audit trail
-        const auditDoc = await getDoc(doc(db, 'auditTrails', documentId));
-        
-        if (!auditDoc.exists()) {
-            errors.push('Audit trail introuvable');
-            return { valid: false, signer: null, timestamp: null, conformanceLevel: null, errors, warnings };
-        }
-        
-        const auditData = auditDoc.data();
-        const signEvents = auditData.events.filter((e: any) => e.type === 'SIGN');
-        const timestampEvents = auditData.events.filter((e: any) => e.type === 'TIMESTAMP');
-        
-        if (signEvents.length === 0) {
-            errors.push('Aucune signature trouvée dans l\'audit trail');
-            return { valid: false, signer: null, timestamp: null, conformanceLevel: null, errors, warnings };
-        }
-        
-        const lastSignEvent = signEvents[signEvents.length - 1];
-        const lastTimestampEvent = timestampEvents.length > 0 ? timestampEvents[timestampEvents.length - 1] : null;
-        
-        // ✅ Étape 2: Vérifier les métadonnées
-        const signer = lastSignEvent.signatureMetadata?.signer || lastSignEvent.user;
-        const timestamp = lastSignEvent.timestamp;
-        const conformanceLevel = lastSignEvent.signatureMetadata?.conformance || 'Unknown';
-        
-        // ⚠️ Étape 3: Vérifier la signature électronique du PDF
-        // TODO: Implémenter avec @signpdf quand certificat disponible
-        warnings.push('Vérification cryptographique du PDF non encore implémentée (nécessite certificat)');
-        
-        // ✅ Étape 4: Vérifier le hash d'intégrité
-        if (lastTimestampEvent?.timestampProof) {
-            const storedHash = lastTimestampEvent.timestampProof.hash;
-            
-            // Calculer hash actuel du PDF
-            const md = forge.md.sha256.create();
-            md.update(new forge.util.ByteStringBuffer(pdfBytes).getBytes());
-            const currentHash = md.digest().toHex();
-            
-            if (storedHash !== currentHash) {
-                errors.push('Le document a été modifié après la signature (hash ne correspond pas)');
-            } else {
-                console.log('✅ Hash d\'intégrité vérifié - document non modifié');
-            }
-        } else {
-            warnings.push('Aucun hash d\'intégrité trouvé dans l\'audit trail');
-        }
-        
-        // ✅ Étape 5: Vérifier le timestamp
-        if (lastTimestampEvent?.timestampProof) {
-            const proof = lastTimestampEvent.timestampProof.proof;
-            const hash = lastTimestampEvent.timestampProof.hash;
-            
-            // Vérifier HMAC
-            const signatureKey = process.env.SIGNATURE_KEY || 'default-dev-key';
-            const hmac = forge.hmac.create();
-            hmac.start('sha256', signatureKey);
-            hmac.update(hash);
-            const expectedProof = hmac.digest().toHex();
-            
-            if (proof !== expectedProof) {
-                errors.push('Preuve HMAC du timestamp invalide');
-            } else {
-                console.log('✅ Preuve HMAC du timestamp vérifiée');
-            }
-        }
-        
-        const valid = errors.length === 0;
-        
-        return {
-            valid,
-            signer,
-            timestamp,
-            conformanceLevel,
-            errors,
-            warnings
-        };
-        
-    } catch (error) {
-        console.error('❌ Erreur lors de la vérification du PDF:', error);
-        return {
-            valid: false,
-            signer: null,
-            timestamp: null,
-            conformanceLevel: null,
-            errors: ['Erreur technique lors de la vérification'],
-            warnings: []
-        };
+  try {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    // 📋 Étape 1: Récupérer l'audit trail
+    const auditDoc = await getDoc(doc(db, "auditTrails", documentId));
+
+    if (!auditDoc.exists()) {
+      errors.push("Audit trail introuvable");
+      return {
+        valid: false,
+        signer: null,
+        timestamp: null,
+        conformanceLevel: null,
+        errors,
+        warnings,
+      };
     }
+
+    const auditData = auditDoc.data();
+    const signEvents = auditData.events.filter((e: any) => e.type === "SIGN");
+    const timestampEvents = auditData.events.filter(
+      (e: any) => e.type === "TIMESTAMP"
+    );
+
+    if (signEvents.length === 0) {
+      errors.push("Aucune signature trouvée dans l'audit trail");
+      return {
+        valid: false,
+        signer: null,
+        timestamp: null,
+        conformanceLevel: null,
+        errors,
+        warnings,
+      };
+    }
+
+    const lastSignEvent = signEvents[signEvents.length - 1];
+    const lastTimestampEvent =
+      timestampEvents.length > 0
+        ? timestampEvents[timestampEvents.length - 1]
+        : null;
+
+     // ✅ Étape 2: Vérifier les métadonnées
+     const signer =
+       lastSignEvent.signatureMetadata?.signer || lastSignEvent.user;
+     const timestamp = lastSignEvent.timestamp;
+     const conformanceLevel =
+       lastSignEvent.signatureMetadata?.conformance || "Unknown";
+ 
+     // ✅ Étape 3: Vérifier le hash d'intégrité
+    if (lastTimestampEvent?.timestampProof) {
+      const storedHash = lastTimestampEvent.timestampProof.hash;
+
+      // Calculer hash actuel du PDF
+      const md = forge.md.sha256.create();
+      md.update(new forge.util.ByteStringBuffer(pdfBytes).getBytes());
+      const currentHash = md.digest().toHex();
+
+      if (storedHash !== currentHash) {
+        errors.push(
+          "Le document a été modifié après la signature (hash ne correspond pas)"
+        );
+      } else {
+        console.log("✅ Hash d'intégrité vérifié - document non modifié");
+      }
+    } else {
+      warnings.push("Aucun hash d'intégrité trouvé dans l'audit trail");
+    }
+
+    // ✅ Étape 5: Vérifier le timestamp
+    if (lastTimestampEvent?.timestampProof) {
+      const proof = lastTimestampEvent.timestampProof.proof;
+      const hash = lastTimestampEvent.timestampProof.hash;
+
+      // Vérifier HMAC
+      const signatureKey = process.env.SIGNATURE_KEY || "default-dev-key";
+      const hmac = forge.hmac.create();
+      hmac.start("sha256", signatureKey);
+      hmac.update(hash);
+      const expectedProof = hmac.digest().toHex();
+
+      if (proof !== expectedProof) {
+        errors.push("Preuve HMAC du timestamp invalide");
+      } else {
+        console.log("✅ Preuve HMAC du timestamp vérifiée");
+      }
+    }
+
+    const valid = errors.length === 0;
+
+    return {
+      valid,
+      signer,
+      timestamp,
+      conformanceLevel,
+      errors,
+      warnings,
+    };
+  } catch (error) {
+    console.error("❌ Erreur lors de la vérification du PDF:", error);
+    return {
+      valid: false,
+      signer: null,
+      timestamp: null,
+      conformanceLevel: null,
+      errors: ["Erreur technique lors de la vérification"],
+      warnings: [],
+    };
+  }
 };
 
 /**
  * ⏰ Obtenir un timestamp qualifié depuis FreeTSA (gratuit)
- * 
+ *
  * FreeTSA est une autorité de timestamp gratuite conforme RFC 3161
- * 
+ *
  * @param dataHash - Hash SHA-256 des données à horodater
  * @returns Token timestamp RFC 3161 en base64
  */
-export const getQualifiedTimestampFromFreeTSA = async (dataHash: string): Promise<string> => {
-    try {
-        // TODO: Implémenter l'appel à FreeTSA
-        // https://freetsa.org/index_en.php
-        
-        // Pour le moment, utiliser le timestamp interne
-        const internalTimestamp = generateQualifiedTimestamp();
-        
-        console.warn('⚠️ Utilisation du timestamp interne (FreeTSA à implémenter)');
-        
-        return JSON.stringify(internalTimestamp);
-        
-    } catch (error) {
-        console.error('❌ Erreur lors de l\'obtention du timestamp FreeTSA:', error);
-        // Fallback sur timestamp interne
-        const internalTimestamp = generateQualifiedTimestamp();
-        return JSON.stringify(internalTimestamp);
-    }
-};
+export const getQualifiedTimestampFromFreeTSA = async (
+  dataHash: string
+): Promise<string> => {
+  try {
+    // TODO: Implémenter l'appel à FreeTSA
+    // https://freetsa.org/index_en.php
 
+    // Pour le moment, utiliser le timestamp interne
+    const internalTimestamp = generateQualifiedTimestamp();
+
+    console.warn("⚠️ Utilisation du timestamp interne (FreeTSA à implémenter)");
+
+    return JSON.stringify(internalTimestamp);
+  } catch (error) {
+    console.error("❌ Erreur lors de l'obtention du timestamp FreeTSA:", error);
+    // Fallback sur timestamp interne
+    const internalTimestamp = generateQualifiedTimestamp();
+    return JSON.stringify(internalTimestamp);
+  }
+};
