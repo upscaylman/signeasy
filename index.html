@@ -2,117 +2,163 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="description" content="SignEase by FO Metaux - Solution professionnelle de signature électronique sécurisée pour vos documents." />
+    <link rel="icon" type="image/svg+xml" href="/logo-fo-metaux.svg" />
+    <link rel="apple-touch-icon" href="/logo-fo-metaux.svg" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta
+      name="description"
+      content="SignEase by FO Metaux - Solution professionnelle de signature électronique sécurisée pour vos documents."
+    />
     <meta name="theme-color" content="#B71C1C" />
-    
+
     <!-- Open Graph Metadata for Social Sharing -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="SignEase by FO Metaux - Signature Électronique" />
-    <meta property="og:description" content="Solution professionnelle de signature électronique sécurisée pour vos documents. Signez rapidement et légalement." />
-    <meta property="og:image" content="https://signeasyfom.netlify.app/logo-fo-metaux.svg" />
+    <meta
+      property="og:title"
+      content="SignEase by FO Metaux - Signature Électronique"
+    />
+    <meta
+      property="og:description"
+      content="Solution professionnelle de signature électronique sécurisée pour vos documents. Signez rapidement et légalement."
+    />
+    <!-- TODO: Remplacer par une image PNG ou JPG de 1200x630px pour un meilleur affichage sur les réseaux sociaux -->
+    <meta
+      property="og:image"
+      content="https://signeasyfom.netlify.app/logo-fo-metaux.svg"
+    />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="SignEase by FO Metaux - Signature Électronique"
+    />
     <meta property="og:url" content="https://signeasyfom.netlify.app" />
     <meta property="og:site_name" content="SignEase by FO Metaux" />
-    
+
     <!-- Twitter Card Metadata -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="SignEase by FO Metaux - Signature Électronique" />
-    <meta name="twitter:description" content="Solution professionnelle de signature électronique sécurisée pour vos documents." />
-    <meta name="twitter:image" content="https://signeasyfom.netlify.app/logo-fo-metaux.svg" />
-    
+    <meta
+      name="twitter:title"
+      content="SignEase by FO Metaux - Signature Électronique"
+    />
+    <meta
+      name="twitter:description"
+      content="Solution professionnelle de signature électronique sécurisée pour vos documents."
+    />
+    <!-- TODO: Remplacer par une image PNG ou JPG de 1200x630px -->
+    <meta
+      name="twitter:image"
+      content="https://signeasyfom.netlify.app/logo-fo-metaux.svg"
+    />
+    <meta name="twitter:image:alt" content="SignEase by FO Metaux" />
+
     <!-- Additional Meta Tags -->
-    <meta name="keywords" content="signature électronique, esignature, documents, sécurisé, professionnel, FO Metaux" />
+    <meta
+      name="keywords"
+      content="signature électronique, esignature, documents, sécurisé, professionnel, FO Metaux"
+    />
     <meta name="author" content="FO Metaux" />
     <meta property="og:locale" content="fr_FR" />
     <title>SignEase by FO Metaux - Signature Électronique</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-      // Supprimer les warnings non-critiques en développement
-      const originalWarn = console.warn;
-      console.warn = (...args) => {
-        if (args[0]?.includes?.('cdn.tailwindcss.com')) return;
-        originalWarn.apply(console, args);
-      };
-      
-      const originalLog = console.log;
-      console.log = (...args) => {
-        if (args[0]?.includes?.('React DevTools')) return;
-        originalLog.apply(console, args);
-      };
-      
       tailwind.config = {
         theme: {
           extend: {
             fontFamily: {
-              sans: ['Manrope', 'sans-serif'],
+              sans: ["Manrope", "sans-serif"],
             },
             colors: {
-              // Material 3 Expressive Color Palette (Derived from FO Metaux Red #B71C1C)
-              primary: '#B71C1C',
-              onPrimary: '#FFFFFF',
-              primaryContainer: '#FFDAD4',
-              onPrimaryContainer: '#410001',
-              secondary: '#775651',
-              onSecondary: '#FFFFFF',
-              secondaryContainer: '#FFDAD4',
-              onSecondaryContainer: '#2C1512',
-              tertiary: '#705C2E',
-              onTertiary: '#FFFFFF',
-              tertiaryContainer: '#FBDFA6',
-              onTertiaryContainer: '#251A00',
-              error: '#BA1A1A',
-              onError: '#FFFFFF',
-              errorContainer: '#FFDAD6',
-              onErrorContainer: '#410002',
-              background: '#FFFBFF',
-              onBackground: '#201A19',
-              surface: '#FFFBFF',
-              onSurface: '#201A19',
-              surfaceVariant: '#F5DDDA',
-              onSurfaceVariant: '#534341',
-              outline: '#857370',
-              outlineVariant: '#D8C2BF',
-              shadow: '#000000',
-              scrim: '#000000',
-              inverseSurface: '#362F2E',
-              inverseOnSurface: '#FBEEEC',
-              inversePrimary: '#FFB4A8',
+              primary: "#B71C1C",
+              onPrimary: "#FFFFFF",
+              primaryContainer: "#FFDAD4",
+              onPrimaryContainer: "#410001",
+              secondary: "#775651",
+              onSecondary: "#FFFFFF",
+              secondaryContainer: "#FFDAD4",
+              onSecondaryContainer: "#2C1512",
+              tertiary: "#705C2E",
+              onTertiary: "#FFFFFF",
+              tertiaryContainer: "#FBDFA6",
+              onTertiaryContainer: "#251A00",
+              error: "#BA1A1A",
+              onError: "#FFFFFF",
+              errorContainer: "#FFDAD6",
+              onErrorContainer: "#410002",
+              background: "#FFFBFF",
+              onBackground: "#201A19",
+              surface: "#FFFBFF",
+              onSurface: "#201A19",
+              surfaceVariant: "#F5DDDA",
+              onSurfaceVariant: "#534341",
+              outline: "#857370",
+              outlineVariant: "#D8C2BF",
+              shadow: "#000000",
+              scrim: "#000000",
+              inverseSurface: "#362F2E",
+              inverseOnSurface: "#FBEEEC",
+              inversePrimary: "#FFB4A8",
             },
             borderRadius: {
-              'xl': '12px',
-              '2xl': '16px',
-              '3xl': '24px',
-            }
+              xl: "12px",
+              "2xl": "16px",
+              "3xl": "24px",
+            },
           },
         },
+      };
+    </script>
+    <link rel="stylesheet" href="/index.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+          "react/": "https://aistudiocdn.com/react@^19.2.0/",
+          "react": "https://aistudiocdn.com/react@^19.2.0",
+          "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.4",
+          "lucide-react": "https://aistudiocdn.com/lucide-react@^0.545.0",
+          "pdfjs-dist": "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs"
+        }
       }
     </script>
-  <script type="importmap">
-{
-  "imports": {
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.4",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.545.0",
-    "pdfjs-dist": "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs"
-  }
-}
-</script>
-<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-<link rel="stylesheet" href="/index.css">
-</head>
+    <script
+      type="text/javascript"
+      src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"
+    ></script>
+  </head>
   <body class="bg-background text-onSurface font-sans antialiased">
     <noscript>
-      <div style="display: flex; align-items: center; justify-content: center; height: 100vh; text-align: center; padding: 2rem; font-family: system-ui, -apple-system, sans-serif;">
+      <div
+        style="
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          height: 100vh;
+          text-align: center;
+          padding: 2rem;
+          font-family: system-ui, -apple-system, sans-serif;
+        "
+      >
         <div>
-          <h1 style="font-size: 2rem; font-weight: bold; margin-bottom: 1rem;">SignEase by FO Metaux</h1>
-          <p style="color: #666;">Veuillez activer JavaScript pour utiliser cette application.</p>
+          <h1 style="font-size: 2rem; font-weight: bold; margin-bottom: 1rem">
+            SignEase by FO Metaux
+          </h1>
+          <p style="color: #666">
+            Veuillez activer JavaScript pour utiliser cette application.
+          </p>
         </div>
       </div>
     </noscript>
