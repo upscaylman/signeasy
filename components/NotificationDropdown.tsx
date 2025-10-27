@@ -198,8 +198,13 @@ const NotificationDropdown: React.FC = () => {
       }
       */
 
-      // Trier par date décroissante et limiter à 10
+      // Récupérer les notifications masquées depuis localStorage
+      const dismissedKey = `dismissed_notifications_${currentUser.email}`;
+      const dismissed = JSON.parse(localStorage.getItem(dismissedKey) || '[]');
+
+      // Trier par date décroissante, filtrer les masquées, et limiter à 10
       const sortedNotifications = allNotifications
+        .filter((notif) => !dismissed.includes(notif.id)) // Exclure les masquées
         .sort(
           (a, b) =>
             new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
@@ -303,7 +308,8 @@ const NotificationDropdown: React.FC = () => {
     }
   };
 
-  // Supprimer une notification
+  // 🔕 SUPPRESSION INDÉPENDANTE : Masquer une notification
+  // Ne supprime NI l'email NI l'audit trail, juste retire de la vue
   const deleteNotification = async (
     notification: Notification,
     event: React.MouseEvent
@@ -311,33 +317,19 @@ const NotificationDropdown: React.FC = () => {
     event.stopPropagation(); // Empêcher le clic sur la notification
 
     try {
-      if (notification.source === "sent") {
-        // Notification expéditeur : Supprimer l'événement de l'audit trail
-        const auditDocRef = doc(db, "auditTrails", notification.documentId);
-        const auditDoc = await getDoc(auditDocRef);
+      // Sauvegarder dans localStorage les notifications masquées
+      const dismissedKey = `dismissed_notifications_${currentUser?.email}`;
+      const dismissed = JSON.parse(localStorage.getItem(dismissedKey) || '[]');
+      dismissed.push(notification.id);
+      localStorage.setItem(dismissedKey, JSON.stringify(dismissed));
 
-        if (auditDoc.exists()) {
-          const auditData = auditDoc.data();
-          const events = auditData.events || [];
-
-          // Filtrer pour retirer cet événement
-          const updatedEvents = events.filter(
-            (event: any) => event.timestamp !== notification.timestamp
-          );
-
-          await updateDoc(auditDocRef, { events: updatedEvents });
-        }
-      } else if (notification.source === "received" && notification.emailId) {
-        // Notification destinataire : Supprimer l'email
-        const emailRef = doc(db, "emails", notification.emailId);
-        await deleteDoc(emailRef);
-      }
-
-      // Mettre à jour localement
+      // Mettre à jour localement (retirer de la vue)
       setNotifications((prev) => prev.filter((n) => n.id !== notification.id));
       if (!notification.read) {
         setUnreadCount((prev) => Math.max(0, prev - 1));
       }
+      
+      console.log("🔕 Notification masquée (indépendant):", notification.id);
     } catch (error) {
       console.error("Erreur lors de la suppression de la notification:", error);
     }

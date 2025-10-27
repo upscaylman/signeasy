@@ -237,10 +237,10 @@ const InboxPage: React.FC = () => {
   const [selectedItem, setSelectedItem] = useState<UnifiedItem | null>(null);
   const [selectedFolder, setSelectedFolder] = useState<string>("all");
   const [isLoading, setIsLoading] = useState(true);
-  const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [showContent, setShowContent] = useState(false);
   const [hoveredFolder, setHoveredFolder] = useState<string | null>(null);
+  const [showDeleteSnackbar, setShowDeleteSnackbar] = useState(false);
   const tooltipTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const navigate = useNavigate();
   const { addToast } = useToast();
@@ -636,19 +636,112 @@ const InboxPage: React.FC = () => {
     }
   };
 
-  const handleDeleteItems = async () => {
+  const handleRequestDelete = () => {
+    if (selectedItems.length === 0) return;
+    setShowDeleteSnackbar(true);
+  };
+
+  const handleConfirmDelete = async () => {
     if (selectedItems.length === 0) return;
 
     try {
-      await deleteEmails(selectedItems);
+      // 📧 SUPPRESSION CONDITIONNELLE selon le statut du document
+      const itemsToDelete = selectedItems
+        .map(id => unifiedItems.find(item => item.id === id))
+        .filter((item): item is UnifiedItem => item !== undefined);
+
+      let emailsLocallyDeleted = 0;
+      let documentsGloballyDeleted = 0;
+      let documentsPendingDeleted = 0;
+      const documentsToDelete: string[] = [];
+
+      for (const item of itemsToDelete) {
+        if (item.type === "email") {
+          // Récupérer le statut du document depuis l'item
+          const docData = item.rawData as MockEmail;
+          let docStatus: string | undefined;
+
+          // Déterminer le statut selon le contenu de l'email
+          if (docData.subject.includes('✅') || docData.body?.includes('signé')) {
+            docStatus = DocumentStatus.SIGNED;
+          } else if (docData.subject.includes('❌') || docData.body?.includes('rejeté')) {
+            docStatus = DocumentStatus.REJECTED;
+          } else {
+            docStatus = DocumentStatus.SENT; // En attente
+          }
+
+          // LOGIQUE CONDITIONNELLE
+          if (docStatus === DocumentStatus.SIGNED || docStatus === DocumentStatus.REJECTED) {
+            // ✅ Document finalisé (signé/rejeté) → SUPPRESSION BILATÉRALE
+            // Récupérer l'ID du document pour suppression globale
+            try {
+              const token = docData.signatureLink.split("/").pop();
+              if (token) {
+                const { getDocumentIdFromToken } = await import('../services/firebaseApi');
+                const documentId = await getDocumentIdFromToken(token);
+                if (documentId) {
+                  documentsToDelete.push(documentId);
+                  documentsGloballyDeleted++;
+                }
+              }
+            } catch (err) {
+              console.error("Erreur récupération documentId:", err);
+              // Fallback: suppression locale uniquement
+              await deleteEmails([item.id]);
+              emailsLocallyDeleted++;
+            }
+          } else {
+            // 📧 Document en attente → SUPPRESSION LOCALE uniquement
+            await deleteEmails([item.id]);
+            documentsPendingDeleted++;
+          }
+        } else if (item.type === "document") {
+          // Documents envoyés visibles dans Inbox (masquage local)
+          // Ne rien faire, juste retirer de la vue
+        }
+      }
+
+      // Supprimer globalement les documents finalisés
+      if (documentsToDelete.length > 0) {
+        const { deleteDocuments } = await import('../services/firebaseApi');
+        await deleteDocuments(documentsToDelete);
+      }
+
+      // Mettre à jour l'UI
       setUnifiedItems((prev) =>
         prev.filter((item) => !selectedItems.includes(item.id))
       );
+      
       setSelectedItems([]);
-      addToast(`${selectedItems.length} élément(s) supprimé(s)`, "success");
+      setShowDeleteSnackbar(false);
+      
+      // Messages clairs et différenciés
+      const messages: string[] = [];
+      
+      if (documentsGloballyDeleted > 0) {
+        messages.push(
+          `${documentsGloballyDeleted} document(s) signé(s)/rejeté(s) supprimé(s) définitivement (vous ET l'expéditeur)`
+        );
+      }
+      
+      if (documentsPendingDeleted > 0) {
+        messages.push(
+          `${documentsPendingDeleted} email(s) en attente supprimé(s) (le document reste disponible pour l'expéditeur)`
+        );
+      }
+      
+      if (messages.length > 0) {
+        addToast(messages.join(" • "), documentsGloballyDeleted > 0 ? "success" : "info");
+      }
     } catch (error) {
+      console.error("Erreur lors de la suppression:", error);
       addToast("Erreur lors de la suppression", "error");
+      setShowDeleteSnackbar(false);
     }
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteSnackbar(false);
   };
 
   if (isLoading) {
@@ -667,7 +760,7 @@ const InboxPage: React.FC = () => {
           showContent && "hidden lg:flex"
         } w-full lg:w-1/4 flex flex-col bg-surface lg:border-r border-outlineVariant`}
       >
-        <div className="p-4 border-b border-outlineVariant bg-surface z-10">
+        <div className="p-4 border-b border-outlineVariant bg-surface z-10 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div
               className="inline-block p-2.5 rounded-full progressive-glow-blue flex-shrink-0"
@@ -684,53 +777,25 @@ const InboxPage: React.FC = () => {
           </div>
         </div>
 
-        <nav className="flex-none lg:flex-shrink-0 bg-background overflow-visible">
+        <nav className="flex-shrink-0 bg-background overflow-x-auto lg:overflow-visible">
           <style>{`
             @media (max-width: 1023px) {
               .folder-nav-mobile {
                 display: flex;
-                width: 100%;
-                gap: clamp(0.125rem, 0.5vw, 0.375rem);
+                flex-direction: row;
+                gap: 0.5rem;
                 padding: 0.5rem;
-                justify-content: center;
-                align-items: center;
-                margin: 0 auto;
+                overflow-x: auto;
+                overflow-y: hidden;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: thin;
               }
-              .folder-button-mobile {
-                flex: 1;
-                min-width: 0;
-                max-width: 100%;
-                aspect-ratio: 1;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                padding: clamp(0.5rem, 1.5vw, 0.75rem);
-                border-radius: 50%;
-                gap: 0.125rem;
-                position: relative;
+              .folder-nav-mobile::-webkit-scrollbar {
+                height: 3px;
               }
-              .folder-button-mobile:focus {
-                outline: none;
-                box-shadow: 0 0 0 3px rgba(183, 28, 28, 0.4);
-                border-radius: 50%;
-              }
-              .folder-button-mobile:focus-visible {
-                outline: none;
-                box-shadow: 0 0 0 3px rgba(183, 28, 28, 0.4);
-                border-radius: 50%;
-              }
-              .folder-icon-mobile {
-                width: clamp(1rem, 4vw, 1.25rem);
-                height: clamp(1rem, 4vw, 1.25rem);
-                flex-shrink: 0;
-                margin: 0 auto;
-              }
-              .folder-count-mobile {
-                font-size: clamp(0.625rem, 2.5vw, 0.75rem);
-                font-weight: 600;
-                line-height: 1;
-                color: var(--md-sys-color-on-surface-variant);
+              .folder-nav-mobile::-webkit-scrollbar-thumb {
+                background: rgba(0,0,0,0.2);
+                border-radius: 3px;
               }
             }
             `}</style>
@@ -738,16 +803,13 @@ const InboxPage: React.FC = () => {
             {folders.map((folder) => (
               <div
                 key={folder.id}
-                className="relative flex-1 lg:flex-none lg:w-full"
+                className="relative lg:w-full"
               >
                 <button
                   onClick={() => {
-                    // Desktop uniquement - sur mobile on gère via touch events
-                    if (window.innerWidth >= 1024) {
-                      setSelectedFolder(folder.id);
-                      setSelectedItem(null);
-                      setShowContent(false);
-                    }
+                    setSelectedFolder(folder.id);
+                    setSelectedItem(null);
+                    setShowContent(false);
                   }}
                   onMouseEnter={() => {
                     // Desktop uniquement
@@ -756,68 +818,49 @@ const InboxPage: React.FC = () => {
                     }
                   }}
                   onMouseLeave={() => setHoveredFolder(null)}
-                  onTouchStart={(e) => {
-                    // Afficher temporairement le tooltip
-                    setHoveredFolder(folder.id);
-                    // Programmer la disparition
-                    if (tooltipTimeoutRef.current) {
-                      clearTimeout(tooltipTimeoutRef.current);
-                    }
-                    tooltipTimeoutRef.current = setTimeout(() => {
-                      setHoveredFolder(null);
-                    }, 800);
-                  }}
-                  onTouchEnd={(e) => {
-                    e.preventDefault(); // Empêcher le onClick sur mobile
-                    // Nettoyer le tooltip immédiatement
-                    if (tooltipTimeoutRef.current) {
-                      clearTimeout(tooltipTimeoutRef.current);
-                      tooltipTimeoutRef.current = null;
-                    }
-                    setHoveredFolder(null);
-
-                    // Changer de folder
-                    setSelectedFolder(folder.id);
-                    if (window.innerWidth >= 1024) {
-                      setSelectedItem(null);
-                      setShowContent(false);
-                    }
-                  }}
                   aria-label={folder.name}
-                  className={`folder-button-mobile lg:w-full lg:px-4 lg:py-3 lg:rounded-lg lg:flex lg:items-center lg:justify-between transition-colors lg:mb-1 ${
+                  className={`py-2.5 px-3 lg:px-4 lg:py-3 rounded-lg flex items-center transition-all duration-200 lg:mb-1 lg:w-full whitespace-nowrap ${
                     selectedFolder === folder.id
-                      ? "bg-primaryContainer text-onPrimaryContainer"
-                      : "text-onSurface hover:bg-surfaceVariant/50 lg:hover:bg-surfaceVariant"
+                      ? "bg-primaryContainer text-onPrimaryContainer shadow-sm"
+                      : "text-onSurface hover:bg-surfaceVariant/50 active:scale-[0.98]"
                   }`}
                 >
-                  <div className="flex flex-col lg:flex-row lg:items-center gap-0.5 lg:gap-3 min-w-0 items-center w-full lg:w-auto">
-                    <folder.icon className="folder-icon-mobile lg:h-5 lg:w-5 flex-shrink-0" />
-                    <span className="folder-count-mobile lg:hidden">
-                      {folder.count}
-                    </span>
-                    <span className="truncate font-medium hidden lg:inline text-sm">
+                  {/* Mobile : icône + label + badge inline */}
+                  <div className="flex items-center gap-2 lg:hidden">
+                    <folder.icon className="h-4 w-4 flex-shrink-0" />
+                    <span className="text-xs font-semibold">
                       {folder.name}
                     </span>
-                  </div>
-                  <div className="hidden lg:flex items-center gap-2 flex-shrink-0">
                     {folder.unread !== undefined && folder.unread > 0 && (
-                      <span className="bg-error text-onError text-xs font-bold px-2 py-0.5 rounded-full">
+                      <span className="bg-error text-onError text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                         {folder.unread}
                       </span>
                     )}
-                    <span className="text-xs text-onSurfaceVariant font-semibold">
+                    <span className="text-[10px] font-bold text-onSurfaceVariant bg-surfaceVariant/50 px-1.5 py-0.5 rounded-full">
                       {folder.count}
                     </span>
                   </div>
-                </button>
-                {hoveredFolder === folder.id && (
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-50 pointer-events-none lg:hidden">
-                    <div className="bg-inverseSurface text-inverseOnSurface text-xs font-semibold px-2.5 py-1.5 rounded-lg shadow-xl whitespace-nowrap">
-                      {folder.name}
+                  
+                  {/* Desktop : icône + label + compteur */}
+                  <div className="hidden lg:flex items-center justify-between w-full min-w-0">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <folder.icon className="h-5 w-5 flex-shrink-0" />
+                      <span className="truncate font-medium text-sm">
+                        {folder.name}
+                      </span>
                     </div>
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-inverseSurface" />
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {folder.unread !== undefined && folder.unread > 0 && (
+                        <span className="bg-error text-onError text-xs font-bold px-2 py-0.5 rounded-full">
+                          {folder.unread}
+                        </span>
+                      )}
+                      <span className="text-xs text-onSurfaceVariant font-semibold">
+                        {folder.count}
+                      </span>
+                    </div>
                   </div>
-                )}
+                </button>
               </div>
             ))}
           </div>
@@ -831,62 +874,62 @@ const InboxPage: React.FC = () => {
         } w-full lg:w-1/4 flex flex-col border-r border-outlineVariant bg-surface h-full overflow-hidden`}
       >
         <div className="p-4 border-b border-outlineVariant bg-surface z-10">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-onSurface truncate">
-              {folders.find((f) => f.id === selectedFolder)?.name || "Tous"}
-            </h2>
-            {!isSelectionMode ? (
-              <Button
-                variant="outlined"
-                onClick={() => setIsSelectionMode(true)}
+          <div className="flex items-center gap-3">
+             {/* Checkbox "Tout sélectionner" style Dashboard */}
+             <label className="cursor-pointer group flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+               <input
+                 type="checkbox"
+                 checked={
+                   selectedItems.length === filteredItems.length &&
+                   filteredItems.length > 0
+                 }
+                 onChange={handleSelectAllClick}
+                 className="sr-only peer"
+                 aria-label="Tout sélectionner"
+               />
+               <div className="
+                 w-5 h-5
+                 rounded-full border-2
+                 bg-surface elevation-1
+                 flex items-center justify-center
+                 transition-all duration-200
+                 peer-checked:bg-primary peer-checked:border-primary peer-checked:elevation-2
+                 peer-focus:ring-2 peer-focus:ring-primary
+                 group-hover:elevation-2 group-hover:scale-105
+                 border-outlineVariant
+               ">
+                 {selectedItems.length === filteredItems.length && filteredItems.length > 0 && (
+                   <svg className="w-2.5 h-2.5 text-onPrimary animate-expand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                   </svg>
+                 )}
+               </div>
+             </label>
+             <div className="flex-1 min-w-0">
+               <div className="flex items-baseline gap-2">
+                 <h2 className="font-semibold text-onSurface truncate">
+                   {folders.find((f) => f.id === selectedFolder)?.name || "Tous"}
+                 </h2>
+                 {selectedItems.length > 0 && (
+                   <span className="text-xs text-onSurfaceVariant whitespace-nowrap">
+                     ({selectedItems.length} sélectionné{selectedItems.length > 1 ? 's' : ''})
+                   </span>
+                 )}
+               </div>
+             </div>
+            {/* Bouton supprimer visible si sélection */}
+            {selectedItems.length > 0 && (
+              <button
+                onClick={handleRequestDelete}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-error border border-error rounded-lg hover:bg-error/10 transition-colors flex-shrink-0"
+                title={`Supprimer ${selectedItems.length} élément(s)`}
               >
-                Sélectionner
-              </Button>
-            ) : (
-              <Button
-                variant="outlined"
-                onClick={() => {
-                  setIsSelectionMode(false);
-                  setSelectedItems([]);
-                }}
-              >
-                Annuler
-              </Button>
+                <Trash2 className="h-4 w-4" />
+                <span className="hidden sm:inline">Supprimer</span>
+              </button>
             )}
           </div>
         </div>
-
-        {/* Barre de sélection globale */}
-        {isSelectionMode && (
-          <div className="p-3 border-b border-outlineVariant flex items-center gap-3 bg-surfaceVariant/30">
-            <input
-              type="checkbox"
-              checked={
-                selectedItems.length === filteredItems.length &&
-                filteredItems.length > 0
-              }
-              onChange={handleSelectAllClick}
-              className="w-4 h-4 rounded cursor-pointer"
-              title="Sélectionner tous"
-            />
-            <span className="text-sm font-medium text-onSurface flex-1">
-              {selectedItems.length === 0
-                ? "Sélectionner tous"
-                : `${selectedItems.length} sélectionné(s)`}
-            </span>
-            {selectedItems.length > 0 && (
-              <Button
-                variant="outlined"
-                icon={Trash2}
-                onClick={handleDeleteItems}
-                size="small"
-                className="!text-error !border-error"
-              >
-                Supprimer
-              </Button>
-            )}
-          </div>
-        )}
 
         <div className="overflow-y-auto flex-1">
           {filteredItems.length === 0 ? (
@@ -904,15 +947,33 @@ const InboxPage: React.FC = () => {
                 } ${!item.read ? "bg-surfaceVariant/20" : ""}`}
               >
                 <div className="flex items-start gap-3">
-                  {isSelectionMode && (
-                    <input
-                      type="checkbox"
-                      checked={selectedItems.includes(item.id)}
-                      onChange={() => handleItemSelect(item.id)}
-                      className="mt-1"
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  )}
+                   {/* Checkbox style Dashboard */}
+                   <label className="cursor-pointer group animate-fade-in-scale flex-shrink-0 mt-0.5" onClick={(e) => e.stopPropagation()}>
+                     <input
+                       type="checkbox"
+                       checked={selectedItems.includes(item.id)}
+                       onChange={() => handleItemSelect(item.id)}
+                       className="sr-only peer"
+                       aria-label={`Sélectionner ${item.subject || item.documentName}`}
+                     />
+                     <div className="
+                       w-4 h-4
+                       rounded-full border-2
+                       bg-surface elevation-1
+                       flex items-center justify-center
+                       transition-all duration-200
+                       peer-checked:bg-primary peer-checked:border-primary peer-checked:elevation-2
+                       peer-focus:ring-2 peer-focus:ring-primary
+                       group-hover:elevation-2 group-hover:scale-105
+                       border-outlineVariant
+                     ">
+                       {selectedItems.includes(item.id) && (
+                         <svg className="w-2 h-2 text-onPrimary animate-expand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                         </svg>
+                       )}
+                     </div>
+                   </label>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start gap-2 mb-1">
                       {item.type === "email" ? (
@@ -958,14 +1019,14 @@ const InboxPage: React.FC = () => {
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedItems([item.id]);
-                      handleDeleteItems();
+                      handleRequestDelete();
                     }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.stopPropagation();
                         e.preventDefault();
                         setSelectedItems([item.id]);
-                        handleDeleteItems();
+                        handleRequestDelete();
                       }
                     }}
                     className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded hover:bg-error/10 text-error flex-shrink-0 cursor-pointer"
@@ -1083,6 +1144,43 @@ const InboxPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Snackbar Material pour confirmation de suppression */}
+      {showDeleteSnackbar && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-slide-up">
+          <div className="bg-inverseSurface text-inverseOnSurface rounded-lg shadow-xl px-4 py-3 flex flex-col gap-3 min-w-[320px] max-w-[600px]">
+            <div className="flex items-start gap-4">
+              <div className="flex-1">
+                <p className="text-sm font-medium">
+                  Supprimer {selectedItems.length} élément{selectedItems.length > 1 ? 's' : ''} ?
+                </p>
+                <div className="text-xs opacity-90 mt-2 space-y-1">
+                  <p>• <span className="font-semibold">Docs signés/rejetés</span> : Suppression définitive (vous ET l'expéditeur)</p>
+                  <p>• <span className="font-semibold">Docs en attente</span> : Suppression locale uniquement</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={handleCancelDelete}
+                  className="px-3 py-1.5 text-sm font-medium text-inversePrimary hover:bg-inverseSurface/80 rounded transition-colors whitespace-nowrap"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleConfirmDelete}
+                  className="px-3 py-1.5 text-sm font-bold text-inversePrimary hover:bg-inverseSurface/80 rounded transition-colors flex items-center gap-1.5 whitespace-nowrap"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Supprimer
+                </button>
+              </div>
+            </div>
+            <div className="text-[10px] opacity-70 leading-tight">
+              ⚠️ Conformité RGPD : Vérifiez vos obligations légales de conservation.
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

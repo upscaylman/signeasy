@@ -357,9 +357,9 @@ export const createEnvelope = async (
       "KB"
     );
 
-    // Calculer la date d'expiration (7 jours à partir de maintenant)
+    // Calculer la date d'expiration (1 an à partir de maintenant)
     const expirationDate = new Date();
-    expirationDate.setDate(expirationDate.getDate() + 7);
+    expirationDate.setDate(expirationDate.getDate() + 365);
 
     // 1. Créer le document
     const newDoc: Document = {
@@ -869,21 +869,48 @@ export const rejectSignature = async (
   }
 };
 
+// 📦 ARCHIVAGE : Archiver/Désarchiver des documents
+export const archiveDocuments = async (
+  documentIds: string[],
+  archived: boolean
+): Promise<{ success: boolean }> => {
+  try {
+    console.log(`📦 ${archived ? 'Archivage' : 'Désarchivage'} de documents:`, documentIds);
+    
+    for (const docId of documentIds) {
+      await updateDoc(doc(db, "documents", docId), {
+        archived: archived,
+        updatedAt: new Date().toISOString()
+      });
+    }
+    
+    console.log(`✅ ${documentIds.length} document(s) ${archived ? 'archivé(s)' : 'désarchivé(s)'}`);
+    return { success: true };
+  } catch (error) {
+    console.error("❌ Erreur archiveDocuments:", error);
+    return { success: false };
+  }
+};
+
 export const deleteDocuments = async (
   documentIds: string[]
 ): Promise<{ success: boolean }> => {
   try {
-    // Supprimer les documents, enveloppes, tokens, PDFs, etc.
+    console.log("🗑️ Suppression de documents:", documentIds);
+    
+    // Supprimer les documents, enveloppes, tokens, emails, PDFs, etc.
     for (const docId of documentIds) {
       // Supprimer le document
       await deleteDoc(doc(db, "documents", docId));
+      console.log(`   ✅ Document ${docId} supprimé`);
 
       // Supprimer le PDF depuis Storage
       try {
         const pdfRef = ref(storage, `pdfs/${docId}.pdf`);
         await deleteObject(pdfRef);
+        console.log(`   ✅ PDF ${docId} supprimé du Storage`);
       } catch (e) {
-        console.warn("PDF déjà supprimé ou inexistant:", docId);
+        console.warn("   ⚠️ PDF déjà supprimé ou inexistant:", docId);
       }
 
       // Trouver et supprimer l'enveloppe
@@ -895,24 +922,53 @@ export const deleteDocuments = async (
       for (const envDoc of envelopesDocs.docs) {
         await deleteDoc(envDoc.ref);
       }
+      console.log(`   ✅ ${envelopesDocs.docs.length} enveloppe(s) supprimée(s)`);
 
-      // Trouver et supprimer les tokens
+      // Trouver et supprimer les tokens associés
+      const envelopeId = `env${docId.substring(3)}`;
       const tokensQuery = query(
         collection(db, "tokens"),
-        where("envelopeId", "==", `env${docId.substring(3)}`)
+        where("envelopeId", "==", envelopeId)
       );
       const tokensDocs = await getDocs(tokensQuery);
+      const tokenIds: string[] = [];
+      
       for (const tokenDoc of tokensDocs.docs) {
+        tokenIds.push(tokenDoc.id);
         await deleteDoc(tokenDoc.ref);
       }
+      console.log(`   ✅ ${tokenIds.length} token(s) supprimé(s)`);
+
+      // 🆕 Supprimer les emails associés (via les tokens)
+      // Les emails contiennent signatureLink avec le token
+      let emailsDeletedCount = 0;
+      for (const token of tokenIds) {
+        const emailsQuery = query(
+          collection(db, "emails"),
+          where("signatureLink", "==", `${window.location.origin}/#/sign/${token}`)
+        );
+        const emailsDocs = await getDocs(emailsQuery);
+        
+        for (const emailDoc of emailsDocs.docs) {
+          await deleteDoc(emailDoc.ref);
+          emailsDeletedCount++;
+        }
+      }
+      console.log(`   ✅ ${emailsDeletedCount} email(s) supprimé(s)`);
 
       // Supprimer l'audit trail
+      try {
       await deleteDoc(doc(db, "auditTrails", docId));
+        console.log(`   ✅ Audit trail ${docId} supprimé`);
+      } catch (e) {
+        console.warn("   ⚠️ Audit trail déjà supprimé ou inexistant");
+      }
     }
 
+    console.log("✅ Suppression complète terminée avec succès");
     return { success: true };
   } catch (error) {
-    console.error("Erreur deleteDocuments:", error);
+    console.error("❌ Erreur deleteDocuments:", error);
     return { success: false };
   }
 };
@@ -1051,7 +1107,172 @@ export const getTokenForDocumentSigner = async (
   }
 };
 
-// 🗑️ NETTOYAGE AUTOMATIQUE : Supprimer les documents expirés (> 7 jours)
+// Récupérer l'enveloppe complète par document ID
+export const getEnvelopeByDocumentId = async (
+  documentId: string
+): Promise<Envelope | null> => {
+  try {
+    const envelopeId = `env${documentId.substring(3)}`;
+    const envelopeDoc = await getDoc(doc(db, "envelopes", envelopeId));
+
+    if (!envelopeDoc.exists()) return null;
+
+    return envelopeDoc.data() as Envelope;
+  } catch (error) {
+    console.error("Erreur getEnvelopeByDocumentId:", error);
+    return null;
+  }
+};
+
+// Générer un PDF avec les signatures intégrées
+export const generateSignedPDF = async (
+  documentId: string
+): Promise<string | null> => {
+  try {
+    console.log("📝 Génération du PDF avec signatures pour:", documentId);
+
+    // Récupérer le PDF original
+    const pdfData = await getPdfData(documentId);
+    if (!pdfData) {
+      console.error("PDF introuvable");
+      return null;
+    }
+
+    // Récupérer l'enveloppe avec les champs signés
+    const envelope = await getEnvelopeByDocumentId(documentId);
+    if (!envelope || !envelope.fields) {
+      console.log("Aucune enveloppe ou champs trouvés, retour du PDF original");
+      return pdfData;
+    }
+
+    // Importer pdf-lib
+    const { PDFDocument, rgb } = await import("pdf-lib");
+
+    // Charger le PDF
+    const base64Data = pdfData.split(',')[1];
+    const pdfBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+    const pdfDoc = await PDFDocument.load(pdfBytes);
+    const pages = pdfDoc.getPages();
+
+    // Parcourir tous les champs et les dessiner sur le PDF
+    for (const field of envelope.fields) {
+      if (!field.value) continue; // Ignorer les champs non remplis
+
+      const page = pages[field.page - 1]; // Les pages commencent à 1 dans notre système
+      if (!page) continue;
+
+      const pageHeight = page.getHeight();
+
+      // Convertir les coordonnées (y est inversé dans PDF)
+      const pdfY = pageHeight - field.y - field.height;
+
+      if (field.type === 'Signature' || field.type === 'Paraphe') {
+        // Dessiner l'image de signature
+        if (typeof field.value === 'string' && field.value.startsWith('data:image')) {
+          try {
+            const imageData = field.value.split(',')[1];
+            const imageBytes = Uint8Array.from(atob(imageData), c => c.charCodeAt(0));
+            const image = await pdfDoc.embedPng(imageBytes);
+            
+            page.drawImage(image, {
+              x: field.x,
+              y: pdfY,
+              width: field.width,
+              height: field.height,
+            });
+          } catch (err) {
+            console.error("Erreur lors de l'ajout de l'image:", err);
+          }
+        }
+      } else if (field.type === 'Texte') {
+        // Dessiner le texte
+        if (typeof field.value === 'string') {
+          const fontSize = Math.min(field.height * 0.6, 12);
+          page.drawText(field.value, {
+            x: field.x + 5,
+            y: pdfY + field.height / 2 - fontSize / 2,
+            size: fontSize,
+            color: rgb(0, 0, 0),
+          });
+        }
+      } else if (field.type === 'Date') {
+        // Dessiner la date
+        if (typeof field.value === 'string') {
+          const fontSize = Math.min(field.height * 0.6, 12);
+          page.drawText(field.value, {
+            x: field.x + 5,
+            y: pdfY + field.height / 2 - fontSize / 2,
+            size: fontSize,
+            color: rgb(0, 0, 0),
+          });
+        }
+      } else if (field.type === 'Case à cocher') {
+        // Dessiner la case cochée
+        if (field.value === true) {
+          const checkSize = Math.min(field.width, field.height) * 0.8;
+          const centerX = field.x + field.width / 2;
+          const centerY = pdfY + field.height / 2;
+          
+          // Dessiner un X pour la case cochée
+          page.drawText('✓', {
+            x: centerX - checkSize / 2,
+            y: centerY - checkSize / 2,
+            size: checkSize,
+            color: rgb(0, 0.5, 0),
+          });
+        }
+      }
+    }
+
+    // Sauvegarder le PDF modifié
+    const modifiedPdfBytes = await pdfDoc.save();
+    const blob = new Blob([modifiedPdfBytes], { type: 'application/pdf' });
+    
+    // Convertir en data URL
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+
+  } catch (error) {
+    console.error("❌ Erreur generateSignedPDF:", error);
+    return null;
+  }
+};
+
+// Télécharger un document PDF avec signatures
+export const downloadDocument = async (
+  documentId: string,
+  documentName: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    console.log("📥 Téléchargement du document:", documentName);
+    
+    // Générer le PDF avec les signatures intégrées
+    const pdfData = await generateSignedPDF(documentId);
+    
+    if (!pdfData) {
+      return { success: false, error: "Document introuvable" };
+    }
+
+    // Créer un lien de téléchargement
+    const link = document.createElement('a');
+    link.href = pdfData;
+    link.download = documentName.endsWith('.pdf') ? documentName : `${documentName}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    console.log("✅ Téléchargement lancé:", link.download);
+    return { success: true };
+  } catch (error) {
+    console.error("❌ Erreur downloadDocument:", error);
+    return { success: false, error: "Erreur lors du téléchargement" };
+  }
+};
+
+// 🗑️ NETTOYAGE AUTOMATIQUE : Supprimer les documents expirés (> 1 an)
 
 export const cleanupExpiredDocuments = async (): Promise<{
   success: boolean;

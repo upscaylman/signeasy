@@ -1,17 +1,19 @@
 
 import React from 'react';
-import type { Document } from '../types';
+import type { Document, Recipient } from '../types';
 import { DocumentStatus } from '../types';
-import { FileText, Clock, PenSquare, Eye, AlertCircle, Calendar, CheckCircle } from 'lucide-react';
+import { FileText, Clock, PenSquare, Eye, AlertCircle, Calendar, CheckCircle, UserCheck, UserX, Download } from 'lucide-react';
 
 interface DocumentCardProps {
   document: Document;
   onSign?: (id: string) => void;
   onView?: (id: string) => void;
+  onDownload?: (id: string) => void;
   isSelectionMode: boolean;
   isSelected: boolean;
   onSelect: (id: string) => void;
   documentSource?: 'sent' | 'received'; // Pour différencier expéditeur/destinataire
+  recipients?: Recipient[]; // Liste des destinataires avec nom + email
 }
 
 const statusStyles: { [key in DocumentStatus]: { bg: string, text: string } } = {
@@ -22,11 +24,25 @@ const statusStyles: { [key in DocumentStatus]: { bg: string, text: string } } = 
 };
 
 
-const DocumentCard: React.FC<DocumentCardProps> = ({ document, onSign, onView, isSelectionMode, isSelected, onSelect, documentSource }) => {
+const DocumentCard: React.FC<DocumentCardProps> = ({ document, onSign, onView, onDownload, isSelectionMode, isSelected, onSelect, documentSource, recipients }) => {
   const { bg, text } = statusStyles[document.status];
   // 🔒 needsAction uniquement si destinataire (received) et statut SENT
   // Si expéditeur (sent), toujours en lecture seule
   const needsAction = documentSource === 'received' && document.status === DocumentStatus.SENT;
+  
+  // Icône selon le statut du document
+  const getStatusIcon = (status: DocumentStatus) => {
+    switch (status) {
+      case DocumentStatus.SIGNED:
+        return <UserCheck className="h-3.5 w-3.5" />;
+      case DocumentStatus.REJECTED:
+        return <UserX className="h-3.5 w-3.5" />;
+      case DocumentStatus.SENT:
+        return <Clock className="h-3.5 w-3.5" />;
+      default:
+        return <Clock className="h-3.5 w-3.5" />;
+    }
+  };
 
   return (
     <div className="relative h-full cascade-item">
@@ -91,6 +107,29 @@ const DocumentCard: React.FC<DocumentCardProps> = ({ document, onSign, onView, i
               )}
             </div>
           </div>
+          
+          {/* Section Destinataires - En header */}
+          {recipients && recipients.length > 0 && (
+            <div className="mt-3 space-y-1.5">
+              {recipients.map((recipient, index) => (
+                <div 
+                  key={recipient.id || index}
+                  className="flex items-center gap-2 text-xs bg-surfaceVariant/30 rounded-lg px-2.5 py-1.5"
+                >
+                  {getStatusIcon(document.status)}
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold text-onSurface truncate" title={recipient.name}>
+                      {recipient.name}
+                    </div>
+                    <div className="text-onSurfaceVariant truncate text-[10px]" title={recipient.email}>
+                      {recipient.email}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          
           <div className="mt-4 space-y-2">
             <div className="flex items-center text-sm text-onSurfaceVariant">
               <Clock className="flex-shrink-0 mr-1.5 h-5 w-5" />
@@ -109,7 +148,7 @@ const DocumentCard: React.FC<DocumentCardProps> = ({ document, onSign, onView, i
                         <Clock className="h-4 w-4 flex-shrink-0" /> Expiré le {expiresAt.toLocaleDateString('fr-FR')}
                       </span>
                     );
-                  } else if (daysLeft <= 2) {
+                  } else if (daysLeft <= 30) {
                     return (
                       <span className="text-error font-semibold flex items-center gap-1">
                         <AlertCircle className="h-4 w-4 flex-shrink-0" /> Expire dans {daysLeft} jour{daysLeft > 1 ? 's' : ''} ({expiresAt.toLocaleDateString('fr-FR')})
@@ -130,43 +169,65 @@ const DocumentCard: React.FC<DocumentCardProps> = ({ document, onSign, onView, i
         
         {!isSelectionMode && (
           <div className="border-t border-outlineVariant/30 bg-surfaceVariant/20 px-5 py-3 rounded-b-2xl">
-            <div className="flex items-center justify-end space-x-4">
-              {needsAction && onSign && (
-                 <button 
-                   onClick={() => onSign(document.id)} 
-                   className="
-                     inline-flex items-center min-h-[40px] px-3 py-2
-                     text-sm font-bold text-primary rounded-lg
-                     state-layer state-layer-primary press-effect
-                     transition-all hover:scale-[1.02]
-                   "
-                   aria-label={`Signer le document ${document.name}`}
-                 >
-                    Signer maintenant <PenSquare className="ml-1.5 h-4 w-4" />
-                 </button>
-              )}
-              {!needsAction && onView && (
-                 <>
-                   {documentSource === 'sent' && (
-                     <div className="bg-tertiaryContainer text-onTertiaryContainer px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5">
-                       <CheckCircle className="h-3.5 w-3.5" />
-                       Document en lecture seule
-                     </div>
-                   )}
+            <div className="flex items-center justify-between gap-4">
+              {/* Partie gauche : Télécharger + Badge lecture seule */}
+              <div className="flex items-center gap-3">
+                {/* Bouton Télécharger - Toujours visible */}
+                {onDownload && (
+                  <button 
+                    onClick={() => onDownload(document.id)} 
+                    className="
+                      inline-flex items-center min-h-[40px] px-3 py-2
+                      text-sm font-bold text-onSurfaceVariant rounded-lg
+                      state-layer press-effect
+                      transition-all hover:scale-[1.02]
+                    "
+                    aria-label={`Télécharger le document ${document.name}`}
+                    title="Télécharger le PDF"
+                  >
+                    <Download className="h-4 w-4" />
+                  </button>
+                )}
+                
+                {/* Badge "Document en lecture seule" */}
+                {!needsAction && documentSource === 'sent' && (
+                  <div className="bg-tertiaryContainer text-onTertiaryContainer px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5">
+                    <CheckCircle className="h-3.5 w-3.5" />
+                    Document en lecture seule
+                  </div>
+                )}
+              </div>
+              
+              {/* Partie droite : Bouton Signer ou Voir */}
+              <div className="flex items-center">
+                {needsAction && onSign ? (
                    <button 
-                     onClick={() => onView(document.id)} 
+                     onClick={() => onSign(document.id)} 
                      className="
                        inline-flex items-center min-h-[40px] px-3 py-2
-                       text-sm font-bold text-secondary rounded-lg
-                       state-layer state-layer-secondary press-effect
+                       text-sm font-bold text-primary rounded-lg
+                       state-layer state-layer-primary press-effect
                        transition-all hover:scale-[1.02]
                      "
-                     aria-label={`Voir le document ${document.name}`}
+                     aria-label={`Signer le document ${document.name}`}
                    >
-                      Voir <Eye className="ml-1.5 h-4 w-4" />
+                      Signer maintenant <PenSquare className="ml-1.5 h-4 w-4" />
                    </button>
-                 </>
-              )}
+                ) : onView && (
+                     <button 
+                       onClick={() => onView(document.id)} 
+                       className="
+                         inline-flex items-center min-h-[40px] px-3 py-2
+                         text-sm font-bold text-secondary rounded-lg
+                         state-layer state-layer-secondary press-effect
+                         transition-all hover:scale-[1.02]
+                       "
+                       aria-label={`Voir le document ${document.name}`}
+                     >
+                        Voir <Eye className="ml-1.5 h-4 w-4" />
+                     </button>
+                )}
+              </div>
             </div>
           </div>
         )}

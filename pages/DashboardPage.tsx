@@ -1,13 +1,13 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { Document, MockEmail } from '../types';
+import type { Document, MockEmail, Recipient } from '../types';
 import { DocumentStatus } from '../types';
 import DocumentCard from '../components/DocumentCard';
 import AdminPanel from '../components/AdminPanel';
-import { getDocuments, deleteDocuments, getTokenForDocumentSigner, getEmails } from '../services/firebaseApi';
+import { getDocuments, deleteDocuments, archiveDocuments, getTokenForDocumentSigner, getEmails, getEnvelopeByDocumentId, downloadDocument } from '../services/firebaseApi';
 import { useUser } from '../components/UserContext';
-import { PlusCircle, Inbox, Search, Trash2, X, AlertTriangle, Upload, CheckSquare, Square, LayoutDashboard, FileSignature, Mail, Send } from 'lucide-react';
+import { PlusCircle, Inbox, Search, Trash2, X, AlertTriangle, Upload, CheckSquare, Square, LayoutDashboard, FileSignature, Mail, Send, Archive, ArchiveRestore } from 'lucide-react';
 import Button from '../components/Button';
 import { useToast } from '../components/Toast';
 import Tooltip from '../components/Tooltip';
@@ -18,6 +18,7 @@ interface UnifiedDocument extends Document {
   source: 'sent' | 'received'; // Pour distinguer expéditeur vs destinataire
   emailId?: string; // Pour les documents issus d'emails
   originalEmail?: MockEmail; // Données email originales si applicable
+  recipients?: Recipient[]; // Destinataires avec nom + email
 }
 
 const ConfirmationModal: React.FC<{
@@ -30,23 +31,32 @@ const ConfirmationModal: React.FC<{
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 bg-scrim/50 flex items-center justify-center z-50 p-4 modal-backdrop" onClick={onClose}>
-      <div className="bg-surface rounded-3xl shadow-xl w-full max-w-md p-6 modal-content" onClick={e => e.stopPropagation()}>
-        <div className="flex">
-            <div className="bg-errorContainer p-3 rounded-full mr-4 h-fit">
-              <AlertTriangle className="h-6 w-6 text-onErrorContainer" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-onSurface">{title}</h2>
-              <p className="text-sm text-onSurfaceVariant mt-2">{message}</p>
-            </div>
+      <div className="bg-surface rounded-3xl shadow-xl w-full max-w-lg p-6 modal-content" onClick={e => e.stopPropagation()}>
+        <div className="flex items-start gap-4 mb-6">
+          <div className="bg-errorContainer p-3 rounded-full flex-shrink-0">
+            <AlertTriangle className="h-6 w-6 text-onErrorContainer" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-xl font-bold text-onSurface mb-2">{title}</h2>
+            <p className="text-sm text-onSurfaceVariant">{message}</p>
+          </div>
         </div>
-        <div className="flex justify-end space-x-3 mt-8">
+        
+        <div className="mb-6 p-3 bg-primaryContainer/30 rounded-lg border border-primary/20">
+          <p className="text-xs text-onSurface leading-relaxed">
+            ⚠️ <span className="font-bold">Conformité RGPD</span> : Cette suppression est définitive et irréversible. 
+            Assurez-vous de ne pas être soumis à une obligation légale de conservation pour ces documents 
+            (contrats, factures, documents RH, etc.).
+          </p>
+        </div>
+        
+        <div className="flex justify-end gap-3">
           <Button variant="text" onClick={onClose}>Annuler</Button>
           <button 
             onClick={onConfirm}
             className="btn-premium-shine btn-premium-extended h-11 text-sm focus:outline-none focus:ring-4 focus:ring-primary/30 inline-flex items-center justify-center"
           >
-            Confirmer
+            Confirmer la suppression
           </button>
         </div>
       </div>
@@ -112,11 +122,17 @@ const DashboardPage: React.FC = () => {
       }
       setUserRole(role);
 
-      // Convertir les documents envoyés en UnifiedDocument
-      const unifiedSentDocs: UnifiedDocument[] = sentDocs.map(doc => ({
-        ...doc,
-        source: 'sent' as const
-      }));
+      // Convertir les documents envoyés en UnifiedDocument avec leurs destinataires
+      const unifiedSentDocs: UnifiedDocument[] = await Promise.all(
+        sentDocs.map(async (doc) => {
+          const envelope = await getEnvelopeByDocumentId(doc.id);
+          return {
+            ...doc,
+            source: 'sent' as const,
+            recipients: envelope?.recipients || []
+          };
+        })
+      );
 
       // Convertir les emails reçus en UnifiedDocument
       const unifiedReceivedDocs: UnifiedDocument[] = receivedEmails.map(emailToUnifiedDocument);
@@ -138,9 +154,20 @@ const DashboardPage: React.FC = () => {
     fetchUnifiedDocuments();
   }, [fetchUnifiedDocuments]);
 
+  // Filtrer les documents actifs (non archivés)
   const filteredDocuments = useMemo(() => {
     return documents.filter(doc => 
-      doc.name.toLowerCase().includes(searchTerm.toLowerCase())
+      doc.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
+      !doc.archived // Exclure les archivés
+    );
+  }, [documents, searchTerm]);
+
+  // Filtrer les documents archivés
+  const archivedDocuments = useMemo(() => {
+    return documents.filter(doc => 
+      doc.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
+      doc.archived === true &&
+      doc.source === 'sent' // Seuls les documents envoyés peuvent être archivés
     );
   }, [documents, searchTerm]);
 
@@ -212,6 +239,27 @@ const DashboardPage: React.FC = () => {
     }
   };
 
+  const handleDownload = async (id: string) => {
+    // Trouver le document
+    const doc = documents.find(d => d.id === id);
+    if (!doc) {
+      addToast("Document introuvable.", "error");
+      return;
+    }
+
+    // Extraire l'ID réel du document (enlever le préfixe "email-" si présent)
+    const realDocId = id.startsWith('email-') ? id.substring(6) : id;
+    
+    addToast("Téléchargement en cours...", "info");
+    const result = await downloadDocument(realDocId, doc.name);
+    
+    if (result.success) {
+      addToast("Document téléchargé avec succès !", "success");
+    } else {
+      addToast(result.error || "Erreur lors du téléchargement", "error");
+    }
+  };
+
   const handleDocumentSelect = (docId: string) => {
     setSelectedDocuments(prev =>
       prev.includes(docId)
@@ -231,6 +279,47 @@ const DashboardPage: React.FC = () => {
   const handleExitSelectionMode = () => {
       setIsSelectionMode(false);
       setSelectedDocuments([]);
+  };
+
+  const handleArchive = async () => {
+    try {
+      // Séparer les documents envoyés et les emails reçus
+      const docsToArchive = selectedDocuments
+        .map(id => documents.find(d => d.id === id))
+        .filter((d): d is UnifiedDocument => d !== undefined);
+      
+      // Archiver uniquement les documents envoyés (source='sent')
+      const sentDocIds = docsToArchive
+        .filter(d => d.source === 'sent')
+        .map(d => d.id);
+      
+      if (sentDocIds.length > 0) {
+        await archiveDocuments(sentDocIds, true);
+        setDocuments(prev => prev.map(doc => 
+          sentDocIds.includes(doc.id) ? { ...doc, archived: true } : doc
+        ));
+        addToast(`${sentDocIds.length} document(s) archivé(s) avec succès.`, 'success');
+        handleExitSelectionMode();
+      } else {
+        addToast('Seuls les documents envoyés peuvent être archivés.', 'info');
+      }
+    } catch(error) {
+      console.error('Erreur lors de l\'archivage:', error);
+      addToast('Échec de l\'archivage des documents.', 'error');
+    }
+  };
+
+  const handleUnarchive = async (docIds: string[]) => {
+    try {
+      await archiveDocuments(docIds, false);
+      setDocuments(prev => prev.map(doc => 
+        docIds.includes(doc.id) ? { ...doc, archived: false } : doc
+      ));
+      addToast(`${docIds.length} document(s) désarchivé(s) avec succès.`, 'success');
+    } catch(error) {
+      console.error('Erreur lors du désarchivage:', error);
+      addToast('Échec du désarchivage des documents.', 'error');
+    }
   };
 
   const handleDelete = async () => {
@@ -342,7 +431,7 @@ const DashboardPage: React.FC = () => {
             onClose={() => setIsConfirmDeleteOpen(false)}
             onConfirm={handleDelete}
             title={`Supprimer ${selectedDocuments.length} document(s) ?`}
-            message="Cette action est irréversible. Les documents sélectionnés seront définitivement supprimés."
+            message="Les documents seront définitivement supprimés de la base de données dans le respect du RGPD (droit à l'effacement)."
         />
       
       {/* En-tête de la page */}
@@ -377,6 +466,16 @@ const DashboardPage: React.FC = () => {
                 </Button>
                 <Button 
                   variant="outlined"
+                  icon={Archive} 
+                  disabled={selectedDocuments.length === 0} 
+                  onClick={handleArchive}
+                  size="small"
+                  className="flex-1 sm:flex-initial min-w-[110px]"
+                >
+                  Archiver
+                </Button>
+                <Button 
+                  variant="outlined"
                   icon={Trash2} 
                   disabled={selectedDocuments.length === 0} 
                   onClick={() => setIsConfirmDeleteOpen(true)}
@@ -386,11 +485,11 @@ const DashboardPage: React.FC = () => {
                   Supprimer
                 </Button>
                 <Button 
-                  variant="text" 
+                  variant="filled"
                   icon={X}
                   onClick={handleExitSelectionMode}
                   size="small"
-                  className="flex-1 sm:flex-initial"
+                  className="flex-1 sm:flex-initial min-w-[110px] !bg-surfaceVariant hover:!bg-surfaceVariant/80 !text-onSurfaceVariant"
                 >
                   Annuler
                 </Button>
@@ -494,10 +593,12 @@ const DashboardPage: React.FC = () => {
                               document={doc} 
                               onSign={handleSign} 
                               onView={handleView}
+                              onDownload={handleDownload}
                               isSelectionMode={isSelectionMode}
                               isSelected={selectedDocuments.includes(doc.id)}
                               onSelect={handleDocumentSelect}
                               documentSource="received"
+                              recipients={doc.recipients}
                           />
                         ))}
                       </div>
@@ -535,10 +636,12 @@ const DashboardPage: React.FC = () => {
                               document={doc} 
                               onSign={handleSign} 
                               onView={handleView}
+                              onDownload={handleDownload}
                               isSelectionMode={isSelectionMode}
                               isSelected={selectedDocuments.includes(doc.id)}
                               onSelect={handleDocumentSelect}
                               documentSource="sent"
+                              recipients={doc.recipients}
                           />
                         ))}
                       </div>
@@ -595,6 +698,55 @@ const DashboardPage: React.FC = () => {
       )}
         </div>
       </div>
+
+      {/* Section Archives */}
+      {archivedDocuments.length > 0 && (
+        <div className="container mx-auto mt-12">
+          <div className="bg-white rounded-3xl shadow-sm p-4 sm:p-6 lg:p-8">
+            <div className="mb-6 pb-3 border-b-2 border-outlineVariant/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="bg-outlineVariant/20 p-2 rounded-lg">
+                    <Archive className="h-6 w-6 text-onSurfaceVariant" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-onSurface">Archives</h2>
+                    <p className="text-sm text-onSurfaceVariant">
+                      {archivedDocuments.length} document{archivedDocuments.length > 1 ? 's' : ''} archivé{archivedDocuments.length > 1 ? 's' : ''}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+              {archivedDocuments.map((doc) => (
+                <div key={doc.id} className="relative">
+                  <DocumentCard 
+                    document={doc} 
+                    onSign={handleSign} 
+                    onView={handleView}
+                    onDownload={handleDownload}
+                    isSelectionMode={false}
+                    isSelected={false}
+                    onSelect={() => {}}
+                    documentSource="sent"
+                    recipients={doc.recipients}
+                  />
+                  {/* Bouton désarchiver en overlay */}
+                  <button
+                    onClick={() => handleUnarchive([doc.id])}
+                    className="absolute top-2 right-2 p-2 bg-surface rounded-lg shadow-md hover:bg-primaryContainer transition-colors group"
+                    title="Désarchiver"
+                  >
+                    <ArchiveRestore className="h-5 w-5 text-primary group-hover:scale-110 transition-transform" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Section Admin - visible seulement pour l'admin */}
       {currentUser?.isAdmin && (

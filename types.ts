@@ -14,8 +14,9 @@ export interface Document {
   updatedAt: string;
   totalPages: number;
   rejectionReason?: string;
-  expiresAt: string; // Date d'expiration (7 jours après création)
+  expiresAt: string; // Date d'expiration (1 an après création)
   creatorEmail: string; // Email de l'expéditeur (pour notifications)
+  archived?: boolean; // Document archivé par l'expéditeur
 }
 
 export enum FieldType {

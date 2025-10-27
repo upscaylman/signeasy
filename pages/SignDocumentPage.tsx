@@ -7,6 +7,7 @@ import {
   CheckSquare,
   ChevronLeft,
   ChevronRight,
+  Download,
   Loader2,
   Signature,
   Upload,
@@ -28,6 +29,7 @@ import Button from "../components/Button";
 import { useToast } from "../components/Toast";
 import { useUser } from "../components/UserContext";
 import {
+  downloadDocument,
   getEnvelopeByToken,
   getPdfData,
   rejectSignature,
@@ -697,7 +699,7 @@ const SignDocumentPage: React.FC = () => {
             env.document.expiresAt
           ).toLocaleDateString("fr-FR");
           setError(
-            `Ce document a expiré le ${expirationDate}. Les documents sont automatiquement supprimés après 7 jours.`
+            `Ce document a expiré le ${expirationDate}. Les documents sont automatiquement supprimés après 1 an pour respecter vos obligations légales.`
           );
                     setIsLoading(false);
                     return;
@@ -1302,6 +1304,19 @@ const SignDocumentPage: React.FC = () => {
         } finally {
             setIsSubmitting(false);
             setIsRejectModalOpen(false);
+        }
+    };
+
+    const handleDownload = async () => {
+        if (!envelope) return;
+        
+        addToast("Téléchargement en cours...", "info");
+        const result = await downloadDocument(envelope.document.id, envelope.document.name);
+        
+        if (result.success) {
+            addToast("Document téléchargé avec succès !", "success");
+        } else {
+            addToast(result.error || "Erreur lors du téléchargement", "error");
         }
     };
 
@@ -2079,6 +2094,15 @@ const SignDocumentPage: React.FC = () => {
                 Rejeter le document
               </Button>
             )}
+            {/* Bouton Télécharger - Toujours visible */}
+            <Button
+              variant="outlined"
+              icon={Download}
+              onClick={handleDownload}
+              title="Télécharger le PDF"
+            >
+              <span className="hidden sm:inline">Télécharger</span>
+            </Button>
                         <div className="flex-grow sm:flex-grow-0">
               <label htmlFor="signerName" className="sr-only">
                 Confirmez votre nom
