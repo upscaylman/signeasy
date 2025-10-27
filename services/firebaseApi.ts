@@ -1226,7 +1226,9 @@ export const generateSignedPDF = async (
 
     // Sauvegarder le PDF modifié
     const modifiedPdfBytes = await pdfDoc.save();
-    const blob = new Blob([modifiedPdfBytes], { type: 'application/pdf' });
+    // Type assertion pour résoudre le problème TypeScript
+    const pdfArray = Array.from(modifiedPdfBytes);
+    const blob = new Blob([pdfArray], { type: 'application/pdf' });
     
     // Convertir en data URL
     return new Promise((resolve) => {

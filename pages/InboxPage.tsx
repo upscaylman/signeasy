@@ -954,7 +954,7 @@ const InboxPage: React.FC = () => {
                        checked={selectedItems.includes(item.id)}
                        onChange={() => handleItemSelect(item.id)}
                        className="sr-only peer"
-                       aria-label={`Sélectionner ${item.subject || item.documentName}`}
+                       aria-label={`Sélectionner ${item.documentName}`}
                      />
                      <div className="
                        w-4 h-4
