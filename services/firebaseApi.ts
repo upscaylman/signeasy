@@ -246,7 +246,7 @@ export const subscribeToDocuments = (
   }
 
   const q = query(collection(db, "documents"), orderBy("updatedAt", "desc"));
-  
+
   // Créer le listener en temps réel
   const unsubscribe = onSnapshot(q, (snapshot) => {
     const allDocuments = snapshot.docs.map(
@@ -262,7 +262,10 @@ export const subscribeToDocuments = (
       (doc) => doc.creatorEmail === userEmail
     );
 
-    console.log("🔄 Documents mis à jour en temps réel:", visibleDocuments.length);
+    console.log(
+      "🔄 Documents mis à jour en temps réel:",
+      visibleDocuments.length
+    );
     onUpdate(visibleDocuments);
   });
 
@@ -284,9 +287,11 @@ export const subscribeToNotifications = (
     collection(db, "documents"),
     where("creatorEmail", "==", userEmail.toLowerCase())
   );
-  
+
   const unsubscribe = onSnapshot(docsQuery, (snapshot) => {
-    console.log("🔔 Changement détecté dans les documents - Rafraîchissement des notifications");
+    console.log(
+      "🔔 Changement détecté dans les documents - Rafraîchissement des notifications"
+    );
     onUpdate(); // Déclencher le rafraîchissement
   });
 
@@ -503,7 +508,7 @@ export const createEnvelope = async (
         const emailId = `email-${token}`;
         const mockEmail: MockEmail = {
           id: emailId,
-          from: "noreply@signeasyfo.com",
+          from: creatorEmail, // Utiliser le véritable email de l'expéditeur
           to: recipient.email.toLowerCase(),
           toEmail: recipient.email.toLowerCase(),
           subject: `Signature requise : ${fileData.name}`,
@@ -566,7 +571,7 @@ const sendEmailViaDualServices = async (
 
   const SERVICES = [
     { id: "service_ltiackr", name: "Outlook" }, // ✅ Outlook en priorité
-    { id: "service_tcdw2fd", name: "Gmail" },   // Fallback sur Gmail
+    { id: "service_tcdw2fd", name: "Gmail" }, // Fallback sur Gmail
   ];
   const PUBLIC_KEY = "g2n34kxUJPlU6tsI0";
 
@@ -852,9 +857,7 @@ export const submitSignature = async (
       );
 
       if (!confirmationResult.success) {
-        console.warn(
-          "⚠️ Email externe de confirmation non envoyé"
-        );
+        console.warn("⚠️ Email externe de confirmation non envoyé");
       }
     }
 
@@ -937,16 +940,23 @@ export const archiveDocuments = async (
   archived: boolean
 ): Promise<{ success: boolean }> => {
   try {
-    console.log(`📦 ${archived ? 'Archivage' : 'Désarchivage'} de documents:`, documentIds);
-    
+    console.log(
+      `📦 ${archived ? "Archivage" : "Désarchivage"} de documents:`,
+      documentIds
+    );
+
     for (const docId of documentIds) {
       await updateDoc(doc(db, "documents", docId), {
         archived: archived,
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
       });
     }
-    
-    console.log(`✅ ${documentIds.length} document(s) ${archived ? 'archivé(s)' : 'désarchivé(s)'}`);
+
+    console.log(
+      `✅ ${documentIds.length} document(s) ${
+        archived ? "archivé(s)" : "désarchivé(s)"
+      }`
+    );
     return { success: true };
   } catch (error) {
     console.error("❌ Erreur archiveDocuments:", error);
@@ -959,7 +969,7 @@ export const deleteDocuments = async (
 ): Promise<{ success: boolean }> => {
   try {
     console.log("🗑️ Suppression de documents:", documentIds);
-    
+
     // Supprimer les documents, enveloppes, tokens, emails, PDFs, etc.
     for (const docId of documentIds) {
       // Supprimer le document
@@ -984,7 +994,9 @@ export const deleteDocuments = async (
       for (const envDoc of envelopesDocs.docs) {
         await deleteDoc(envDoc.ref);
       }
-      console.log(`   ✅ ${envelopesDocs.docs.length} enveloppe(s) supprimée(s)`);
+      console.log(
+        `   ✅ ${envelopesDocs.docs.length} enveloppe(s) supprimée(s)`
+      );
 
       // Trouver et supprimer les tokens associés
       const envelopeId = `env${docId.substring(3)}`;
@@ -994,7 +1006,7 @@ export const deleteDocuments = async (
       );
       const tokensDocs = await getDocs(tokensQuery);
       const tokenIds: string[] = [];
-      
+
       for (const tokenDoc of tokensDocs.docs) {
         tokenIds.push(tokenDoc.id);
         await deleteDoc(tokenDoc.ref);
@@ -1007,10 +1019,14 @@ export const deleteDocuments = async (
       for (const token of tokenIds) {
         const emailsQuery = query(
           collection(db, "emails"),
-          where("signatureLink", "==", `${window.location.origin}/#/sign/${token}`)
+          where(
+            "signatureLink",
+            "==",
+            `${window.location.origin}/#/sign/${token}`
+          )
         );
         const emailsDocs = await getDocs(emailsQuery);
-        
+
         for (const emailDoc of emailsDocs.docs) {
           await deleteDoc(emailDoc.ref);
           emailsDeletedCount++;
@@ -1020,7 +1036,7 @@ export const deleteDocuments = async (
 
       // Supprimer l'audit trail
       try {
-      await deleteDoc(doc(db, "auditTrails", docId));
+        await deleteDoc(doc(db, "auditTrails", docId));
         console.log(`   ✅ Audit trail ${docId} supprimé`);
       } catch (e) {
         console.warn("   ⚠️ Audit trail déjà supprimé ou inexistant");
@@ -1054,8 +1070,8 @@ export const getEmails = async (userEmail?: string): Promise<MockEmail[]> => {
       console.log(`📧 Firebase email ${docSnapshot.id}:`, {
         read: data.read,
         readType: typeof data.read,
-        hasReadField: 'read' in data,
-        allFields: Object.keys(data)
+        hasReadField: "read" in data,
+        allFields: Object.keys(data),
       });
       return { id: docSnapshot.id, ...data } as MockEmail;
     });
@@ -1092,7 +1108,9 @@ export const toggleEmailReadStatus = async (
     const emailRef = doc(db, "emails", emailId);
     const newStatus = !currentReadStatus;
     await updateDoc(emailRef, { read: newStatus });
-    console.log(`✅ Email ${emailId} marqué comme ${newStatus ? 'lu' : 'non lu'}`);
+    console.log(
+      `✅ Email ${emailId} marqué comme ${newStatus ? "lu" : "non lu"}`
+    );
     return { success: true, newStatus };
   } catch (error) {
     console.error("❌ Erreur toggleEmailReadStatus Firebase:", error);
@@ -1220,9 +1238,11 @@ export const generateSignedPDF = async (
     // Récupérer le PDF original
     const pdfData = await getPdfData(documentId);
     if (!pdfData) {
-      console.error("PDF introuvable");
+      console.error("PDF introuvable pour le document:", documentId);
       return null;
     }
+
+    console.log("📄 PDF original récupéré, taille:", pdfData.length);
 
     // Récupérer l'enveloppe avec les champs signés
     const envelope = await getEnvelopeByDocumentId(documentId);
@@ -1231,48 +1251,84 @@ export const generateSignedPDF = async (
       return pdfData;
     }
 
+    console.log("📦 Enveloppe récupérée:", {
+      documentId: envelope.document.id,
+      totalFields: envelope.fields.length,
+      fieldsWithValues: envelope.fields.filter((f) => f.value).length,
+    });
+
     // Importer pdf-lib
     const { PDFDocument, rgb } = await import("pdf-lib");
 
     // Charger le PDF
-    const base64Data = pdfData.split(',')[1];
-    const pdfBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+    const base64Data = pdfData.split(",")[1];
+    const pdfBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
     const pdfDoc = await PDFDocument.load(pdfBytes);
     const pages = pdfDoc.getPages();
 
+    console.log("📄 PDF chargé avec", pages.length, "pages");
+
     // Parcourir tous les champs et les dessiner sur le PDF
+    let signaturesAdded = 0;
     for (const field of envelope.fields) {
       if (!field.value) continue; // Ignorer les champs non remplis
 
       const page = pages[field.page - 1]; // Les pages commencent à 1 dans notre système
-      if (!page) continue;
+      if (!page) {
+        console.warn("⚠️ Page non trouvée pour le champ:", field);
+        continue;
+      }
 
       const pageHeight = page.getHeight();
 
       // Convertir les coordonnées (y est inversé dans PDF)
       const pdfY = pageHeight - field.y - field.height;
 
-      if (field.type === 'Signature' || field.type === 'Paraphe') {
+      if (field.type === "Signature" || field.type === "Paraphe") {
         // Dessiner l'image de signature
-        if (typeof field.value === 'string' && field.value.startsWith('data:image')) {
+        if (
+          typeof field.value === "string" &&
+          field.value.startsWith("data:image")
+        ) {
           try {
-            const imageData = field.value.split(',')[1];
-            const imageBytes = Uint8Array.from(atob(imageData), c => c.charCodeAt(0));
+            const imageData = field.value.split(",")[1];
+            const imageBytes = Uint8Array.from(atob(imageData), (c) =>
+              c.charCodeAt(0)
+            );
             const image = await pdfDoc.embedPng(imageBytes);
-            
+
             page.drawImage(image, {
               x: field.x,
               y: pdfY,
               width: field.width,
               height: field.height,
             });
+            console.log(
+              `✅ Signature ajoutée avec succès pour le champ ${field.id}`
+            );
+            signaturesAdded++;
           } catch (err) {
             console.error("Erreur lors de l'ajout de l'image:", err);
+            console.error("Données du champ:", {
+              fieldId: field.id,
+              fieldType: field.type,
+              fieldValueLength: field.value ? field.value.length : 0,
+              fieldValueStart: field.value
+                ? field.value.substring(0, 100)
+                : null,
+            });
           }
+        } else {
+          console.warn("⚠️ Format de signature invalide:", {
+            fieldId: field.id,
+            fieldType: field.type,
+            valueType: typeof field.value,
+            hasValue: !!field.value,
+          });
         }
-      } else if (field.type === 'Texte') {
+      } else if (field.type === "Texte") {
         // Dessiner le texte
-        if (typeof field.value === 'string') {
+        if (typeof field.value === "string") {
           const fontSize = Math.min(field.height * 0.6, 12);
           page.drawText(field.value, {
             x: field.x + 5,
@@ -1280,10 +1336,11 @@ export const generateSignedPDF = async (
             size: fontSize,
             color: rgb(0, 0, 0),
           });
+          console.log(`📝 Texte ajouté pour le champ ${field.id}`);
         }
-      } else if (field.type === 'Date') {
+      } else if (field.type === "Date") {
         // Dessiner la date
-        if (typeof field.value === 'string') {
+        if (typeof field.value === "string") {
           const fontSize = Math.min(field.height * 0.6, 12);
           page.drawText(field.value, {
             x: field.x + 5,
@@ -1291,39 +1348,67 @@ export const generateSignedPDF = async (
             size: fontSize,
             color: rgb(0, 0, 0),
           });
+          console.log(`📅 Date ajoutée pour le champ ${field.id}`);
         }
-      } else if (field.type === 'Case à cocher') {
+      } else if (field.type === "Case à cocher") {
         // Dessiner la case cochée
         if (field.value === true) {
           const checkSize = Math.min(field.width, field.height) * 0.8;
           const centerX = field.x + field.width / 2;
           const centerY = pdfY + field.height / 2;
-          
+
           // Dessiner un X pour la case cochée
-          page.drawText('✓', {
+          page.drawText("✓", {
             x: centerX - checkSize / 2,
             y: centerY - checkSize / 2,
             size: checkSize,
             color: rgb(0, 0.5, 0),
           });
+          console.log(`☑️ Case cochée ajoutée pour le champ ${field.id}`);
         }
       }
     }
 
+    console.log(`📊 ${signaturesAdded} signatures ajoutées au PDF`);
+
     // Sauvegarder le PDF modifié
-    const modifiedPdfBytes = await pdfDoc.save();
+    console.log("💾 Sauvegarde du PDF modifié...");
+    const modifiedPdfBytes = await pdfDoc.save({
+      useObjectStreams: false,
+      addDefaultPage: false,
+    });
+    console.log("💾 PDF modifié sauvegardé, taille:", modifiedPdfBytes.length);
+
     // Créer le blob avec cast explicite pour résoudre le problème TypeScript
-    const blob = new Blob([modifiedPdfBytes as unknown as BlobPart], { type: 'application/pdf' });
-    
+    const blob = new Blob([modifiedPdfBytes as unknown as BlobPart], {
+      type: "application/pdf",
+    });
+    console.log("💾 Blob créé, taille:", blob.size);
+
     // Convertir en data URL
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        console.log(
+          "📄 PDF final converti en data URL, taille:",
+          result.length
+        );
+        resolve(result);
+      };
+      reader.onerror = (error) => {
+        console.error("❌ Erreur lors de la lecture du blob:", error);
+        reject(error);
+      };
       reader.readAsDataURL(blob);
     });
-
   } catch (error) {
     console.error("❌ Erreur generateSignedPDF:", error);
+    console.error("❌ Erreur détaillée generateSignedPDF:", {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+    });
     return null;
   }
 };
@@ -1335,18 +1420,23 @@ export const downloadDocument = async (
 ): Promise<{ success: boolean; error?: string }> => {
   try {
     console.log("📥 Téléchargement du document:", documentName);
-    
+
     // Générer le PDF avec les signatures intégrées
     const pdfData = await generateSignedPDF(documentId);
-    
+
     if (!pdfData) {
+      console.error("❌ PDF data is null for document:", documentId);
       return { success: false, error: "Document introuvable" };
     }
 
+    console.log("📄 PDF généré avec succès, taille:", pdfData.length);
+
     // Créer un lien de téléchargement
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = pdfData;
-    link.download = documentName.endsWith('.pdf') ? documentName : `${documentName}.pdf`;
+    link.download = documentName.endsWith(".pdf")
+      ? documentName
+      : `${documentName}.pdf`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1355,6 +1445,11 @@ export const downloadDocument = async (
     return { success: true };
   } catch (error) {
     console.error("❌ Erreur downloadDocument:", error);
+    console.error("❌ Erreur détaillée downloadDocument:", {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+    });
     return { success: false, error: "Erreur lors du téléchargement" };
   }
 };

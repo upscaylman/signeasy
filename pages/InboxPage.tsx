@@ -33,11 +33,11 @@ import React, {
   useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import Button from "../components/Button";
 import { useToast } from "../components/Toast";
 import { useUser } from "../components/UserContext";
 import { db } from "../config/firebase";
 import {
+  deleteDocuments,
   deleteEmails,
   getDocumentIdFromToken,
   getDocuments,
@@ -45,7 +45,6 @@ import {
   getPdfData,
   markEmailAsRead,
   toggleEmailReadStatus,
-  deleteDocuments,
 } from "../services/firebaseApi";
 import type { Document, Envelope, Field, MockEmail } from "../types";
 import { DocumentStatus, FieldType } from "../types";
@@ -370,7 +369,7 @@ const InboxPage: React.FC = () => {
           subject: email.subject,
           read: email.read,
           readType: typeof email.read,
-          sentAt: email.sentAt
+          sentAt: email.sentAt,
         });
         return {
           id: email.id,
@@ -659,7 +658,7 @@ const InboxPage: React.FC = () => {
     try {
       // 📧 SUPPRESSION CONDITIONNELLE selon le statut du document
       const itemsToDelete = selectedItems
-        .map(id => unifiedItems.find(item => item.id === id))
+        .map((id) => unifiedItems.find((item) => item.id === id))
         .filter((item): item is UnifiedItem => item !== undefined);
 
       let emailsLocallyDeleted = 0;
@@ -674,16 +673,25 @@ const InboxPage: React.FC = () => {
           let docStatus: string | undefined;
 
           // Déterminer le statut selon le contenu de l'email
-          if (docData.subject.includes('✅') || docData.body?.includes('signé')) {
+          if (
+            docData.subject.includes("✅") ||
+            docData.body?.includes("signé")
+          ) {
             docStatus = DocumentStatus.SIGNED;
-          } else if (docData.subject.includes('❌') || docData.body?.includes('rejeté')) {
+          } else if (
+            docData.subject.includes("❌") ||
+            docData.body?.includes("rejeté")
+          ) {
             docStatus = DocumentStatus.REJECTED;
           } else {
             docStatus = DocumentStatus.SENT; // En attente
           }
 
           // LOGIQUE CONDITIONNELLE
-          if (docStatus === DocumentStatus.SIGNED || docStatus === DocumentStatus.REJECTED) {
+          if (
+            docStatus === DocumentStatus.SIGNED ||
+            docStatus === DocumentStatus.REJECTED
+          ) {
             // ✅ Document finalisé (signé/rejeté) → SUPPRESSION BILATÉRALE
             // Récupérer l'ID du document pour suppression globale
             try {
@@ -721,27 +729,30 @@ const InboxPage: React.FC = () => {
       setUnifiedItems((prev) =>
         prev.filter((item) => !selectedItems.includes(item.id))
       );
-      
+
       setSelectedItems([]);
       setShowDeleteSnackbar(false);
-      
+
       // Messages clairs et différenciés
       const messages: string[] = [];
-      
+
       if (documentsGloballyDeleted > 0) {
         messages.push(
           `${documentsGloballyDeleted} document(s) signé(s)/rejeté(s) supprimé(s) définitivement (vous ET l'expéditeur)`
         );
       }
-      
+
       if (documentsPendingDeleted > 0) {
         messages.push(
           `${documentsPendingDeleted} email(s) en attente supprimé(s) (le document reste disponible pour l'expéditeur)`
         );
       }
-      
+
       if (messages.length > 0) {
-        addToast(messages.join(" • "), documentsGloballyDeleted > 0 ? "success" : "info");
+        addToast(
+          messages.join(" • "),
+          documentsGloballyDeleted > 0 ? "success" : "info"
+        );
       }
     } catch (error) {
       console.error("Erreur lors de la suppression:", error);
@@ -755,9 +766,12 @@ const InboxPage: React.FC = () => {
   };
 
   // 📧 Fonction pour basculer le statut lu/non lu d'un item
-  const handleToggleReadStatus = async (item: UnifiedItem, e: React.MouseEvent) => {
+  const handleToggleReadStatus = async (
+    item: UnifiedItem,
+    e: React.MouseEvent
+  ) => {
     e.stopPropagation(); // Empêcher la sélection de l'item
-    
+
     if (item.type !== "email") {
       // Les documents envoyés n'ont pas de statut lu/non lu
       return;
@@ -765,7 +779,7 @@ const InboxPage: React.FC = () => {
 
     try {
       const result = await toggleEmailReadStatus(item.id, item.read);
-      
+
       if (result.success) {
         // Mettre à jour l'UI localement
         setUnifiedItems((prev) =>
@@ -773,19 +787,19 @@ const InboxPage: React.FC = () => {
             i.id === item.id ? { ...i, read: result.newStatus } : i
           )
         );
-        
+
         // Mettre à jour selectedItem si c'est celui qui est affiché
         if (selectedItem?.id === item.id) {
           setSelectedItem({ ...selectedItem, read: result.newStatus });
         }
-        
+
         addToast(
           result.newStatus ? "Marqué comme lu" : "Marqué comme non lu",
           "success"
         );
-        
+
         // Déclencher un rafraîchissement du compteur dans le header
-        window.dispatchEvent(new Event('storage_updated'));
+        window.dispatchEvent(new Event("storage_updated"));
       } else {
         addToast("Erreur lors de la mise à jour", "error");
       }
@@ -852,10 +866,7 @@ const InboxPage: React.FC = () => {
             `}</style>
           <div className="folder-nav-mobile lg:flex lg:flex-col lg:gap-1 lg:p-2">
             {folders.map((folder) => (
-              <div
-                key={folder.id}
-                className="relative lg:w-full"
-              >
+              <div key={folder.id} className="relative lg:w-full">
                 <button
                   onClick={() => {
                     setSelectedFolder(folder.id);
@@ -879,9 +890,7 @@ const InboxPage: React.FC = () => {
                   {/* Mobile : icône + label + badge inline */}
                   <div className="flex items-center gap-2 lg:hidden">
                     <folder.icon className="h-4 w-4 flex-shrink-0" />
-                    <span className="text-xs font-semibold">
-                      {folder.name}
-                    </span>
+                    <span className="text-xs font-semibold">{folder.name}</span>
                     {folder.unread !== undefined && folder.unread > 0 && (
                       <span className="bg-error text-onError text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                         {folder.unread}
@@ -891,7 +900,7 @@ const InboxPage: React.FC = () => {
                       {folder.count}
                     </span>
                   </div>
-                  
+
                   {/* Desktop : icône + label + compteur */}
                   <div className="hidden lg:flex items-center justify-between w-full min-w-0">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -926,19 +935,23 @@ const InboxPage: React.FC = () => {
       >
         <div className="p-4 border-b border-outlineVariant bg-surface z-10">
           <div className="flex items-center gap-3">
-             {/* Checkbox "Tout sélectionner" style Dashboard */}
-             <label className="cursor-pointer group flex-shrink-0 p-2 -m-2" onClick={(e) => e.stopPropagation()}>
-               <input
-                 type="checkbox"
-                 checked={
-                   selectedItems.length === filteredItems.length &&
-                   filteredItems.length > 0
-                 }
-                 onChange={handleSelectAllClick}
-                 className="sr-only peer"
-                 aria-label="Tout sélectionner"
-               />
-               <div className="
+            {/* Checkbox "Tout sélectionner" style Dashboard */}
+            <label
+              className="cursor-pointer group flex-shrink-0 p-2 -m-2"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <input
+                type="checkbox"
+                checked={
+                  selectedItems.length === filteredItems.length &&
+                  filteredItems.length > 0
+                }
+                onChange={handleSelectAllClick}
+                className="sr-only peer"
+                aria-label="Tout sélectionner"
+              />
+              <div
+                className="
                  w-5 h-5
                  rounded-full border-2
                  bg-surface elevation-1
@@ -948,67 +961,84 @@ const InboxPage: React.FC = () => {
                  peer-focus:ring-2 peer-focus:ring-primary
                  group-hover:elevation-2 group-hover:scale-105
                  border-outlineVariant
-               ">
-                 {selectedItems.length === filteredItems.length && filteredItems.length > 0 && (
-                   <svg className="w-2.5 h-2.5 text-onPrimary animate-expand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                   </svg>
-                 )}
-               </div>
-             </label>
-             <div className="flex-1 min-w-0">
-               <div className="flex items-baseline gap-2">
-                 <h2 className="font-semibold text-onSurface truncate">
-                   {folders.find((f) => f.id === selectedFolder)?.name || "Tous"}
-                 </h2>
-                 {selectedItems.length > 0 && (
-                   <span className="text-xs text-onSurfaceVariant whitespace-nowrap">
-                     ({selectedItems.length} sélectionné{selectedItems.length > 1 ? 's' : ''})
-                   </span>
-                 )}
-               </div>
-             </div>
+               "
+              >
+                {selectedItems.length === filteredItems.length &&
+                  filteredItems.length > 0 && (
+                    <svg
+                      className="w-2.5 h-2.5 text-onPrimary animate-expand"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={3}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  )}
+              </div>
+            </label>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-baseline gap-2">
+                <h2 className="font-semibold text-onSurface truncate">
+                  {folders.find((f) => f.id === selectedFolder)?.name || "Tous"}
+                </h2>
+                {selectedItems.length > 0 && (
+                  <span className="text-xs text-onSurfaceVariant whitespace-nowrap">
+                    ({selectedItems.length} sélectionné
+                    {selectedItems.length > 1 ? "s" : ""})
+                  </span>
+                )}
+              </div>
+            </div>
             {/* Boutons d'action visibles si sélection */}
             {selectedItems.length > 0 && (
               <div className="flex items-center gap-2">
                 {/* Bouton Marquer comme lu/non lu (uniquement pour les emails) */}
-                {selectedItems.some(id => {
-                  const item = unifiedItems.find(i => i.id === id);
+                {selectedItems.some((id) => {
+                  const item = unifiedItems.find((i) => i.id === id);
                   return item?.type === "email";
                 }) && (
                   <button
                     onClick={() => {
                       // Basculer l'état de tous les emails sélectionnés
                       const emailItems = selectedItems
-                        .map(id => unifiedItems.find(i => i.id === id))
-                        .filter((item): item is UnifiedItem => item?.type === "email");
-                      
+                        .map((id) => unifiedItems.find((i) => i.id === id))
+                        .filter(
+                          (item): item is UnifiedItem => item?.type === "email"
+                        );
+
                       if (emailItems.length === 0) return;
-                      
+
                       // Déterminer si on marque comme lu ou non lu (selon le premier)
                       const firstItem = emailItems[0];
                       const newReadStatus = !firstItem.read;
-                      
+
                       // Appliquer à tous les emails sélectionnés
                       Promise.all(
-                        emailItems.map(item => toggleEmailReadStatus(item.id, item.read))
+                        emailItems.map((item) =>
+                          toggleEmailReadStatus(item.id, item.read)
+                        )
                       ).then(() => {
                         // Mettre à jour l'UI
-                        setUnifiedItems(prev =>
-                          prev.map(i => {
-                            if (emailItems.some(ei => ei.id === i.id)) {
+                        setUnifiedItems((prev) =>
+                          prev.map((i) => {
+                            if (emailItems.some((ei) => ei.id === i.id)) {
                               return { ...i, read: newReadStatus };
                             }
                             return i;
                           })
                         );
                         addToast(
-                          newReadStatus 
-                            ? `${emailItems.length} email(s) marqué(s) comme lu` 
+                          newReadStatus
+                            ? `${emailItems.length} email(s) marqué(s) comme lu`
                             : `${emailItems.length} email(s) marqué(s) comme non lu`,
                           "success"
                         );
-                        window.dispatchEvent(new Event('storage_updated'));
+                        window.dispatchEvent(new Event("storage_updated"));
                       });
                     }}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary border border-primary rounded-lg hover:bg-primary/10 transition-colors flex-shrink-0"
@@ -1018,7 +1048,7 @@ const InboxPage: React.FC = () => {
                     <span className="hidden sm:inline">Lu/Non lu</span>
                   </button>
                 )}
-                
+
                 {/* Bouton Supprimer */}
                 <button
                   onClick={handleRequestDelete}
@@ -1047,20 +1077,26 @@ const InboxPage: React.FC = () => {
                 className={`w-full p-4 border-b border-outlineVariant/50 text-left hover:bg-surfaceVariant/50 transition-colors group relative ${
                   selectedItem?.id === item.id ? "bg-primaryContainer/20" : ""
                 } ${
-                  !item.read && item.type === "email" ? "bg-surfaceVariant/20 border-l-[6px] border-l-primary" : ""
+                  !item.read && item.type === "email"
+                    ? "bg-surfaceVariant/20 border-l-[6px] border-l-primary"
+                    : ""
                 }`}
               >
                 <div className="flex items-start gap-3">
-                   {/* Checkbox style Dashboard */}
-                   <label className="cursor-pointer group/checkbox animate-fade-in-scale flex-shrink-0 mt-0.5 p-2 -m-2" onClick={(e) => e.stopPropagation()}>
-                     <input
-                       type="checkbox"
-                       checked={selectedItems.includes(item.id)}
-                       onChange={() => handleItemSelect(item.id)}
-                       className="sr-only peer"
-                       aria-label={`Sélectionner ${item.documentName}`}
-                     />
-                     <div className="
+                  {/* Checkbox style Dashboard */}
+                  <label
+                    className="cursor-pointer group/checkbox animate-fade-in-scale flex-shrink-0 mt-0.5 p-2 -m-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedItems.includes(item.id)}
+                      onChange={() => handleItemSelect(item.id)}
+                      className="sr-only peer"
+                      aria-label={`Sélectionner ${item.documentName}`}
+                    />
+                    <div
+                      className="
                        w-4 h-4
                        rounded-full border-2
                        bg-surface elevation-1
@@ -1070,14 +1106,25 @@ const InboxPage: React.FC = () => {
                        peer-focus:ring-2 peer-focus:ring-primary
                        group-hover/checkbox:elevation-2 group-hover/checkbox:scale-105
                        border-outlineVariant
-                     ">
-                       {selectedItems.includes(item.id) && (
-                         <svg className="w-2 h-2 text-onPrimary animate-expand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                         </svg>
-                       )}
-                     </div>
-                   </label>
+                     "
+                    >
+                      {selectedItems.includes(item.id) && (
+                        <svg
+                          className="w-2 h-2 text-onPrimary animate-expand"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={3}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      )}
+                    </div>
+                  </label>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start gap-2 mb-1">
                       {item.type === "email" ? (
@@ -1086,25 +1133,57 @@ const InboxPage: React.FC = () => {
                         <Send className="h-4 w-4 text-orange-500 flex-shrink-0 mt-0.5" />
                       )}
                       <div className="min-w-0 flex-1">
-                        {item.recipientName && item.recipientEmail && (
-                          <p
-                            className={`text-xs text-onSurfaceVariant mb-0.5 ${
-                              !item.read && item.type === "email" ? "font-semibold" : ""
-                            }`}
-                          >
-                            {item.recipientName} ({item.recipientEmail})
-                          </p>
+                        {item.type === "email" ? (
+                          <>
+                            {/* Display sender information for received emails */}
+                            {item.from && (
+                              <p
+                                className={`text-xs text-onSurfaceVariant mb-0.5 ${
+                                  !item.read ? "font-semibold" : ""
+                                }`}
+                              >
+                                {item.from}
+                              </p>
+                            )}
+                            {/* Display recipient information for context */}
+                            {item.recipientName && item.recipientEmail && (
+                              <p
+                                className={`text-xs text-onSurfaceVariant mb-0.5 ${
+                                  !item.read ? "font-semibold" : ""
+                                }`}
+                              >
+                                {item.recipientName} ({item.recipientEmail})
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                          // Display recipient information for sent documents
+                          <>
+                            {item.recipientName && item.recipientEmail && (
+                              <p
+                                className={`text-xs text-onSurfaceVariant mb-0.5`}
+                              >
+                                {item.recipientName} ({item.recipientEmail})
+                              </p>
+                            )}
+                          </>
                         )}
                         <p
                           className={`text-sm truncate max-w-xs sm:max-w-sm md:max-w-md lg:max-w-md xl:max-w-lg 2xl:max-w-xl ${
-                            !item.read && item.type === "email" ? "font-bold" : "font-medium"
+                            !item.read && item.type === "email"
+                              ? "font-bold"
+                              : "font-medium"
                           }`}
                         >
                           {item.documentName}
                         </p>
-                        <p className={`text-xs text-onSurfaceVariant ${
-                          !item.read && item.type === "email" ? "font-medium" : ""
-                        }`}>
+                        <p
+                          className={`text-xs text-onSurfaceVariant ${
+                            !item.read && item.type === "email"
+                              ? "font-medium"
+                              : ""
+                          }`}
+                        >
                           {new Date(item.timestamp).toLocaleString("fr-FR", {
                             day: "2-digit",
                             month: "2-digit",
@@ -1122,8 +1201,16 @@ const InboxPage: React.FC = () => {
                       <button
                         onClick={(e) => handleToggleReadStatus(item, e)}
                         className="p-2 rounded-lg hover:bg-surfaceVariant transition-colors"
-                        title={item.read ? "Marquer comme non lu" : "Marquer comme lu"}
-                        aria-label={item.read ? "Marquer comme non lu" : "Marquer comme lu"}
+                        title={
+                          item.read
+                            ? "Marquer comme non lu"
+                            : "Marquer comme lu"
+                        }
+                        aria-label={
+                          item.read
+                            ? "Marquer comme non lu"
+                            : "Marquer comme lu"
+                        }
                       >
                         {item.read ? (
                           <Mail className="h-4 w-4 text-onSurfaceVariant" />
@@ -1146,12 +1233,6 @@ const InboxPage: React.FC = () => {
                       <Trash2 className="h-4 w-4 text-error" />
                     </button>
                   </div>
-                  {/* Badge de notification pour les messages non lus (même style que le Header) */}
-                  {!item.read && item.type === "email" && (
-                    <div className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-onPrimary text-xs font-bold animate-fade-in-scale elevation-2 badge-pulse">
-                      <Mail className="h-3 w-3" />
-                    </div>
-                  )}
                 </div>
               </button>
             ))
@@ -1270,11 +1351,18 @@ const InboxPage: React.FC = () => {
             <div className="flex items-start gap-4">
               <div className="flex-1">
                 <p className="text-sm font-medium">
-                  Supprimer {selectedItems.length} élément{selectedItems.length > 1 ? 's' : ''} ?
+                  Supprimer {selectedItems.length} élément
+                  {selectedItems.length > 1 ? "s" : ""} ?
                 </p>
                 <div className="text-xs opacity-90 mt-2 space-y-1">
-                  <p>• <span className="font-semibold">Docs signés/rejetés</span> : Suppression définitive (vous ET l'expéditeur)</p>
-                  <p>• <span className="font-semibold">Docs en attente</span> : Suppression locale uniquement</p>
+                  <p>
+                    • <span className="font-semibold">Docs signés/rejetés</span>{" "}
+                    : Suppression définitive (vous ET l'expéditeur)
+                  </p>
+                  <p>
+                    • <span className="font-semibold">Docs en attente</span> :
+                    Suppression locale uniquement
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
@@ -1294,7 +1382,8 @@ const InboxPage: React.FC = () => {
               </div>
             </div>
             <div className="text-[10px] opacity-70 leading-tight">
-              ⚠️ Conformité RGPD : Vérifiez vos obligations légales de conservation.
+              ⚠️ Conformité RGPD : Vérifiez vos obligations légales de
+              conservation.
             </div>
           </div>
         </div>
