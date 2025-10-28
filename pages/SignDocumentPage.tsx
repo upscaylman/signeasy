@@ -549,6 +549,7 @@ const SignDocumentPage: React.FC = () => {
     setCurrentUserSilent,
     isLoading: userIsLoading,
   } = useUser();
+  // ✅ triggerRefresh n'est plus nécessaire - le dashboard utilise maintenant un listener en temps réel
     
     // State
   const [envelope, setEnvelope] = useState<
@@ -579,6 +580,7 @@ const SignDocumentPage: React.FC = () => {
     const [goToPageInput, setGoToPageInput] = useState("1");
     const viewerRef = useRef<HTMLDivElement>(null);
     const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
+    const textFieldRefs = useRef<{ [key: string]: HTMLTextAreaElement | null }>({});
     
     const currentSignerId = envelope?.currentSignerId;
   const signableFields =
@@ -890,6 +892,56 @@ const SignDocumentPage: React.FC = () => {
     },
     [signableFields, zoomLevel]
   );
+
+  // 🎯 Fonction pour démarrer la signature intelligemment
+  const handleStartSigning = useCallback(() => {
+    // Trouver le premier champ non rempli
+    const manualFields = signableFields.filter((f) => f.type !== FieldType.DATE);
+    const firstEmptyFieldIndex = manualFields.findIndex((field) => {
+      const value = fieldValues[field.id];
+      
+      if (field.type === FieldType.TEXT) {
+        return !value || (typeof value === "string" && value.trim().length === 0);
+      } else if (field.type === FieldType.CHECKBOX) {
+        return value !== true;
+      } else if (field.type === FieldType.SIGNATURE || field.type === FieldType.INITIAL) {
+        return !value || (typeof value === "string" && value.length === 0);
+      }
+      return false;
+    });
+
+    if (firstEmptyFieldIndex === -1) {
+      // Tous les champs sont remplis, scroller au premier champ
+      scrollToField(0);
+      return;
+    }
+
+    const firstEmptyField = manualFields[firstEmptyFieldIndex];
+    const actualFieldIndex = signableFields.findIndex(f => f.id === firstEmptyField.id);
+    
+    // Scroller vers le champ
+    scrollToField(actualFieldIndex);
+
+    // Si c'est un champ SIGNATURE ou INITIAL, ouvrir automatiquement le popup
+    if (firstEmptyField.type === FieldType.SIGNATURE || firstEmptyField.type === FieldType.INITIAL) {
+      // Petit délai pour laisser le scroll se terminer
+      setTimeout(() => {
+        setActiveField(firstEmptyField);
+      }, 300);
+    }
+    // Si c'est un champ TEXT, focus automatiquement sur le textarea
+    else if (firstEmptyField.type === FieldType.TEXT) {
+      setTimeout(() => {
+        const textFieldRef = textFieldRefs.current[firstEmptyField.id];
+        if (textFieldRef) {
+          textFieldRef.focus();
+          // Optionnel: sélectionner tout le texte existant
+          textFieldRef.select();
+        }
+      }, 400);
+    }
+    // Pour CHECKBOX, le scroll suffit car il est directement cliquable
+  }, [signableFields, fieldValues, scrollToField]);
 
     const handleNextField = () => {
         if (currentFieldIndex < signableFields.length - 1) {
@@ -1295,6 +1347,7 @@ const SignDocumentPage: React.FC = () => {
             const result = await rejectSignature(token, reason);
             if (result.success) {
         addToast("Document rejeté avec succès.", "success");
+        // ✅ Le dashboard se mettra à jour automatiquement via le listener en temps réel
         navigate("/dashboard");
             } else {
         throw new Error("Rejection failed");
@@ -1362,6 +1415,7 @@ const SignDocumentPage: React.FC = () => {
             const result = await submitSignature(token, updatedFields);
             if (result.success) {
         addToast("Document signé avec succès !", "success");
+        // ✅ Le dashboard se mettra à jour automatiquement via le listener en temps réel
         navigate("/dashboard");
             } else {
         throw new Error("Signature submission failed");
@@ -1958,6 +2012,11 @@ const SignDocumentPage: React.FC = () => {
                                     const newValue = e.target.value.slice(0, 150); // Limite à 150 caractères
                                     handleFieldChange(field.id, newValue);
                                 }}
+                                ref={(el) => {
+                                  if (el) {
+                                    textFieldRefs.current[field.id] = el;
+                                  }
+                                }}
                                 style={{
                   width: "100%",
                                     flex: 1,
@@ -2257,7 +2316,7 @@ const SignDocumentPage: React.FC = () => {
                        <div className="container mx-auto flex justify-between items-center">
                             {currentFieldIndex === -1 ? (
                                 <div className="w-full text-center">
-                  <Button variant="filled" onClick={() => scrollToField(0)}>
+                  <Button variant="filled" onClick={handleStartSigning}>
                     Démarrer la signature
                   </Button>
                                 </div>

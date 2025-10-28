@@ -5,6 +5,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  onSnapshot,
   orderBy,
   query,
   setDoc,
@@ -235,6 +236,40 @@ export const getDocuments = async (userEmail?: string): Promise<Document[]> => {
   }
 };
 
+// 🔄 LISTENER EN TEMPS RÉEL pour les documents
+export const subscribeToDocuments = (
+  userEmail: string,
+  onUpdate: (documents: Document[]) => void
+): (() => void) => {
+  if (!userEmail) {
+    return () => {}; // Retourner une fonction vide si pas d'email
+  }
+
+  const q = query(collection(db, "documents"), orderBy("updatedAt", "desc"));
+  
+  // Créer le listener en temps réel
+  const unsubscribe = onSnapshot(q, (snapshot) => {
+    const allDocuments = snapshot.docs.map(
+      (doc) =>
+        ({
+          ...doc.data(),
+          id: doc.id,
+        } as Document)
+    );
+
+    // Filtrer uniquement les documents de l'utilisateur
+    const visibleDocuments = allDocuments.filter(
+      (doc) => doc.creatorEmail === userEmail
+    );
+
+    console.log("🔄 Documents mis à jour en temps réel:", visibleDocuments.length);
+    onUpdate(visibleDocuments);
+  });
+
+  // Retourner la fonction de désabonnement
+  return unsubscribe;
+};
+
 export const getEnvelopeByToken = async (
   token: string
 ): Promise<
@@ -449,7 +484,11 @@ export const createEnvelope = async (
           to: recipient.email.toLowerCase(),
           toEmail: recipient.email.toLowerCase(),
           subject: `Signature requise : ${fileData.name}`,
-          body: `Bonjour ${recipient.name},\n\nVous avez un document à signer : "${fileData.name}".\n\nCliquez sur le bouton ci-dessous pour le signer.`,
+          body: `Bonjour ${recipient.name},
+
+Vous avez un document à signer : "${fileData.name}".
+
+Cliquez sur le bouton ci-dessous pour le signer.`,
           signatureLink: `${window.location.origin}/#/sign/${token}`,
           documentName: fileData.name,
           sentAt: new Date().toISOString(),
@@ -503,8 +542,8 @@ const sendEmailViaDualServices = async (
   }
 
   const SERVICES = [
-    { id: "service_tcdw2fd", name: "Gmail" },
-    { id: "service_ltiackr", name: "Outlook" },
+    { id: "service_ltiackr", name: "Outlook" }, // ✅ Outlook en priorité
+    { id: "service_tcdw2fd", name: "Gmail" },   // Fallback sur Gmail
   ];
   const PUBLIC_KEY = "g2n34kxUJPlU6tsI0";
 

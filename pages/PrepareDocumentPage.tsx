@@ -852,8 +852,8 @@ const PrepareDocumentPage: React.FC = () => {
     }
 
     const SERVICES = [
-      { id: "service_tcdw2fd", name: "Gmail" },
-      { id: "service_ltiackr", name: "Outlook" },
+      { id: "service_ltiackr", name: "Outlook" }, // ✅ Outlook en priorité
+      { id: "service_tcdw2fd", name: "Gmail" },   // Fallback sur Gmail
     ];
     const TEMPLATE_ID = "template_6m6pxue"; // Template pour demande de signature
     const PUBLIC_KEY = "g2n34kxUJPlU6tsI0";
@@ -1009,7 +1009,11 @@ const PrepareDocumentPage: React.FC = () => {
     }
 
     setEmailMessage(
-      `Bonjour,\n\nVeuillez examiner et signer le document "${file.name}".\n\nCordialement.`
+      `Bonjour,
+
+Veuillez examiner et signer le document "${file.name}".
+
+Cordialement.`
     );
     setIsSummaryModalOpen(true);
   };

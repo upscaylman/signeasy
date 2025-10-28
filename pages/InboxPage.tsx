@@ -245,6 +245,7 @@ const InboxPage: React.FC = () => {
   const navigate = useNavigate();
   const { addToast } = useToast();
   const { currentUser } = useUser();
+  // ✅ refreshTrigger n'est plus nécessaire - InboxPage a son propre cycle de chargement
 
   // Nettoyer le timeout du tooltip au démontage du composant
   useEffect(() => {
@@ -487,7 +488,7 @@ const InboxPage: React.FC = () => {
 
   useEffect(() => {
     fetchUnifiedData();
-  }, [fetchUnifiedData]);
+  }, [fetchUnifiedData]); // ✅ Suppression de refreshTrigger
 
   // Filter items by selected folder
   const filteredItems = useMemo(() => {

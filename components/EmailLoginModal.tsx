@@ -100,7 +100,7 @@ const EmailLoginModal: React.FC<EmailLoginModalProps> = ({ onSubmit, isOpen }) =
         </div>
 
         <p className="relative text-sm text-onSurfaceVariant mb-6 animate-fade-in-delay-2">
-          Entrez votre adresse e-mail pour accéder à la plateforme. Gérez vos signatures électroniques en toute simplicité.
+          Gérez vos signatures électroniques en toute simplicité.
         </p>
 
         <form onSubmit={handleSubmit} className="relative space-y-4 animate-fade-in-delay-3">

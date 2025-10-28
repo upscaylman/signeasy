@@ -5,7 +5,7 @@ import type { Document, MockEmail, Recipient } from '../types';
 import { DocumentStatus } from '../types';
 import DocumentCard from '../components/DocumentCard';
 import AdminPanel from '../components/AdminPanel';
-import { getDocuments, deleteDocuments, archiveDocuments, getTokenForDocumentSigner, getEmails, getEnvelopeByDocumentId, downloadDocument } from '../services/firebaseApi';
+import { getDocuments, deleteDocuments, archiveDocuments, getTokenForDocumentSigner, getEmails, getEnvelopeByDocumentId, downloadDocument, subscribeToDocuments } from '../services/firebaseApi';
 import { useUser } from '../components/UserContext';
 import { PlusCircle, Inbox, Search, Trash2, X, AlertTriangle, Upload, CheckSquare, Square, LayoutDashboard, FileSignature, Mail, Send, Archive, ArchiveRestore } from 'lucide-react';
 import Button from '../components/Button';
@@ -77,6 +77,7 @@ const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { currentUser } = useUser();
+  // ✅ Suppression du refreshTrigger car on utilise maintenant un listener en temps réel
 
   // Fonction pour convertir un email en UnifiedDocument
   const emailToUnifiedDocument = (email: MockEmail): UnifiedDocument => {
@@ -150,9 +151,68 @@ const DashboardPage: React.FC = () => {
     }
   }, [currentUser?.email, addToast]);
 
+  // 🔄 Listener en temps réel pour les documents unifiés (envoyés + reçus)
   useEffect(() => {
-    fetchUnifiedDocuments();
-  }, [fetchUnifiedDocuments]);
+    if (!currentUser?.email) {
+      setDocuments([]);
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+
+    // S'abonner aux changements en temps réel des documents envoyés
+    const unsubscribe = subscribeToDocuments(
+      currentUser.email,
+      async (sentDocs) => {
+        try {
+          // Charger aussi les emails reçus
+          const receivedEmails = await getEmails(currentUser.email);
+
+          // Déterminer le rôle de l'utilisateur
+          let role: 'destinataire' | 'expéditeur' | 'both' = 'expéditeur';
+          if (sentDocs.length > 0 && receivedEmails.length > 0) {
+            role = 'both';
+          } else if (receivedEmails.length > 0 && sentDocs.length === 0) {
+            role = 'destinataire';
+          }
+          setUserRole(role);
+
+          // Convertir les documents envoyés en UnifiedDocument avec leurs destinataires
+          const unifiedSentDocs: UnifiedDocument[] = await Promise.all(
+            sentDocs.map(async (doc) => {
+              const envelope = await getEnvelopeByDocumentId(doc.id);
+              return {
+                ...doc,
+                source: 'sent' as const,
+                recipients: envelope?.recipients || []
+              };
+            })
+          );
+
+          // Convertir les emails reçus en UnifiedDocument
+          const unifiedReceivedDocs: UnifiedDocument[] = receivedEmails.map(emailToUnifiedDocument);
+
+          // Combiner et trier par date décroissante
+          const allDocs = [...unifiedSentDocs, ...unifiedReceivedDocs]
+            .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+
+          setDocuments(allDocs);
+        } catch (error) {
+          console.error("Failed to fetch unified documents", error);
+          addToast('Erreur lors du chargement', 'error');
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    );
+
+    // Nettoyer le listener au démontage du composant
+    return () => {
+      console.log("📤 Désabonnement du listener en temps réel");
+      unsubscribe();
+    };
+  }, [currentUser?.email, addToast]);
 
   // Filtrer les documents actifs (non archivés)
   const filteredDocuments = useMemo(() => {

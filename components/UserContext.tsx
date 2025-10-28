@@ -12,6 +12,8 @@ interface UserContextType {
   setCurrentUserSilent: (user: User) => void;
   logout: () => void;
   isLoading: boolean;
+  refreshTrigger: number;
+  triggerRefresh: () => void;
 }
 
 const UserContext = createContext<UserContextType | null>(null);
@@ -19,6 +21,7 @@ const UserContext = createContext<UserContextType | null>(null);
 export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUserState] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Charger l'email depuis localStorage au démarrage
   useEffect(() => {
@@ -57,8 +60,12 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     localStorage.removeItem('currentUserEmail');
   };
 
+  const triggerRefresh = () => {
+    setRefreshTrigger((prev) => prev + 1);
+  };
+
   return (
-    <UserContext.Provider value={{ currentUser, setCurrentUser: handleSetCurrentUser, setCurrentUserSilent: handleSetCurrentUserSilent, logout, isLoading }}>
+    <UserContext.Provider value={{ currentUser, setCurrentUser: handleSetCurrentUser, setCurrentUserSilent: handleSetCurrentUserSilent, logout, isLoading, refreshTrigger, triggerRefresh }}>
       {children}
     </UserContext.Provider>
   );
