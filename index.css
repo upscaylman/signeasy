@@ -2133,3 +2133,265 @@ img {
     opacity: 1;
   }
 }
+
+/* ============================================
+   LOGIN PAGE ANIMATIONS - ULTRA MODERN & SMOOTH
+   ============================================ */
+
+/* Advanced parallax zoom with rotation for background */
+@keyframes modernParallaxZoom {
+  0% {
+    transform: scale(1) rotate(0deg);
+  }
+  25% {
+    transform: scale(1.08) rotate(0.5deg);
+  }
+  50% {
+    transform: scale(1.15) rotate(0deg);
+  }
+  75% {
+    transform: scale(1.08) rotate(-0.5deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+.animate-slow-zoom {
+  animation: modernParallaxZoom 40s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+
+/* Dynamic gradient shift with multiple colors */
+@keyframes modernGradientFlow {
+  0% {
+    opacity: 0.4;
+    background-position: 0% 50%;
+    transform: translateX(0%) translateY(0%) scale(1);
+  }
+  25% {
+    opacity: 0.6;
+    background-position: 50% 100%;
+    transform: translateX(5%) translateY(5%) scale(1.05);
+  }
+  50% {
+    opacity: 0.5;
+    background-position: 100% 50%;
+    transform: translateX(10%) translateY(-5%) scale(1.1);
+  }
+  75% {
+    opacity: 0.6;
+    background-position: 50% 0%;
+    transform: translateX(5%) translateY(5%) scale(1.05);
+  }
+  100% {
+    opacity: 0.4;
+    background-position: 0% 50%;
+    transform: translateX(0%) translateY(0%) scale(1);
+  }
+}
+
+.animate-gradient-shift {
+  background: linear-gradient(
+    -45deg,
+    rgba(183, 28, 28, 0.3),
+    rgba(112, 92, 46, 0.2),
+    rgba(119, 86, 81, 0.25),
+    rgba(183, 28, 28, 0.2)
+  );
+  background-size: 400% 400%;
+  animation: modernGradientFlow 25s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Ultra-modern floating particles with glow */
+.particle {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(40px);
+  animation: modernFloatParticle 20s infinite cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.particle-1 {
+  width: 120px;
+  height: 120px;
+  top: 10%;
+  left: 10%;
+  background: radial-gradient(
+    circle,
+    rgba(183, 28, 28, 0.4) 0%,
+    rgba(183, 28, 28, 0.2) 50%,
+    transparent 100%
+  );
+  animation-duration: 28s;
+  animation-delay: 0s;
+}
+
+.particle-2 {
+  width: 180px;
+  height: 180px;
+  top: 60%;
+  right: 12%;
+  background: radial-gradient(
+    circle,
+    rgba(112, 92, 46, 0.35) 0%,
+    rgba(112, 92, 46, 0.15) 50%,
+    transparent 100%
+  );
+  animation-duration: 35s;
+  animation-delay: 5s;
+}
+
+.particle-3 {
+  width: 100px;
+  height: 100px;
+  bottom: 18%;
+  left: 15%;
+  background: radial-gradient(
+    circle,
+    rgba(183, 28, 28, 0.3) 0%,
+    rgba(183, 28, 28, 0.1) 50%,
+    transparent 100%
+  );
+  animation-duration: 25s;
+  animation-delay: 3s;
+}
+
+.particle-4 {
+  width: 140px;
+  height: 140px;
+  top: 25%;
+  right: 25%;
+  background: radial-gradient(
+    circle,
+    rgba(119, 86, 81, 0.35) 0%,
+    rgba(119, 86, 81, 0.15) 50%,
+    transparent 100%
+  );
+  animation-duration: 32s;
+  animation-delay: 8s;
+}
+
+.particle-5 {
+  width: 110px;
+  height: 110px;
+  bottom: 35%;
+  right: 8%;
+  background: radial-gradient(
+    circle,
+    rgba(183, 28, 28, 0.25) 0%,
+    rgba(183, 28, 28, 0.1) 50%,
+    transparent 100%
+  );
+  animation-duration: 30s;
+  animation-delay: 6s;
+}
+
+@keyframes modernFloatParticle {
+  0%, 100% {
+    transform: translate(0, 0) scale(1) rotate(0deg);
+    opacity: 0.4;
+  }
+  20% {
+    transform: translate(40px, -40px) scale(1.15) rotate(90deg);
+    opacity: 0.7;
+  }
+  40% {
+    transform: translate(-30px, 50px) scale(0.85) rotate(180deg);
+    opacity: 0.5;
+  }
+  60% {
+    transform: translate(50px, 30px) scale(1.1) rotate(270deg);
+    opacity: 0.8;
+  }
+  80% {
+    transform: translate(-20px, -20px) scale(0.95) rotate(340deg);
+    opacity: 0.6;
+  }
+}
+
+/* Slide up with fade in */
+@keyframes slideUpFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(40px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-slide-up-fade-in {
+  animation: slideUpFadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Staggered fade in delays */
+.animate-fade-in-delay-1 {
+  animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+}
+
+.animate-fade-in-delay-2 {
+  animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
+}
+
+.animate-fade-in-delay-3 {
+  animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both;
+}
+
+.animate-fade-in-delay-4 {
+  animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.4s both;
+}
+
+/* Slow pulse for icon */
+@keyframes pulseSlow {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(183, 28, 28, 0.7);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px 10px rgba(183, 28, 28, 0);
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulseSlow 3s ease-in-out infinite;
+}
+
+/* Animated light rays */
+@keyframes lightRay1 {
+  0% {
+    opacity: 0;
+    transform: translateY(-100%) skewX(-12deg);
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(100%) skewX(-12deg);
+  }
+}
+
+@keyframes lightRay2 {
+  0% {
+    opacity: 0;
+    transform: translateY(-100%) skewX(12deg);
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(100%) skewX(12deg);
+  }
+}
+
+.animate-light-ray-1 {
+  animation: lightRay1 8s ease-in-out infinite;
+}
+
+.animate-light-ray-2 {
+  animation: lightRay2 10s ease-in-out infinite 2s;
+}
