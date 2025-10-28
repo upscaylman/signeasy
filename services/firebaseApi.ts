@@ -270,6 +270,29 @@ export const subscribeToDocuments = (
   return unsubscribe;
 };
 
+// 🔔 LISTENER EN TEMPS RÉEL pour les notifications (audit trails)
+export const subscribeToNotifications = (
+  userEmail: string,
+  onUpdate: () => void
+): (() => void) => {
+  if (!userEmail) {
+    return () => {};
+  }
+
+  // Écouter les changements dans les documents de l'utilisateur
+  const docsQuery = query(
+    collection(db, "documents"),
+    where("creatorEmail", "==", userEmail.toLowerCase())
+  );
+  
+  const unsubscribe = onSnapshot(docsQuery, (snapshot) => {
+    console.log("🔔 Changement détecté dans les documents - Rafraîchissement des notifications");
+    onUpdate(); // Déclencher le rafraîchissement
+  });
+
+  return unsubscribe;
+};
+
 export const getEnvelopeByToken = async (
   token: string
 ): Promise<

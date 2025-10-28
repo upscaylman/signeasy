@@ -5,7 +5,7 @@ import type { Document, MockEmail, Recipient } from '../types';
 import { DocumentStatus } from '../types';
 import DocumentCard from '../components/DocumentCard';
 import AdminPanel from '../components/AdminPanel';
-import { getDocuments, deleteDocuments, archiveDocuments, getTokenForDocumentSigner, getEmails, getEnvelopeByDocumentId, downloadDocument, subscribeToDocuments } from '../services/firebaseApi';
+import { getDocuments, deleteDocuments, archiveDocuments, getTokenForDocumentSigner, getEmails, getEnvelopeByDocumentId, downloadDocument, subscribeToDocuments, deleteEmails } from '../services/firebaseApi';
 import { useUser } from '../components/UserContext';
 import { PlusCircle, Inbox, Search, Trash2, X, AlertTriangle, Upload, CheckSquare, Square, LayoutDashboard, FileSignature, Mail, Send, Archive, ArchiveRestore } from 'lucide-react';
 import Button from '../components/Button';
@@ -405,7 +405,6 @@ const DashboardPage: React.FC = () => {
 
         // Supprimer les emails reçus (via firebaseApi)
         if (receivedEmailIds.length > 0) {
-          const { deleteEmails } = await import('../services/firebaseApi');
           await deleteEmails(receivedEmailIds);
         }
 

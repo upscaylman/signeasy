@@ -45,6 +45,7 @@ import {
   getPdfData,
   markEmailAsRead,
   toggleEmailReadStatus,
+  deleteDocuments,
 } from "../services/firebaseApi";
 import type { Document, Envelope, Field, MockEmail } from "../types";
 import { DocumentStatus, FieldType } from "../types";
@@ -680,7 +681,6 @@ const InboxPage: React.FC = () => {
             try {
               const token = docData.signatureLink.split("/").pop();
               if (token) {
-                const { getDocumentIdFromToken } = await import('../services/firebaseApi');
                 const documentId = await getDocumentIdFromToken(token);
                 if (documentId) {
                   documentsToDelete.push(documentId);
@@ -706,7 +706,6 @@ const InboxPage: React.FC = () => {
 
       // Supprimer globalement les documents finalisés
       if (documentsToDelete.length > 0) {
-        const { deleteDocuments } = await import('../services/firebaseApi');
         await deleteDocuments(documentsToDelete);
       }
 
@@ -1082,7 +1081,7 @@ const InboxPage: React.FC = () => {
                         {item.recipientName && item.recipientEmail && (
                           <p
                             className={`text-xs text-onSurfaceVariant mb-0.5 ${
-                              !item.read ? "font-medium" : ""
+                              !item.read && item.type === "email" ? "font-semibold" : ""
                             }`}
                           >
                             {item.recipientName} ({item.recipientEmail})
@@ -1090,12 +1089,14 @@ const InboxPage: React.FC = () => {
                         )}
                         <p
                           className={`text-sm truncate max-w-xs sm:max-w-sm md:max-w-md lg:max-w-md xl:max-w-lg 2xl:max-w-xl ${
-                            !item.read ? "font-semibold" : "font-medium"
+                            !item.read && item.type === "email" ? "font-bold" : "font-medium"
                           }`}
                         >
                           {item.documentName}
                         </p>
-                        <p className="text-xs text-onSurfaceVariant">
+                        <p className={`text-xs text-onSurfaceVariant ${
+                          !item.read && item.type === "email" ? "font-medium" : ""
+                        }`}>
                           {new Date(item.timestamp).toLocaleString("fr-FR", {
                             day: "2-digit",
                             month: "2-digit",
@@ -1137,9 +1138,11 @@ const InboxPage: React.FC = () => {
                       <Trash2 className="h-4 w-4 text-error" />
                     </button>
                   </div>
-                  {/* Unread indicator dot */}
+                  {/* Badge de notification pour les messages non lus (même style que le Header) */}
                   {!item.read && item.type === "email" && (
-                    <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1 group-hover:hidden"></div>
+                    <div className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-onPrimary text-xs font-bold animate-fade-in-scale elevation-2 badge-pulse">
+                      <Mail className="h-3 w-3" />
+                    </div>
                   )}
                 </div>
               </button>

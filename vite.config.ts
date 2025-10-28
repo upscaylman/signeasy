@@ -18,6 +18,20 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
+      },
+      build: {
+        chunkSizeWarningLimit: 3000,
+        rollupOptions: {
+          output: {
+            manualChunks: {
+              'pdf-worker': ['pdfjs-dist'],
+              'pdf-lib': ['pdf-lib', '@react-pdf/renderer'],
+              'firebase': ['firebase/app', 'firebase/firestore', 'firebase/storage'],
+              'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+              'ui-icons': ['lucide-react'],
+            }
+          }
+        }
       }
     };
 });

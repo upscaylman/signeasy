@@ -19,9 +19,10 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { db } from "../config/firebase";
+import { subscribeToNotifications } from "../services/firebaseApi";
 import Tooltip from "./Tooltip";
 import { useUser } from "./UserContext";
 
@@ -81,7 +82,7 @@ const NotificationDropdown: React.FC = () => {
   }, [isOpen]);
 
   // Récupérer les notifications depuis Firestore
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     if (!currentUser?.email) return;
 
     try {
@@ -216,16 +217,35 @@ const NotificationDropdown: React.FC = () => {
     } catch (error) {
       console.error("Erreur lors de la récupération des notifications:", error);
     }
-  };
+  }, [currentUser?.email]);
 
   useEffect(() => {
+    if (!currentUser?.email) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
+
+    // 🔄 Charger immédiatement
     fetchNotifications();
 
-    // Refetch périodiquement (toutes les 30 secondes)
-    const interval = setInterval(fetchNotifications, 30000);
+    // 🔔 Listener en temps réel pour détecter les changements
+    const unsubscribe = subscribeToNotifications(
+      currentUser.email,
+      () => {
+        console.log("🔔 Notification en temps réel - Rafraîchissement des notifications");
+        fetchNotifications();
+      }
+    );
 
-    return () => clearInterval(interval);
-  }, [currentUser?.email]);
+    // 🔄 Polling de secours toutes les 10 secondes (au cas où le listener manque un changement)
+    const interval = setInterval(fetchNotifications, 10000);
+
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
+  }, [currentUser?.email, fetchNotifications]);
 
   // Marquer une notification comme lue
   const markAsRead = async (notification: Notification) => {
