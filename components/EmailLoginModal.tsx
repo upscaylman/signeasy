@@ -83,10 +83,8 @@ const EmailLoginModal: React.FC<EmailLoginModalProps> = ({ onSubmit, isOpen }) =
       </div>
 
       {/* Glass morphism card with enhanced animations */}
-      <div className="relative bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-md p-8 border border-white/40 animate-slide-up-fade-in">
-        {/* Decorative corner accents */}
-        <div className="absolute top-0 left-0 w-20 h-20 bg-gradient-to-br from-primary/20 to-transparent rounded-tl-3xl" />
-        <div className="absolute bottom-0 right-0 w-20 h-20 bg-gradient-to-tl from-tertiary/20 to-transparent rounded-br-3xl" />
+      <div className="relative bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-md border border-white/40 animate-slide-up-fade-in overflow-hidden">
+        <div className="p-8">
         <div className="relative flex items-center gap-3 mb-6 animate-fade-in-delay-1">
           <div className="bg-gradient-to-br from-primary to-primary/80 p-3 rounded-full shadow-lg animate-pulse-slow relative">
             <Mail className="h-6 w-6 text-white" />
@@ -102,7 +100,7 @@ const EmailLoginModal: React.FC<EmailLoginModalProps> = ({ onSubmit, isOpen }) =
         </div>
 
         <p className="relative text-sm text-onSurfaceVariant mb-6 animate-fade-in-delay-2">
-          Entrez votre adresse e-mail pour accéder à la plateforme. Vous verrez uniquement vos documents et les documents à signer.
+          Entrez votre adresse e-mail pour accéder à la plateforme. Gérez vos signatures électroniques en toute simplicité.
         </p>
 
         <form onSubmit={handleSubmit} className="relative space-y-4 animate-fade-in-delay-3">
@@ -119,7 +117,7 @@ const EmailLoginModal: React.FC<EmailLoginModalProps> = ({ onSubmit, isOpen }) =
                 setError('');
               }}
               placeholder="exemple@votreentreprise.fr"
-              className="w-full p-3 bg-white/80 border-2 border-outlineVariant/50 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary focus:bg-white transition-all duration-300 hover:border-primary/50 shadow-sm focus:shadow-lg"
+              className="w-full p-3 bg-white/80 border-2 border-outlineVariant/50 rounded-full focus:ring-2 focus:ring-primary focus:border-primary focus:bg-white transition-all duration-300 hover:border-primary/50 shadow-sm focus:shadow-lg"
               autoFocus
               disabled={isLoading}
             />
@@ -151,6 +149,14 @@ const EmailLoginModal: React.FC<EmailLoginModalProps> = ({ onSubmit, isOpen }) =
         <p className="relative text-xs text-onSurfaceVariant text-center mt-6 animate-fade-in-delay-4">
           Vous devez être destinataire d'un document ou autorisé pour accéder.
         </p>
+        </div>
+        
+        {/* Footer with gradient */}
+        <div className="w-full h-16 bg-gradient-to-r from-tertiary/20 to-transparent rounded-b-3xl flex items-center justify-center">
+          <p className="text-xs text-onSurfaceVariant/70">
+            SignEase <span className="font-semibold">by FO Metaux</span>
+          </p>
+        </div>
       </div>
     </div>
   );

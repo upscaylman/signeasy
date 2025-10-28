@@ -7,7 +7,7 @@ plugins = []
 [functions."*"]
 
 [build]
-publish = "C:\\Users\\neoph\\OneDrive\\Documents\\signeasy\\signeasy-project\\dist"
+publish = "C:\\Users\\INVITE\\Downloads\\APP\\OK signease-by-fo-metaux---e-signature-platform (1)\\dist"
 publishOrigin = "config"
 commandOrigin = "config"
 command = "npm run build"
