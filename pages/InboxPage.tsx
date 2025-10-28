@@ -365,20 +365,28 @@ const InboxPage: React.FC = () => {
       setUserRole(role);
 
       // Convertir emails en UnifiedItem (DESTINATAIRE uniquement)
-      const emailItems: UnifiedItem[] = emails.map((email) => ({
-        id: email.id,
-        type: "email",
-        title: email.subject,
-        documentName: email.documentName,
-        timestamp: email.sentAt,
-        read: email.read,
-        source: "À signer",
-        signatureLink: email.signatureLink,
-        from: email.from,
-        body: email.body,
-        rawData: email,
-        folder: "all", // Le folder sera assigné par assignFolder() après
-      }));
+      const emailItems: UnifiedItem[] = emails.map((email) => {
+        console.log(`📧 Email ${email.id}:`, {
+          subject: email.subject,
+          read: email.read,
+          readType: typeof email.read,
+          sentAt: email.sentAt
+        });
+        return {
+          id: email.id,
+          type: "email",
+          title: email.subject,
+          documentName: email.documentName,
+          timestamp: email.sentAt,
+          read: email.read ?? false, // Fallback à false si undefined
+          source: "À signer",
+          signatureLink: email.signatureLink,
+          from: email.from,
+          body: email.body,
+          rawData: email,
+          folder: "all", // Le folder sera assigné par assignFolder() après
+        };
+      });
 
       // Convertir documents en UnifiedItem (EXPÉDITEUR uniquement)
       const documentItems: UnifiedItem[] = await Promise.all(

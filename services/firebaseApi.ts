@@ -1049,9 +1049,16 @@ export const getEmails = async (userEmail?: string): Promise<MockEmail[]> => {
       where("toEmail", "==", userEmail.toLowerCase())
     );
     const snapshot = await getDocs(emailsQuery);
-    const emails = snapshot.docs.map(
-      (doc) => ({ id: doc.id, ...doc.data() } as MockEmail)
-    );
+    const emails = snapshot.docs.map((docSnapshot) => {
+      const data = docSnapshot.data();
+      console.log(`📧 Firebase email ${docSnapshot.id}:`, {
+        read: data.read,
+        readType: typeof data.read,
+        hasReadField: 'read' in data,
+        allFields: Object.keys(data)
+      });
+      return { id: docSnapshot.id, ...data } as MockEmail;
+    });
 
     // Trier côté client par date décroissante
     return emails.sort(

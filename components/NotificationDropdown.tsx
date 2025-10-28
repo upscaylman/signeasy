@@ -19,7 +19,7 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { db } from "../config/firebase";
 import { subscribeToNotifications } from "../services/firebaseApi";
@@ -53,6 +53,8 @@ const NotificationDropdown: React.FC = () => {
   const [menuHeight, setMenuHeight] = useState("calc(100dvh - 64px)");
   const navigate = useNavigate();
   const { currentUser } = useUser();
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   // Calculer la hauteur du menu en fonction de la taille de l'écran
   useEffect(() => {
@@ -78,6 +80,33 @@ const NotificationDropdown: React.FC = () => {
 
     return () => {
       document.body.style.overflow = "auto";
+    };
+  }, [isOpen]);
+
+  // Fermer le panneau si on clique en dehors
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      // Vérifier si le clic est en dehors du dropdown ET du bouton
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+
+    // Ajouter l'écouteur après un court délai pour éviter la fermeture immédiate
+    const timeoutId = setTimeout(() => {
+      document.addEventListener("mousedown", handleClickOutside);
+    }, 100);
+
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [isOpen]);
 
@@ -394,6 +423,7 @@ const NotificationDropdown: React.FC = () => {
     <div className="relative">
       <Tooltip content="Notifications" position="bottom">
         <button
+          ref={buttonRef}
           onClick={() => setIsOpen(!isOpen)}
           className="
             flex items-center justify-center min-h-[44px] min-w-[44px] w-10 h-10
@@ -422,6 +452,7 @@ const NotificationDropdown: React.FC = () => {
       {/* Slide-in Notifications from RIGHT (comme le menu burger) */}
       {isOpen && (
         <div
+          ref={dropdownRef}
           className="fixed right-0 top-16 sm:top-18 w-full sm:w-96 bg-surface z-40 flex flex-col shadow-2xl animate-slide-down"
           style={{
             height: menuHeight,
