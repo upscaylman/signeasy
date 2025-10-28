@@ -1053,6 +1053,23 @@ export const markEmailAsRead = async (
   }
 };
 
+// 🔄 Nouvelle fonction pour basculer l'état lu/non lu
+export const toggleEmailReadStatus = async (
+  emailId: string,
+  currentReadStatus: boolean
+): Promise<{ success: boolean; newStatus: boolean }> => {
+  try {
+    const emailRef = doc(db, "emails", emailId);
+    const newStatus = !currentReadStatus;
+    await updateDoc(emailRef, { read: newStatus });
+    console.log(`✅ Email ${emailId} marqué comme ${newStatus ? 'lu' : 'non lu'}`);
+    return { success: true, newStatus };
+  } catch (error) {
+    console.error("❌ Erreur toggleEmailReadStatus Firebase:", error);
+    return { success: false, newStatus: currentReadStatus };
+  }
+};
+
 export const getUnreadEmailCount = async (
   userEmail?: string
 ): Promise<number> => {

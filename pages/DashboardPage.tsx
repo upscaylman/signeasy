@@ -516,7 +516,7 @@ const DashboardPage: React.FC = () => {
                   onClick={handleSelectAllClick} 
                   disabled={filteredDocuments.length === 0}
                   size="small"
-                  className="flex-1 sm:flex-initial min-w-[140px] max-w-[160px]"
+                  className="flex-1 sm:flex-initial min-w-[140px] max-w-[160px] rounded-full items-center gap-1.5 px-3 py-1.5 hover:bg-error/10 transition-colors flex-shrink-0"
                 >
                   <span className="truncate">
                     {filteredDocuments.length > 0 && selectedDocuments.length === filteredDocuments.length
@@ -530,7 +530,7 @@ const DashboardPage: React.FC = () => {
                   disabled={selectedDocuments.length === 0} 
                   onClick={handleArchive}
                   size="small"
-                  className="flex-1 sm:flex-initial min-w-[110px]"
+                  className={`flex-1 sm:flex-initial min-w-[110px] ${selectedDocuments.length > 0 ? 'rounded-full items-center gap-1.5 px-3 py-1.5 hover:bg-error/10 transition-colors flex-shrink-0' : ''}`}
                 >
                   Archiver
                 </Button>
@@ -540,7 +540,7 @@ const DashboardPage: React.FC = () => {
                   disabled={selectedDocuments.length === 0} 
                   onClick={() => setIsConfirmDeleteOpen(true)}
                   size="small"
-                  className="flex-1 sm:flex-initial min-w-[110px] !text-error !border-error state-layer-error [&:hover]:!bg-transparent"
+                  className={`flex-1 sm:flex-initial min-w-[110px] ${selectedDocuments.length > 0 ? 'rounded-full items-center gap-1.5 px-3 py-1.5 text-error border border-error hover:bg-error/10 transition-colors flex-shrink-0' : '!text-error !border-error state-layer-error [&:hover]:!bg-transparent'}`}
                 >
                   Supprimer
                 </Button>
@@ -549,7 +549,7 @@ const DashboardPage: React.FC = () => {
                   icon={X}
                   onClick={handleExitSelectionMode}
                   size="small"
-                  className="flex-1 sm:flex-initial min-w-[110px] !bg-surfaceVariant hover:!bg-surfaceVariant/80 !text-onSurfaceVariant"
+                  className="flex-1 rounded-full sm:flex-initial min-w-[110px] !bg-surfaceVariant hover:!bg-surfaceVariant/80 !text-onSurfaceVariant"
                 >
                   Annuler
                 </Button>

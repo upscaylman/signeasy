@@ -78,7 +78,7 @@ const DocumentCard: React.FC<DocumentCardProps> = ({ document, onSign, onView, o
                 {document.status}
               </span>
               {isSelectionMode && (
-                <label className="cursor-pointer group animate-fade-in-scale" onClick={(e) => e.stopPropagation()}>
+                <label className="cursor-pointer group animate-fade-in-scale p-2 -m-2" onClick={(e) => e.stopPropagation()}>
                   <input
                     type="checkbox"
                     checked={isSelected}

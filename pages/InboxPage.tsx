@@ -17,6 +17,7 @@ import {
   Inbox as InboxIcon,
   Loader2,
   Mail,
+  MailOpen,
   Send,
   Trash2,
   XCircle,
@@ -43,6 +44,7 @@ import {
   getEmails,
   getPdfData,
   markEmailAsRead,
+  toggleEmailReadStatus,
 } from "../services/firebaseApi";
 import type { Document, Envelope, Field, MockEmail } from "../types";
 import { DocumentStatus, FieldType } from "../types";
@@ -745,6 +747,47 @@ const InboxPage: React.FC = () => {
     setShowDeleteSnackbar(false);
   };
 
+  // 📧 Fonction pour basculer le statut lu/non lu d'un item
+  const handleToggleReadStatus = async (item: UnifiedItem, e: React.MouseEvent) => {
+    e.stopPropagation(); // Empêcher la sélection de l'item
+    
+    if (item.type !== "email") {
+      // Les documents envoyés n'ont pas de statut lu/non lu
+      return;
+    }
+
+    try {
+      const result = await toggleEmailReadStatus(item.id, item.read);
+      
+      if (result.success) {
+        // Mettre à jour l'UI localement
+        setUnifiedItems((prev) =>
+          prev.map((i) =>
+            i.id === item.id ? { ...i, read: result.newStatus } : i
+          )
+        );
+        
+        // Mettre à jour selectedItem si c'est celui qui est affiché
+        if (selectedItem?.id === item.id) {
+          setSelectedItem({ ...selectedItem, read: result.newStatus });
+        }
+        
+        addToast(
+          result.newStatus ? "Marqué comme lu" : "Marqué comme non lu",
+          "success"
+        );
+        
+        // Déclencher un rafraîchissement du compteur dans le header
+        window.dispatchEvent(new Event('storage_updated'));
+      } else {
+        addToast("Erreur lors de la mise à jour", "error");
+      }
+    } catch (error) {
+      console.error("Erreur toggleReadStatus:", error);
+      addToast("Erreur lors de la mise à jour", "error");
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -820,7 +863,7 @@ const InboxPage: React.FC = () => {
                   }}
                   onMouseLeave={() => setHoveredFolder(null)}
                   aria-label={folder.name}
-                  className={`py-2.5 px-3 lg:px-4 lg:py-3 rounded-lg flex items-center transition-all duration-200 lg:mb-1 lg:w-full whitespace-nowrap ${
+                  className={`py-2.5 px-3 lg:px-4 lg:py-3 rounded-full flex items-center transition-all duration-200 lg:mb-1 lg:w-full whitespace-nowrap ${
                     selectedFolder === folder.id
                       ? "bg-primaryContainer text-onPrimaryContainer shadow-sm"
                       : "text-onSurface hover:bg-surfaceVariant/50 active:scale-[0.98]"
@@ -877,7 +920,7 @@ const InboxPage: React.FC = () => {
         <div className="p-4 border-b border-outlineVariant bg-surface z-10">
           <div className="flex items-center gap-3">
              {/* Checkbox "Tout sélectionner" style Dashboard */}
-             <label className="cursor-pointer group flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+             <label className="cursor-pointer group flex-shrink-0 p-2 -m-2" onClick={(e) => e.stopPropagation()}>
                <input
                  type="checkbox"
                  checked={
@@ -918,16 +961,67 @@ const InboxPage: React.FC = () => {
                  )}
                </div>
              </div>
-            {/* Bouton supprimer visible si sélection */}
+            {/* Boutons d'action visibles si sélection */}
             {selectedItems.length > 0 && (
-              <button
-                onClick={handleRequestDelete}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-error border border-error rounded-lg hover:bg-error/10 transition-colors flex-shrink-0"
-                title={`Supprimer ${selectedItems.length} élément(s)`}
-              >
-                <Trash2 className="h-4 w-4" />
-                <span className="hidden sm:inline">Supprimer</span>
-              </button>
+              <div className="flex items-center gap-2">
+                {/* Bouton Marquer comme lu/non lu (uniquement pour les emails) */}
+                {selectedItems.some(id => {
+                  const item = unifiedItems.find(i => i.id === id);
+                  return item?.type === "email";
+                }) && (
+                  <button
+                    onClick={() => {
+                      // Basculer l'état de tous les emails sélectionnés
+                      const emailItems = selectedItems
+                        .map(id => unifiedItems.find(i => i.id === id))
+                        .filter((item): item is UnifiedItem => item?.type === "email");
+                      
+                      if (emailItems.length === 0) return;
+                      
+                      // Déterminer si on marque comme lu ou non lu (selon le premier)
+                      const firstItem = emailItems[0];
+                      const newReadStatus = !firstItem.read;
+                      
+                      // Appliquer à tous les emails sélectionnés
+                      Promise.all(
+                        emailItems.map(item => toggleEmailReadStatus(item.id, item.read))
+                      ).then(() => {
+                        // Mettre à jour l'UI
+                        setUnifiedItems(prev =>
+                          prev.map(i => {
+                            if (emailItems.some(ei => ei.id === i.id)) {
+                              return { ...i, read: newReadStatus };
+                            }
+                            return i;
+                          })
+                        );
+                        addToast(
+                          newReadStatus 
+                            ? `${emailItems.length} email(s) marqué(s) comme lu` 
+                            : `${emailItems.length} email(s) marqué(s) comme non lu`,
+                          "success"
+                        );
+                        window.dispatchEvent(new Event('storage_updated'));
+                      });
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary border border-primary rounded-lg hover:bg-primary/10 transition-colors flex-shrink-0"
+                    title="Marquer comme lu/non lu"
+                  >
+                    <MailOpen className="h-4 w-4" />
+                    <span className="hidden sm:inline">Lu/Non lu</span>
+                  </button>
+                )}
+                
+                {/* Bouton Supprimer */}
+                <button
+                  onClick={handleRequestDelete}
+                  className="inline-flex rounded-full items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-error border border-error hover:bg-error/10 transition-colors flex-shrink-0"
+                  title={`Supprimer ${selectedItems.length} élément(s)`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Supprimer</span>
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -943,13 +1037,15 @@ const InboxPage: React.FC = () => {
               <button
                 key={item.id}
                 onClick={() => handleSelectItem(item)}
-                className={`w-full p-4 border-b border-outlineVariant/50 text-left hover:bg-surfaceVariant/50 transition-colors group ${
+                className={`w-full p-4 border-b border-outlineVariant/50 text-left hover:bg-surfaceVariant/50 transition-colors group relative ${
                   selectedItem?.id === item.id ? "bg-primaryContainer/20" : ""
-                } ${!item.read ? "bg-surfaceVariant/20" : ""}`}
+                } ${
+                  !item.read && item.type === "email" ? "bg-surfaceVariant/20 border-l-[6px] border-l-primary" : ""
+                }`}
               >
                 <div className="flex items-start gap-3">
                    {/* Checkbox style Dashboard */}
-                   <label className="cursor-pointer group animate-fade-in-scale flex-shrink-0 mt-0.5" onClick={(e) => e.stopPropagation()}>
+                   <label className="cursor-pointer group/checkbox animate-fade-in-scale flex-shrink-0 mt-0.5 p-2 -m-2" onClick={(e) => e.stopPropagation()}>
                      <input
                        type="checkbox"
                        checked={selectedItems.includes(item.id)}
@@ -965,7 +1061,7 @@ const InboxPage: React.FC = () => {
                        transition-all duration-200
                        peer-checked:bg-primary peer-checked:border-primary peer-checked:elevation-2
                        peer-focus:ring-2 peer-focus:ring-primary
-                       group-hover:elevation-2 group-hover:scale-105
+                       group-hover/checkbox:elevation-2 group-hover/checkbox:scale-105
                        border-outlineVariant
                      ">
                        {selectedItems.includes(item.id) && (
@@ -1010,31 +1106,41 @@ const InboxPage: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  {!item.read && item.type === "email" && (
-                    <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1"></div>
-                  )}
-                  {/* Bouton Supprimer qui apparaît au survol */}
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedItems([item.id]);
-                      handleRequestDelete();
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
+                  {/* Quick action buttons on hover */}
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                    {/* Read/Unread toggle - only for emails */}
+                    {item.type === "email" && (
+                      <button
+                        onClick={(e) => handleToggleReadStatus(item, e)}
+                        className="p-2 rounded-lg hover:bg-surfaceVariant transition-colors"
+                        title={item.read ? "Marquer comme non lu" : "Marquer comme lu"}
+                        aria-label={item.read ? "Marquer comme non lu" : "Marquer comme lu"}
+                      >
+                        {item.read ? (
+                          <Mail className="h-4 w-4 text-onSurfaceVariant" />
+                        ) : (
+                          <MailOpen className="h-4 w-4 text-primary" />
+                        )}
+                      </button>
+                    )}
+                    {/* Delete button */}
+                    <button
+                      onClick={(e) => {
                         e.stopPropagation();
-                        e.preventDefault();
                         setSelectedItems([item.id]);
-                        handleRequestDelete();
-                      }
-                    }}
-                    className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded hover:bg-error/10 text-error flex-shrink-0 cursor-pointer"
-                    title="Supprimer"
-                  >
-                    <Trash2 className="h-4 w-4" />
+                        setShowDeleteSnackbar(true);
+                      }}
+                      className="p-2 rounded-lg hover:bg-errorContainer/20 transition-colors"
+                      title="Supprimer"
+                      aria-label="Supprimer cet élément"
+                    >
+                      <Trash2 className="h-4 w-4 text-error" />
+                    </button>
                   </div>
+                  {/* Unread indicator dot */}
+                  {!item.read && item.type === "email" && (
+                    <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1 group-hover:hidden"></div>
+                  )}
                 </div>
               </button>
             ))
