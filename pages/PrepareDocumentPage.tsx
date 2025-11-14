@@ -23,6 +23,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import Button from "../components/Button";
 import { useToast } from "../components/Toast";
 import { useUser } from "../components/UserContext";
+import { useDraftDocument } from "../hooks/useDraftDocument";
 import { createEnvelope, getExistingRecipients } from "../services/firebaseApi";
 import { Field, FieldType, Recipient } from "../types";
 import { convertWordToPdf, isWordFile } from "../utils/wordToPdf";
