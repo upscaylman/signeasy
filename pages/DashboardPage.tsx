@@ -674,20 +674,23 @@ const DashboardPage: React.FC = () => {
                 >
                   Archiver
                 </Button>
-                <Button
-                  variant="outlined"
-                  icon={Trash2}
-                  disabled={selectedDocuments.length === 0}
-                  onClick={() => setIsConfirmDeleteOpen(true)}
-                  size="small"
-                  className={`flex-1 sm:flex-initial min-w-[110px] ${
-                    selectedDocuments.length > 0
-                      ? "rounded-full items-center gap-1.5 px-3 py-1.5 text-error border border-error hover:bg-error/10 transition-colors flex-shrink-0"
-                      : "!text-error !border-error state-layer-error [&:hover]:!bg-transparent"
-                  }`}
-                >
-                  Supprimer
-                </Button>
+                {/* Bouton Supprimer - Visible uniquement pour les administrateurs */}
+                {currentUser?.isAdmin && (
+                  <Button
+                    variant="outlined"
+                    icon={Trash2}
+                    disabled={selectedDocuments.length === 0}
+                    onClick={() => setIsConfirmDeleteOpen(true)}
+                    size="small"
+                    className={`flex-1 sm:flex-initial min-w-[110px] ${
+                      selectedDocuments.length > 0
+                        ? "rounded-full items-center gap-1.5 px-3 py-1.5 text-error border border-error hover:bg-error/10 transition-colors flex-shrink-0"
+                        : "!text-error !border-error state-layer-error [&:hover]:!bg-transparent"
+                    }`}
+                  >
+                    Supprimer
+                  </Button>
+                )}
                 <Button
                   variant="filled"
                   icon={X}
