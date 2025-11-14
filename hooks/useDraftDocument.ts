@@ -14,9 +14,29 @@ export const useDraftDocument = () => {
   const [drafts, setDrafts] = useState<DraftDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Charger les brouillons au montage
+  // Charger les brouillons au montage et écouter les changements
   useEffect(() => {
     loadDrafts();
+
+    // Écouter les changements de localStorage (synchronisation entre onglets/composants)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY) {
+        loadDrafts();
+      }
+    };
+
+    // Écouter les événements personnalisés pour la synchronisation interne
+    const handleCustomStorageChange = () => {
+      loadDrafts();
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    window.addEventListener("draftsChanged", handleCustomStorageChange);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("draftsChanged", handleCustomStorageChange);
+    };
   }, []);
 
   const loadDrafts = () => {
@@ -74,6 +94,10 @@ export const useDraftDocument = () => {
 
       localStorage.setItem(STORAGE_KEY, JSON.stringify(currentDrafts));
       setDrafts(currentDrafts);
+
+      // Déclencher un événement personnalisé pour notifier les autres composants
+      window.dispatchEvent(new Event("draftsChanged"));
+
       return currentDrafts[currentDrafts.length - 1].id;
     } catch (error) {
       console.error("Erreur lors de la sauvegarde du brouillon:", error);
@@ -98,6 +122,10 @@ export const useDraftDocument = () => {
 
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedDrafts));
       setDrafts(updatedDrafts);
+
+      // Déclencher un événement personnalisé pour notifier les autres composants
+      window.dispatchEvent(new Event("draftsChanged"));
+
       console.log("🗑️ Brouillon supprimé:", draftId);
     } catch (error) {
       console.error("Erreur lors de la suppression du brouillon:", error);
