@@ -753,7 +753,8 @@ const DashboardPage: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="space-y-6">
+            {/* Titre - Toujours visible */}
             <div className="flex items-center gap-4">
               <div className="bg-primaryContainer inline-block p-4 rounded-full progressive-glow">
                 <LayoutDashboard className="h-12 w-12 text-onPrimaryContainer" />
@@ -767,85 +768,115 @@ const DashboardPage: React.FC = () => {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              {/* Bouton Ajouter un fichier - Desktop uniquement, dans le header, avant la recherche */}
-              {filteredDocuments.length > 0 && (
-                <button
-                  onClick={handleEmptyStateClick}
-                  className="hidden lg:flex items-center justify-center h-14 btn-premium-shine btn-premium-extended focus:outline-none focus:ring-4 focus:ring-primary/30 whitespace-nowrap"
-                  aria-label="Ajouter un fichier"
-                >
-                  <PlusCircle className="h-6 w-6 flex-shrink-0" />
-                  <span className="tracking-wide text-base">
-                    Ajouter un fichier
-                  </span>
-                </button>
-              )}
-              {/* Bouton Signature Rapide - Desktop uniquement */}
-              {filteredDocuments.length > 0 && (
-                <button
-                  onClick={handleQuickSignClick}
-                  className="hidden lg:flex items-center justify-center h-14 px-6 bg-secondaryContainer text-onSecondaryContainer rounded-full font-semibold hover:elevation-1 transition-all focus:outline-none focus:ring-4 focus:ring-secondary/30 whitespace-nowrap"
-                  aria-label="Signature rapide"
-                >
-                  <FileSignature className="h-6 w-6 flex-shrink-0" />
-                  <span className="tracking-wide text-sm">
-                    Signature rapide
-                  </span>
-                </button>
-              )}
-              <div className="relative w-full sm:w-64">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-onSurfaceVariant" />
-                <input
-                  type="text"
-                  placeholder="Rechercher un document..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full p-2.5 pl-11 border border-outline bg-surface rounded-full focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-                />
+
+            {/* Barre d'actions - Style VerifyPage */}
+            {filteredDocuments.length > 0 && (
+              <div className="bg-surface p-4 sm:p-6 rounded-3xl shadow-sm border border-outlineVariant/30">
+                {/* Desktop : tout sur une ligne */}
+                <div className="hidden lg:flex items-stretch gap-3">
+                  {/* Recherche */}
+                  <div className="relative flex-1">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-onSurfaceVariant" />
+                    <input
+                      type="text"
+                      placeholder="Rechercher un document..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full h-full p-3 pl-11 border border-outline bg-surface rounded-full focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                    />
+                  </div>
+
+                  {/* Bouton Ajouter un fichier */}
+                  <button
+                    onClick={handleEmptyStateClick}
+                    className="flex items-center justify-center px-6 btn-premium-shine btn-premium-extended focus:outline-none focus:ring-4 focus:ring-primary/30 whitespace-nowrap"
+                    aria-label="Ajouter un fichier"
+                  >
+                    <PlusCircle className="h-5 w-5 flex-shrink-0" />
+                    <span className="tracking-wide text-sm ml-2">
+                      Ajouter un fichier
+                    </span>
+                  </button>
+
+                  {/* Bouton Signature Rapide */}
+                  <button
+                    onClick={handleQuickSignClick}
+                    className="flex items-center justify-center px-6 bg-secondaryContainer text-onSecondaryContainer rounded-full font-semibold hover:elevation-1 transition-all focus:outline-none focus:ring-4 focus:ring-secondary/30 whitespace-nowrap"
+                    aria-label="Signature rapide"
+                  >
+                    <FileSignature className="h-5 w-5 flex-shrink-0" />
+                    <span className="tracking-wide text-sm ml-2">
+                      Signature rapide
+                    </span>
+                  </button>
+
+                  {/* Bouton Sélectionner */}
+                  <Button
+                    variant="outlined"
+                    onClick={() => setIsSelectionMode(true)}
+                    icon={CheckSquare}
+                    size="medium"
+                  >
+                    Sélectionner
+                  </Button>
+                </div>
+
+                {/* Mobile : Ligne 1 = Recherche, Ligne 2 = 3 boutons icônes */}
+                <div className="lg:hidden space-y-3">
+                  {/* Ligne 1 : Recherche pleine largeur */}
+                  <div className="relative w-full">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-onSurfaceVariant" />
+                    <input
+                      type="text"
+                      placeholder="Rechercher un document..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full p-3 pl-11 border border-outline bg-surface rounded-full focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                    />
+                  </div>
+
+                  {/* Ligne 2 : 3 boutons icônes uniquement */}
+                  <div className="flex items-center gap-3 justify-center">
+                    {/* Bouton Ajouter un fichier - Icône uniquement */}
+                    <button
+                      onClick={handleEmptyStateClick}
+                      className="flex items-center justify-center h-14 w-14 btn-premium-shine rounded-full focus:outline-none focus:ring-4 focus:ring-primary/30"
+                      aria-label="Ajouter un fichier"
+                      title="Ajouter un fichier"
+                    >
+                      <PlusCircle className="h-6 w-6 flex-shrink-0" />
+                    </button>
+
+                    {/* Bouton Signature Rapide - Icône uniquement */}
+                    <button
+                      onClick={handleQuickSignClick}
+                      className="flex items-center justify-center h-14 w-14 bg-secondaryContainer text-onSecondaryContainer rounded-full font-semibold hover:elevation-1 transition-all focus:outline-none focus:ring-4 focus:ring-secondary/30"
+                      aria-label="Signature rapide"
+                      title="Signature rapide"
+                    >
+                      <FileSignature className="h-6 w-6 flex-shrink-0" />
+                    </button>
+
+                    {/* Bouton Sélectionner - Icône uniquement */}
+                    <button
+                      onClick={() => setIsSelectionMode(true)}
+                      className="flex items-center justify-center h-14 w-14 border-2 border-outline text-primary rounded-full hover:bg-surfaceVariant/50 transition-all focus:outline-none focus:ring-4 focus:ring-primary/30"
+                      aria-label="Sélectionner"
+                      title="Sélectionner"
+                    >
+                      <CheckSquare className="h-6 w-6 flex-shrink-0" />
+                    </button>
+                  </div>
+                </div>
               </div>
-              {filteredDocuments.length > 0 && (
-                <Button
-                  variant="outlined"
-                  onClick={() => setIsSelectionMode(true)}
-                >
-                  Sélectionner
-                </Button>
-              )}
-            </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* Container blanc pour bouton + cartes */}
+      {/* Container blanc pour cartes */}
       <div className="container mx-auto">
         <div className="bg-white rounded-3xl shadow-sm p-4 sm:p-6 lg:p-8 relative">
-          {/* Boutons - Full width en mobile/tablette, dans container - Masqué si aucun document */}
-          {!isSelectionMode && filteredDocuments.length > 0 && (
-            <div className="mb-6 lg:hidden space-y-3">
-              <button
-                onClick={handleQuickSignClick}
-                className="w-full flex items-center justify-center h-12 sm:h-14 px-6 bg-secondaryContainer text-onSecondaryContainer rounded-full font-semibold hover:elevation-1 transition-all focus:outline-none focus:ring-4 focus:ring-secondary/30"
-                aria-label="Signature rapide"
-              >
-                <FileSignature className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0" />
-                <span className="tracking-wide text-sm sm:text-base whitespace-nowrap ml-2">
-                  Signature rapide
-                </span>
-              </button>
-              <button
-                onClick={handleEmptyStateClick}
-                className="w-full flex items-center justify-center h-12 sm:h-14 btn-premium-shine btn-premium-extended focus:outline-none focus:ring-4 focus:ring-primary/30"
-                aria-label="Ajouter un fichier"
-              >
-                <PlusCircle className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0" />
-                <span className="tracking-wide text-sm sm:text-base whitespace-nowrap">
-                  Ajouter un fichier
-                </span>
-              </button>
-            </div>
-          )}
-
           {isLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
               {[...Array(8)].map((_, i) => (
