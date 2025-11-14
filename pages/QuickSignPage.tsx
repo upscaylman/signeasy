@@ -1,16 +1,10 @@
-import {
-  ArrowLeft,
-  Download,
-  Signature,
-  X,
-  ZoomIn,
-  ZoomOut,
-} from "lucide-react";
+import { ArrowLeft, Download, Signature, ZoomIn, ZoomOut } from "lucide-react";
 import { PDFDocument } from "pdf-lib";
 import * as pdfjsLib from "pdfjs-dist";
 import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Button from "../components/Button";
+import DraggableSignature from "../components/DraggableSignature";
 import SignaturePad from "../components/SignaturePad";
 import { useToast } from "../components/Toast";
 import { useUser } from "../components/UserContext";
@@ -57,9 +51,6 @@ const QuickSignPage: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [signatures, setSignatures] = useState<SignaturePosition[]>([]);
   const [showSignaturePad, setShowSignaturePad] = useState(false);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [isDragging, setIsDragging] = useState(false);
-  const [draggedSignature, setDraggedSignature] = useState<number | null>(null);
 
   // Load file from location.state if provided
   useEffect(() => {
@@ -167,10 +158,11 @@ const QuickSignPage: React.FC = () => {
   };
 
   const handleSaveSignature = (signatureData: string) => {
+    // Ajouter la signature sur la première page par défaut
     const newSignature: SignaturePosition = {
       id: `sig-${Date.now()}`,
       signatureData,
-      page: currentPage,
+      page: 1,
       x: 50,
       y: 50,
       width: 200,
@@ -179,7 +171,10 @@ const QuickSignPage: React.FC = () => {
 
     setSignatures([...signatures, newSignature]);
     setShowSignaturePad(false);
-    addToast("Signature ajoutée", "success");
+    addToast(
+      "Signature ajoutée - Déplacez-la avec votre doigt ou la souris",
+      "success"
+    );
   };
 
   const handleRemoveSignature = (id: string) => {
@@ -187,56 +182,25 @@ const QuickSignPage: React.FC = () => {
     addToast("Signature supprimée", "success");
   };
 
-  const handleSignatureDragStart = (
-    e: React.MouseEvent,
-    index: number,
-    signature: SignaturePosition
+  const handleSignatureUpdate = (
+    id: string,
+    updates: { x?: number; y?: number; width?: number; height?: number }
   ) => {
-    e.preventDefault();
-    setIsDragging(true);
-    setDraggedSignature(index);
-
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      const pageElement = pageRefs.current[signature.page - 1];
-      if (!pageElement) return;
-
-      const rect = pageElement.getBoundingClientRect();
-      const x = (moveEvent.clientX - rect.left) / zoomLevel;
-      const y = (moveEvent.clientY - rect.top) / zoomLevel;
-
-      setSignatures((prev) =>
-        prev.map((sig, i) =>
-          i === index
-            ? {
-                ...sig,
-                x: Math.max(
-                  0,
-                  Math.min(x, pageDimensions[sig.page - 1].width - sig.width)
-                ),
-                y: Math.max(
-                  0,
-                  Math.min(y, pageDimensions[sig.page - 1].height - sig.height)
-                ),
-              }
-            : sig
-        )
-      );
-    };
-
-    const handleMouseUp = () => {
-      setIsDragging(false);
-      setDraggedSignature(null);
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-    };
-
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
+    setSignatures((prev) =>
+      prev.map((sig) =>
+        sig.id === id
+          ? {
+              ...sig,
+              ...updates,
+            }
+          : sig
+      )
+    );
   };
 
   const handleDownload = async () => {
     if (!pdfData || signatures.length === 0) {
-      addToast("Veuillez ajouter au moins une signature", "warning");
+      addToast("Veuillez ajouter au moins une signature", "info");
       return;
     }
 
@@ -369,39 +333,28 @@ const QuickSignPage: React.FC = () => {
                       >
                         <canvas id={`pdf-page-${pageNum}`} />
 
-                        {/* Signatures on this page */}
+                        {/* Signatures on this page - Manipulables au doigt et à la souris */}
                         {signatures
                           .filter((sig) => sig.page === pageNum)
-                          .map((sig, index) => (
-                            <div
+                          .map((sig) => (
+                            <DraggableSignature
                               key={sig.id}
-                              className="absolute border-2 border-primary bg-primary/10 cursor-move group"
-                              style={{
-                                left: `${sig.x * zoomLevel}px`,
-                                top: `${sig.y * zoomLevel}px`,
-                                width: `${sig.width * zoomLevel}px`,
-                                height: `${sig.height * zoomLevel}px`,
-                              }}
-                              onMouseDown={(e) =>
-                                handleSignatureDragStart(
-                                  e,
-                                  signatures.indexOf(sig),
-                                  sig
-                                )
+                              id={sig.id}
+                              signatureData={sig.signatureData}
+                              x={sig.x}
+                              y={sig.y}
+                              width={sig.width}
+                              height={sig.height}
+                              zoomLevel={zoomLevel}
+                              onUpdate={handleSignatureUpdate}
+                              onRemove={handleRemoveSignature}
+                              maxWidth={
+                                pageDimensions[pageNum - 1]?.width || 600
                               }
-                            >
-                              <img
-                                src={sig.signatureData}
-                                alt="Signature"
-                                className="w-full h-full object-contain pointer-events-none"
-                              />
-                              <button
-                                onClick={() => handleRemoveSignature(sig.id)}
-                                className="absolute -top-2 -right-2 bg-error text-onError rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                              >
-                                <X className="h-4 w-4" />
-                              </button>
-                            </div>
+                              maxHeight={
+                                pageDimensions[pageNum - 1]?.height || 800
+                              }
+                            />
                           ))}
                       </div>
                     )

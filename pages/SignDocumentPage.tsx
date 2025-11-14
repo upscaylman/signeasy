@@ -7,6 +7,7 @@ import {
   CheckSquare,
   ChevronLeft,
   ChevronRight,
+  Copy,
   Download,
   Loader2,
   Signature,
@@ -26,6 +27,8 @@ import React, {
 } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Button from "../components/Button";
+import DraggableSignature from "../components/DraggableSignature";
+import SignaturePadComponent from "../components/SignaturePad";
 import { useToast } from "../components/Toast";
 import { useUser } from "../components/UserContext";
 import {
@@ -47,25 +50,25 @@ const GRID_SIZE = 10;
 // Helper for converting data URL to a format PDF.js understands without fetching
 const base64ToUint8Array = (dataUrl: string) => {
   const base64 = dataUrl.split(",")[1];
-    if (!base64) throw new Error("Invalid data URL");
-    const binaryString = window.atob(base64);
-    const len = binaryString.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes;
+  if (!base64) throw new Error("Invalid data URL");
+  const binaryString = window.atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
 };
 
 // --- Standalone Components ---
 
 const RejectModal: React.FC<{
-    onConfirm: (reason: string) => void;
-    onCancel: () => void;
-    isLoading: boolean;
+  onConfirm: (reason: string) => void;
+  onCancel: () => void;
+  isLoading: boolean;
 }> = ({ onConfirm, onCancel, isLoading }) => {
   const [reason, setReason] = useState("");
-    return (
+  return (
     <div
       className="fixed inset-0 bg-scrim/50 flex items-center justify-center z-50 p-4 modal-backdrop"
       onClick={onCancel}
@@ -80,25 +83,25 @@ const RejectModal: React.FC<{
         <p className="text-sm text-onSurfaceVariant my-2">
           Veuillez indiquer la raison du rejet. L'expéditeur en sera informé.
         </p>
-                <textarea
-                    value={reason}
+        <textarea
+          value={reason}
           onChange={(e) => setReason(e.target.value)}
-                    placeholder="Ex: Les informations du contrat sont incorrectes..."
-                    rows={3}
-                    className="w-full p-2 mt-2 bg-surfaceVariant/60 border border-outlineVariant rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary focus:bg-surface"
-                />
-                <div className="flex justify-end space-x-3 mt-6">
+          placeholder="Ex: Les informations du contrat sont incorrectes..."
+          rows={3}
+          className="w-full p-2 mt-2 bg-surfaceVariant/60 border border-outlineVariant rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary focus:bg-surface"
+        />
+        <div className="flex justify-end space-x-3 mt-6">
           <Button variant="text" onClick={onCancel}>
             Annuler
           </Button>
-                    <button 
-                        onClick={() => onConfirm(reason)}
-                        disabled={isLoading || !reason.trim()}
-                        className="btn-premium-shine btn-premium-extended h-11 text-sm focus:outline-none focus:ring-4 focus:ring-primary/30 inline-flex items-center justify-center gap-2"
-                        aria-busy={isLoading}
-                    >
-                        {isLoading ? (
-                            <>
+          <button
+            onClick={() => onConfirm(reason)}
+            disabled={isLoading || !reason.trim()}
+            className="btn-premium-shine btn-premium-extended h-11 text-sm focus:outline-none focus:ring-4 focus:ring-primary/30 inline-flex items-center justify-center gap-2"
+            aria-busy={isLoading}
+          >
+            {isLoading ? (
+              <>
                 <svg
                   className="animate-spin h-5 w-5"
                   xmlns="http://www.w3.org/2000/svg"
@@ -118,111 +121,111 @@ const RejectModal: React.FC<{
                     fill="currentColor"
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   ></path>
-                                </svg>
-                                <span>Envoi...</span>
-                            </>
-                        ) : (
-                            <span>Confirmer le rejet</span>
-                        )}
-                    </button>
-                </div>
-            </div>
+                </svg>
+                <span>Envoi...</span>
+              </>
+            ) : (
+              <span>Confirmer le rejet</span>
+            )}
+          </button>
         </div>
-    );
+      </div>
+    </div>
+  );
 };
 
 const SignaturePad: React.FC<{
-    onSave: (dataUrl: string) => void;
-    onCancel: () => void;
-    signerName: string;
+  onSave: (dataUrl: string) => void;
+  onCancel: () => void;
+  signerName: string;
 }> = ({ onSave, onCancel, signerName }) => {
-    const { addToast } = useToast();
+  const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState<"draw" | "type" | "upload">(
     "draw"
   );
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const [isDrawing, setIsDrawing] = useState(false);
-    const [typedName, setTypedName] = useState(signerName);
-    const [uploadedImage, setUploadedImage] = useState<string | null>(null);
-    const [scale, setScale] = useState(1); // Zoom pour redimensionnement proportionnel
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [typedName, setTypedName] = useState(signerName);
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [scale, setScale] = useState(1); // Zoom pour redimensionnement proportionnel
 
-    // Drawing tools state
+  // Drawing tools state
   const [strokeColor, setStrokeColor] = useState("#000000");
-    const [lineWidth, setLineWidth] = useState(2);
+  const [lineWidth, setLineWidth] = useState(2);
 
-    const signatureColors = [
+  const signatureColors = [
     { name: "Noir", color: "#000000" },
     { name: "Bleu", color: "#2563EB" },
     { name: "Rouge", color: "#BA1A1A" },
-    ];
+  ];
 
-    const signatureWidths = [
+  const signatureWidths = [
     { name: "Fine", width: 2 },
     { name: "Moyenne", width: 4 },
     { name: "Épaisse", width: 6 },
-    ];
+  ];
 
-    useEffect(() => {
+  useEffect(() => {
     if (activeTab === "draw" && canvasRef.current) {
-            const canvas = canvasRef.current;
+      const canvas = canvasRef.current;
       const ctx = canvas.getContext("2d");
-            if (ctx) {
-                ctx.strokeStyle = strokeColor;
-                ctx.lineWidth = lineWidth;
+      if (ctx) {
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = lineWidth;
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
-            }
-        }
-    }, [activeTab, strokeColor, lineWidth]);
+      }
+    }
+  }, [activeTab, strokeColor, lineWidth]);
 
-    const getPosition = (e: React.MouseEvent | React.TouchEvent) => {
-        const rect = canvasRef.current!.getBoundingClientRect();
+  const getPosition = (e: React.MouseEvent | React.TouchEvent) => {
+    const rect = canvasRef.current!.getBoundingClientRect();
     if ("touches" in e) {
-            return {
-                x: e.touches[0].clientX - rect.left,
-                y: e.touches[0].clientY - rect.top,
-            };
-        }
-        return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-    };
+      return {
+        x: e.touches[0].clientX - rect.left,
+        y: e.touches[0].clientY - rect.top,
+      };
+    }
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  };
 
-    const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
-        e.preventDefault(); // 🔧 FIX MOBILE : Empêcher le scroll pendant le dessin
-        const { x, y } = getPosition(e);
+  const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault(); // 🔧 FIX MOBILE : Empêcher le scroll pendant le dessin
+    const { x, y } = getPosition(e);
     const ctx = canvasRef.current!.getContext("2d")!;
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        setIsDrawing(true);
-    };
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    setIsDrawing(true);
+  };
 
-    const draw = (e: React.MouseEvent | React.TouchEvent) => {
-        if (!isDrawing) return;
-        e.preventDefault(); // 🔧 FIX MOBILE : Empêcher le scroll pendant le dessin
-        const { x, y } = getPosition(e);
+  const draw = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isDrawing) return;
+    e.preventDefault(); // 🔧 FIX MOBILE : Empêcher le scroll pendant le dessin
+    const { x, y } = getPosition(e);
     const ctx = canvasRef.current!.getContext("2d")!;
-        ctx.lineTo(x, y);
-        ctx.stroke();
-    };
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  };
 
-    const stopDrawing = (e: React.TouchEvent | React.MouseEvent) => {
+  const stopDrawing = (e: React.TouchEvent | React.MouseEvent) => {
     if ("touches" in e) {
-            e.preventDefault(); // 🔧 FIX MOBILE : Empêcher le scroll après le dessin
-        }
-        setIsDrawing(false);
-    };
+      e.preventDefault(); // 🔧 FIX MOBILE : Empêcher le scroll après le dessin
+    }
+    setIsDrawing(false);
+  };
 
-    const clearCanvas = () => {
-        const canvas = canvasRef.current!;
+  const clearCanvas = () => {
+    const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-    };
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  };
 
-    const handleSave = () => {
+  const handleSave = () => {
     let dataUrl = "";
     if (activeTab === "draw" && canvasRef.current) {
-            const canvas = canvasRef.current;
+      const canvas = canvasRef.current;
       const context = canvas.getContext("2d");
-            if (context) {
+      if (context) {
         const pixelBuffer = new Uint32Array(
           context.getImageData(0, 0, canvas.width, canvas.height).data.buffer
         );
@@ -231,21 +234,21 @@ const SignaturePad: React.FC<{
             "Veuillez dessiner votre signature avant de l'appliquer.",
             "info"
           );
-                    return;
-                }
-            }
+          return;
+        }
+      }
       dataUrl = canvas.toDataURL("image/png");
     } else if (activeTab === "type") {
-             if (!typedName.trim()) {
+      if (!typedName.trim()) {
         addToast("Veuillez taper votre nom pour créer une signature.", "info");
-                return;
-            }
+        return;
+      }
       const tempCanvas = document.createElement("canvas");
       tempCanvas.width = 400;
       tempCanvas.height = 100;
       const ctx = tempCanvas.getContext("2d")!;
-            ctx.font = '48px "Caveat", cursive';
-            ctx.fillStyle = strokeColor;
+      ctx.font = '48px "Caveat", cursive';
+      ctx.fillStyle = strokeColor;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(
@@ -255,24 +258,24 @@ const SignaturePad: React.FC<{
       );
       dataUrl = tempCanvas.toDataURL("image/png");
     } else if (activeTab === "upload") {
-            if (!uploadedImage) {
+      if (!uploadedImage) {
         addToast("Veuillez téléverser une image pour votre signature.", "info");
-                return;
-            }
-            dataUrl = uploadedImage;
-        }
-        if (dataUrl) onSave(dataUrl);
-    };
-    
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
+        return;
+      }
+      dataUrl = uploadedImage;
+    }
+    if (dataUrl) onSave(dataUrl);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (file && (file.type === "image/png" || file.type === "image/jpeg")) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setUploadedImage(reader.result as string);
-            };
-            reader.readAsDataURL(file);
-        } else if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setUploadedImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else if (file) {
       addToast(
         "Veuillez téléverser un fichier image valide (PNG ou JPG).",
         "error"
@@ -287,7 +290,7 @@ const SignaturePad: React.FC<{
         : "hover:bg-surfaceVariant"
     }`;
 
-    return (
+  return (
     <div
       className="fixed inset-0 bg-scrim/50 flex items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto modal-backdrop"
       onClick={onCancel}
@@ -296,7 +299,7 @@ const SignaturePad: React.FC<{
         className="bg-surface rounded-3xl shadow-xl w-full max-w-lg p-4 sm:p-6 my-auto max-h-[95vh] overflow-y-auto modal-content"
         onClick={(e) => e.stopPropagation()}
       >
-          <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg sm:text-xl font-bold text-onSurface">
             Créer une signature
           </h2>
@@ -307,9 +310,9 @@ const SignaturePad: React.FC<{
           >
             <X size={20} />
           </button>
-          </div>
-          
-          <div className="flex space-x-1 sm:space-x-2 bg-surfaceVariant p-1 rounded-full mb-4">
+        </div>
+
+        <div className="flex space-x-1 sm:space-x-2 bg-surfaceVariant p-1 rounded-full mb-4">
           <button
             className={tabClasses("draw")}
             onClick={() => setActiveTab("draw")}
@@ -328,98 +331,82 @@ const SignaturePad: React.FC<{
           >
             Importer
           </button>
-          </div>
-          
-          <div className="bg-surfaceVariant/50 rounded-2xl p-2">
+        </div>
+
+        <div className="bg-surfaceVariant/50 rounded-2xl p-2">
           {activeTab === "draw" && (
-                <>
-                  <div className="flex items-center gap-3 mb-3 px-2">
-                <label className="text-xs font-semibold text-onSurfaceVariant">
-                  Taille:
-                </label>
-                    <input 
-                      type="range" 
-                      min="0.8" 
-                      max="1.4" 
-                      step="0.1" 
-                      value={scale}
-                      onChange={(e) => setScale(parseFloat(e.target.value))}
-                      className="flex-1"
-                    />
-                <span className="text-xs text-onSurfaceVariant font-medium">
-                  {Math.round(scale * 100)}%
-                </span>
-                  </div>
-                  <canvas 
-                      ref={canvasRef} 
-                      width={Math.round(600 * scale)} 
-                      height={Math.round(300 * scale)} 
-                      className="bg-white rounded-xl cursor-crosshair w-full touch-none"
-                style={{ touchAction: "none" }}
-                      onMouseDown={startDrawing}
-                      onMouseMove={draw}
-                      onMouseUp={stopDrawing}
-                      onMouseLeave={stopDrawing}
-                      onTouchStart={startDrawing}
-                      onTouchMove={draw}
-                      onTouchEnd={stopDrawing}
-                  />
-                </>
-            )}
+            <SignaturePadComponent
+              signerName={signerName}
+              onSave={(dataUrl) => {
+                const canvas = canvasRef.current;
+                if (canvas) {
+                  const ctx = canvas.getContext("2d");
+                  const img = new Image();
+                  img.onload = () => {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx?.drawImage(img, 0, 0);
+                  };
+                  img.src = dataUrl;
+                }
+              }}
+              onCancel={() => {}}
+            />
+          )}
           {activeTab === "type" && (
-                <div className="h-[280px] flex flex-col items-center justify-center bg-white rounded-xl p-4 gap-2">
+            <div className="h-[280px] flex flex-col items-center justify-center bg-white rounded-xl p-4 gap-2">
               <label className="text-xs font-semibold text-onSurfaceVariant">
                 Taille:
               </label>
-                    <input 
-                      type="range" 
-                      min="0.8" 
-                      max="1.4" 
-                      step="0.1" 
-                      value={scale}
-                      onChange={(e) => setScale(parseFloat(e.target.value))}
-                      className="w-32"
-                    />
+              <input
+                type="range"
+                min="0.8"
+                max="1.4"
+                step="0.1"
+                value={scale}
+                onChange={(e) => setScale(parseFloat(e.target.value))}
+                className="w-32"
+              />
               <span className="text-xs text-onSurfaceVariant font-medium mb-2">
                 {Math.round(scale * 100)}%
               </span>
-                    <input 
-                        type="text" 
-                        value={typedName} 
-                        onChange={(e) => setTypedName(e.target.value)}
-                        className="text-6xl font-['Caveat',_cursive] text-center w-full bg-transparent outline-none border-b-2 border-solid border-outline focus:border-primary transition-colors"
+              <input
+                type="text"
+                value={typedName}
+                onChange={(e) => setTypedName(e.target.value)}
+                className="text-6xl font-['Caveat',_cursive] text-center w-full bg-transparent outline-none border-b-2 border-solid border-outline focus:border-primary transition-colors"
                 style={{
                   transform: `scale(${scale})`,
                   transformOrigin: "center",
                   fontSize: `${48 * scale}px`,
                 }}
-                        placeholder="Tapez votre nom"
-                    />
-                </div>
-            )}
+                placeholder="Tapez votre nom"
+              />
+            </div>
+          )}
           {activeTab === "upload" && (
-                <div className="h-[280px] flex flex-col items-center justify-center bg-white rounded-xl p-4 gap-3">
-                    {uploadedImage ? (
-                        <>
+            <div className="h-[280px] flex flex-col items-center justify-center bg-white rounded-xl p-4 gap-3">
+              {uploadedImage ? (
+                <>
                   <label className="text-xs font-semibold text-onSurfaceVariant">
                     Taille:
                   </label>
-                           <input 
-                             type="range" 
-                             min="0.8" 
-                             max="1.4" 
-                             step="0.1" 
-                             value={scale}
-                             onChange={(e) => setScale(parseFloat(e.target.value))}
-                             className="w-32"
-                           />
+                  <input
+                    type="range"
+                    min="0.8"
+                    max="1.4"
+                    step="0.1"
+                    value={scale}
+                    onChange={(e) => setScale(parseFloat(e.target.value))}
+                    className="w-32"
+                  />
                   <span className="text-xs text-onSurfaceVariant font-medium">
                     {Math.round(scale * 100)}%
                   </span>
-                           <img 
-                             src={uploadedImage} 
-                             alt="Aperçu de la signature" 
-                             className="max-h-40 object-contain border border-outlineVariant/50 rounded-lg p-1"
+                  <img
+                    src={uploadedImage}
+                    alt="Aperçu de la signature"
+                    className="max-h-40 object-contain border border-outlineVariant/50 rounded-lg p-1"
                     style={{
                       transform: `scale(${scale})`,
                       transformOrigin: "center",
@@ -432,9 +419,9 @@ const SignaturePad: React.FC<{
                   >
                     Changer l'image
                   </Button>
-                        </>
-                    ) : (
-                        <label className="cursor-pointer text-center w-full h-full flex flex-col items-center justify-center border-2 border-dashed border-outlineVariant rounded-lg hover:bg-surfaceVariant transition-colors">
+                </>
+              ) : (
+                <label className="cursor-pointer text-center w-full h-full flex flex-col items-center justify-center border-2 border-dashed border-outlineVariant rounded-lg hover:bg-surfaceVariant transition-colors">
                   <Upload
                     size={40}
                     className="mx-auto text-onSurfaceVariant mb-2"
@@ -451,61 +438,61 @@ const SignaturePad: React.FC<{
                     accept="image/png, image/jpeg"
                     onChange={handleFileUpload}
                   />
-                        </label>
-                    )}
-                </div>
-            )}
-          </div>
-          
+                </label>
+              )}
+            </div>
+          )}
+        </div>
+
         {activeTab === "draw" && (
-                <div className="mt-4 flex flex-col gap-3">
-                    <div className="flex items-center justify-center flex-wrap gap-2">
+          <div className="mt-4 flex flex-col gap-3">
+            <div className="flex items-center justify-center flex-wrap gap-2">
               <span className="text-sm font-medium text-onSurfaceVariant">
                 Couleur :
               </span>
-                        {signatureColors.map(({ name, color }) => (
-                            <button
-                                key={name}
-                                title={name}
-                                onClick={() => setStrokeColor(color)}
+              {signatureColors.map(({ name, color }) => (
+                <button
+                  key={name}
+                  title={name}
+                  onClick={() => setStrokeColor(color)}
                   className={`h-8 w-8 rounded-full transition-all duration-200 flex-shrink-0 ${
                     strokeColor === color
                       ? "ring-2 ring-offset-2 ring-offset-surface ring-primary"
                       : ""
                   }`}
-                                style={{ backgroundColor: color }}
-                            />
-                        ))}
-                    </div>
-                    <div className="flex items-center justify-center flex-wrap gap-2">
+                  style={{ backgroundColor: color }}
+                />
+              ))}
+            </div>
+            <div className="flex items-center justify-center flex-wrap gap-2">
               <span className="text-sm font-medium text-onSurfaceVariant">
                 Épaisseur :
               </span>
-                        {signatureWidths.map(({ name, width }) => (
-                            <button
-                                key={name}
-                                title={name}
-                                onClick={() => setLineWidth(width)}
+              {signatureWidths.map(({ name, width }) => (
+                <button
+                  key={name}
+                  title={name}
+                  onClick={() => setLineWidth(width)}
                   className={`p-2 rounded-lg transition-colors flex-shrink-0 ${
                     lineWidth === width
                       ? "bg-primaryContainer"
                       : "hover:bg-surfaceVariant"
                   }`}
-                            >
-                                <div className="h-4 w-6 flex items-center justify-center">
+                >
+                  <div className="h-4 w-6 flex items-center justify-center">
                     <div
                       className="bg-onSurface rounded-full"
                       style={{ height: `${width}px`, width: "100%" }}
                     ></div>
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                </div>
-          )}
-          
-          <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 mt-6">
-            <div className="flex-shrink-0">
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 mt-6">
+          <div className="flex-shrink-0">
             {activeTab === "draw" && (
               <Button
                 variant="text"
@@ -515,8 +502,8 @@ const SignaturePad: React.FC<{
                 Effacer
               </Button>
             )}
-            </div>
-            <div className="flex gap-3 flex-wrap sm:flex-nowrap">
+          </div>
+          <div className="flex gap-3 flex-wrap sm:flex-nowrap">
             <Button
               variant="text"
               onClick={onCancel}
@@ -524,87 +511,89 @@ const SignaturePad: React.FC<{
             >
               Annuler
             </Button>
-              <button 
-                onClick={handleSave}
-                className="btn-premium-shine btn-premium-extended h-11 text-sm focus:outline-none focus:ring-4 focus:ring-primary/30 flex-1 sm:flex-initial inline-flex items-center justify-center"
-              >
-                <span className="hidden sm:inline">Appliquer la signature</span>
-                <span className="sm:hidden">Appliquer</span>
-              </button>
-            </div>
+            <button
+              onClick={handleSave}
+              className="btn-premium-shine btn-premium-extended h-11 text-sm focus:outline-none focus:ring-4 focus:ring-primary/30 flex-1 sm:flex-initial inline-flex items-center justify-center"
+            >
+              <span className="hidden sm:inline">Appliquer la signature</span>
+              <span className="sm:hidden">Appliquer</span>
+            </button>
           </div>
         </div>
       </div>
-    );
+    </div>
+  );
 };
 
 // Main Page Component
 const SignDocumentPage: React.FC = () => {
-    const { token } = useParams<{ token: string }>();
-    const navigate = useNavigate();
-    const location = useLocation();
-    const { addToast } = useToast();
+  const { token } = useParams<{ token: string }>();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { addToast } = useToast();
   const {
     currentUser,
     setCurrentUserSilent,
     isLoading: userIsLoading,
   } = useUser();
   // ✅ triggerRefresh n'est plus nécessaire - le dashboard utilise maintenant un listener en temps réel
-    
-    // State
+
+  // State
   const [envelope, setEnvelope] = useState<
     (Envelope & { currentSignerId: string }) | null
   >(null);
-    const [pdf, setPdf] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
+  const [pdf, setPdf] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
   const [pageDimensions, setPageDimensions] = useState<
     { width: number; height: number }[]
   >([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [fieldValues, setFieldValues] = useState<{
     [key: string]: string | boolean | null;
   }>({});
-    const [activeField, setActiveField] = useState<Field | null>(null);
+  const [activeField, setActiveField] = useState<Field | null>(null);
   const [signerName, setSignerName] = useState("");
-    const [alreadySigned, setAlreadySigned] = useState(false);
-    const [readOnly, setReadOnly] = useState(location.state?.readOnly === true);
-    const [autoAuthAttempted, setAutoAuthAttempted] = useState(false);
-    // 📱 Zoom adaptatif : 50% sur mobile, 100% sur desktop
-    const getInitialZoom = () => {
-        return window.innerWidth < 768 ? 0.5 : 1;
-    };
-    const [zoomLevel, setZoomLevel] = useState(getInitialZoom());
-    const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
-    const [currentPage, setCurrentPage] = useState(1);
-    const [goToPageInput, setGoToPageInput] = useState("1");
-    const viewerRef = useRef<HTMLDivElement>(null);
-    const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
-    const textFieldRefs = useRef<{ [key: string]: HTMLTextAreaElement | null }>({});
-    
-    const currentSignerId = envelope?.currentSignerId;
+  const [alreadySigned, setAlreadySigned] = useState(false);
+  const [readOnly, setReadOnly] = useState(location.state?.readOnly === true);
+  const [autoAuthAttempted, setAutoAuthAttempted] = useState(false);
+  // 📱 Zoom adaptatif : 50% sur mobile, 100% sur desktop
+  const getInitialZoom = () => {
+    return window.innerWidth < 768 ? 0.5 : 1;
+  };
+  const [zoomLevel, setZoomLevel] = useState(getInitialZoom());
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [goToPageInput, setGoToPageInput] = useState("1");
+  const viewerRef = useRef<HTMLDivElement>(null);
+  const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const textFieldRefs = useRef<{ [key: string]: HTMLTextAreaElement | null }>(
+    {}
+  );
+
+  const currentSignerId = envelope?.currentSignerId;
   const signableFields =
     envelope?.fields.filter((f) => f.recipientId === currentSignerId) || [];
-    const [currentFieldIndex, setCurrentFieldIndex] = useState(-1);
-    
-    // Validation : vérifier que tous les champs requis sont remplis
-    const isFormValid = useMemo(() => {
+  const [currentFieldIndex, setCurrentFieldIndex] = useState(-1);
+
+  // Validation : vérifier que tous les champs requis sont remplis
+  const isFormValid = useMemo(() => {
     // En lecture seule, pas de validation
     if (readOnly) return true;
 
     // Si l'enveloppe n'est pas encore chargée, le formulaire n'est PAS valide
     if (!envelope) return false;
-        
-        // Vérifier que le nom du signataire est rempli
-        if (!signerName.trim()) return false;
-        
+
+    // Vérifier que le nom du signataire est rempli
+    if (!signerName.trim()) return false;
+
     // Vérifier TOUS les champs obligatoires (sauf DATE qui est auto-remplie)
     const requiredFields = signableFields.filter(
       (f) => f.type !== FieldType.DATE
     );
 
     const allRequiredFieldsFilled = requiredFields.every((field) => {
-            const value = fieldValues[field.id];
+      const value = fieldValues[field.id];
 
       // Vérifier selon le type de champ
       if (
@@ -621,17 +610,17 @@ const SignDocumentPage: React.FC = () => {
       }
 
       return true;
-        });
-        
-        return allRequiredFieldsFilled;
-    }, [envelope, signerName, signableFields, fieldValues, readOnly]);
-    
-    // State pour les positions et tailles personnalisées des champs
+    });
+
+    return allRequiredFieldsFilled;
+  }, [envelope, signerName, signableFields, fieldValues, readOnly]);
+
+  // State pour les positions et tailles personnalisées des champs
   const [fieldDimensions, setFieldDimensions] = useState<{
     [key: string]: { x: number; y: number; width: number; height: number };
   }>({});
-    const [draggingField, setDraggingField] = useState<string | null>(null);
-    const [resizingField, setResizingField] = useState<string | null>(null);
+  const [draggingField, setDraggingField] = useState<string | null>(null);
+  const [resizingField, setResizingField] = useState<string | null>(null);
   const [initialDimensions, setInitialDimensions] = useState({
     width: 0,
     height: 0,
@@ -646,7 +635,7 @@ const SignDocumentPage: React.FC = () => {
     width: number;
     height: number;
   } | null>(null);
-    // Position/taille temporaire pendant le drag/resize (pour éviter le scintillement)
+  // Position/taille temporaire pendant le drag/resize (pour éviter le scintillement)
   const [tempTransform, setTempTransform] = useState<{
     fieldId: string;
     dx: number;
@@ -654,111 +643,111 @@ const SignDocumentPage: React.FC = () => {
     width?: number;
     height?: number;
   } | null>(null);
-    // Pour empêcher le onClick après un drag
-    const [hasDragged, setHasDragged] = useState(false);
-    // Pour le pinch-to-zoom sur mobile
-    const [pinchingField, setPinchingField] = useState<string | null>(null);
-    const [pinchDistance, setPinchDistance] = useState<number | null>(null);
+  // Pour empêcher le onClick après un drag
+  const [hasDragged, setHasDragged] = useState(false);
+  // Pour le pinch-to-zoom sur mobile
+  const [pinchingField, setPinchingField] = useState<string | null>(null);
+  const [pinchDistance, setPinchDistance] = useState<number | null>(null);
 
-    // Fonction pour snapper les coordonnées à la grille
-    const snapToGrid = (value: number) => {
-        return Math.round(value / GRID_SIZE) * GRID_SIZE;
-    };
+  // Fonction pour snapper les coordonnées à la grille
+  const snapToGrid = (value: number) => {
+    return Math.round(value / GRID_SIZE) * GRID_SIZE;
+  };
 
-    // Fonction pour obtenir les dimensions par défaut d'un champ
+  // Fonction pour obtenir les dimensions par défaut d'un champ
   const getDefaultFieldDimensions = (
     fieldType: FieldType,
     originalWidth: number,
     originalHeight: number
   ) => {
-        if (fieldType === FieldType.DATE) {
-            return { width: 86, height: 50 };
-        } else if (fieldType === FieldType.CHECKBOX) {
-            return { width: 80, height: 50 };
-        }
-        return { width: originalWidth, height: originalHeight };
-    };
+    if (fieldType === FieldType.DATE) {
+      return { width: 86, height: 50 };
+    } else if (fieldType === FieldType.CHECKBOX) {
+      return { width: 80, height: 50 };
+    }
+    return { width: originalWidth, height: originalHeight };
+  };
 
-    useEffect(() => {
-        const loadData = async () => {
+  useEffect(() => {
+    const loadData = async () => {
       if (!token) {
         setError("Lien de signature invalide.");
         setIsLoading(false);
         return;
       }
-            try {
-                setIsLoading(true);
-                const env = await getEnvelopeByToken(token);
+      try {
+        setIsLoading(true);
+        const env = await getEnvelopeByToken(token);
         if (!env) {
           setError("Document non trouvé ou le lien a expiré.");
           setIsLoading(false);
           return;
         }
-                
-                // 🔒 VÉRIFICATION D'EXPIRATION : Si le document a expiré, afficher un message
-                if (env.isExpired) {
+
+        // 🔒 VÉRIFICATION D'EXPIRATION : Si le document a expiré, afficher un message
+        if (env.isExpired) {
           const expirationDate = new Date(
             env.document.expiresAt
           ).toLocaleDateString("fr-FR");
           setError(
             `Ce document a expiré le ${expirationDate}. Les documents sont automatiquement supprimés après 1 an pour respecter vos obligations légales.`
           );
-                    setIsLoading(false);
-                    return;
-                }
-                
-                setEnvelope(env);
+          setIsLoading(false);
+          return;
+        }
+
+        setEnvelope(env);
         const currentSigner = env.recipients.find(
           (r) => r.id === env.currentSignerId
         );
         setSignerName(currentSigner?.name || "");
-                
-                // 🚀 AUTO-AUTHENTIFICATION : Si pas encore loggé, auto-login via le token
-                if (!currentUser && currentSigner?.email && !autoAuthAttempted) {
-                    setAutoAuthAttempted(true);
+
+        // 🚀 AUTO-AUTHENTIFICATION : Si pas encore loggé, auto-login via le token
+        if (!currentUser && currentSigner?.email && !autoAuthAttempted) {
+          setAutoAuthAttempted(true);
           console.log(
             "🔓 Auto-authentification du signataire:",
             currentSigner.email
           );
-                    setCurrentUserSilent({ email: currentSigner.email });
-                }
-                
-                const pdfDataB64 = await getPdfData(env.document.id);
-                if (!pdfDataB64) {
+          setCurrentUserSilent({ email: currentSigner.email });
+        }
+
+        const pdfDataB64 = await getPdfData(env.document.id);
+        if (!pdfDataB64) {
           setError("Le fichier du document est introuvable.");
           setIsLoading(false);
           return;
-                }
-                
-                const pdfData = base64ToUint8Array(pdfDataB64);
-                const loadingTask = pdfjsLib.getDocument({ data: pdfData });
+        }
 
-                const loadedPdf = await loadingTask.promise;
-                setPdf(loadedPdf);
+        const pdfData = base64ToUint8Array(pdfDataB64);
+        const loadingTask = pdfjsLib.getDocument({ data: pdfData });
 
-                const dimensions = [];
-                for (let i = 1; i <= loadedPdf.numPages; i++) {
-                    const page = await loadedPdf.getPage(i);
-                    const viewport = page.getViewport({ scale: 1 });
-                    dimensions.push({ width: viewport.width, height: viewport.height });
-                }
-                setPageDimensions(dimensions);
+        const loadedPdf = await loadingTask.promise;
+        setPdf(loadedPdf);
+
+        const dimensions = [];
+        for (let i = 1; i <= loadedPdf.numPages; i++) {
+          const page = await loadedPdf.getPage(i);
+          const viewport = page.getViewport({ scale: 1 });
+          dimensions.push({ width: viewport.width, height: viewport.height });
+        }
+        setPageDimensions(dimensions);
 
         const initialValues: { [key: string]: string | boolean | null } = {};
         const today = new Date().toLocaleDateString("fr-FR");
         env.fields.forEach((field) => {
-                    // Pré-remplir automatiquement les champs DATE avec la date du jour pour le signataire actuel
+          // Pré-remplir automatiquement les champs DATE avec la date du jour pour le signataire actuel
           if (
             field.type === FieldType.DATE &&
             field.recipientId === env.currentSignerId &&
             !field.value
           ) {
-                        initialValues[field.id] = today;
-                    } else {
-                        initialValues[field.id] = field.value ?? null;
-                    }
-                });
-                setFieldValues(initialValues);
+            initialValues[field.id] = today;
+          } else {
+            initialValues[field.id] = field.value ?? null;
+          }
+        });
+        setFieldValues(initialValues);
 
         console.log("🔍 DEBUG - Champs chargés:", {
           envelopeId: env.document.id,
@@ -768,22 +757,22 @@ const SignDocumentPage: React.FC = () => {
           fieldValues: initialValues,
         });
 
-                // 🔒 SÉCURITÉ : Vérifier si le signataire actuel a déjà signé
+        // 🔒 SÉCURITÉ : Vérifier si le signataire actuel a déjà signé
         const currentSignerFields = env.fields.filter(
           (f) => f.recipientId === env.currentSignerId
         );
         const signatureFields = currentSignerFields.filter(
           (f) => f.type === FieldType.SIGNATURE || f.type === FieldType.INITIAL
         );
-                
-                // Si tous les champs de signature ont une valeur, le document a déjà été signé
+
+        // Si tous les champs de signature ont une valeur, le document a déjà été signé
         const hasSignedAll =
           signatureFields.length > 0 &&
           signatureFields.every((f) => f.value != null && f.value !== "");
-                
-                if (hasSignedAll) {
-                    setAlreadySigned(true);
-                    setReadOnly(true);
+
+        if (hasSignedAll) {
+          setAlreadySigned(true);
+          setReadOnly(true);
           console.log(
             "🔒 Document déjà signé par ce destinataire - Mode lecture seule activé"
           );
@@ -792,87 +781,87 @@ const SignDocumentPage: React.FC = () => {
             "info"
           );
         }
-            } catch (err) {
-                console.error("Failed to load document", err);
+      } catch (err) {
+        console.error("Failed to load document", err);
         setError("Une erreur est survenue lors du chargement du document.");
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        
-        // Seulement charger si on a un token
-        if (token && !autoAuthAttempted) {
-            loadData();
-        }
-    }, [token]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-    useEffect(() => {
-        pageRefs.current = pageRefs.current.slice(0, pdf?.numPages || 0);
-    }, [pdf]);
+    // Seulement charger si on a un token
+    if (token && !autoAuthAttempted) {
+      loadData();
+    }
+  }, [token]);
 
-    // 📱 Ajuster le zoom lors du redimensionnement de la fenêtre (changement d'orientation sur mobile)
-    useEffect(() => {
-        const handleResize = () => {
-            const isMobile = window.innerWidth < 768;
-            const currentIsMobileZoom = zoomLevel === 0.5;
-            const currentIsDesktopZoom = zoomLevel === 1;
-            
-            // Uniquement si on est au zoom par défaut, on ajuste
-            if (isMobile && currentIsDesktopZoom) {
-                setZoomLevel(0.5);
-            } else if (!isMobile && currentIsMobileZoom) {
-                setZoomLevel(1);
-            }
-        };
-        
+  useEffect(() => {
+    pageRefs.current = pageRefs.current.slice(0, pdf?.numPages || 0);
+  }, [pdf]);
+
+  // 📱 Ajuster le zoom lors du redimensionnement de la fenêtre (changement d'orientation sur mobile)
+  useEffect(() => {
+    const handleResize = () => {
+      const isMobile = window.innerWidth < 768;
+      const currentIsMobileZoom = zoomLevel === 0.5;
+      const currentIsDesktopZoom = zoomLevel === 1;
+
+      // Uniquement si on est au zoom par défaut, on ajuste
+      if (isMobile && currentIsDesktopZoom) {
+        setZoomLevel(0.5);
+      } else if (!isMobile && currentIsMobileZoom) {
+        setZoomLevel(1);
+      }
+    };
+
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-    }, [zoomLevel]);
+  }, [zoomLevel]);
 
-    useEffect(() => {
-        if (!viewerRef.current) return;
-        const observer = new IntersectionObserver(
-            (entries) => {
+  useEffect(() => {
+    if (!viewerRef.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
         const visiblePage = entries.find((entry) => entry.isIntersecting);
-                if (visiblePage) {
+        if (visiblePage) {
           const pageNum = parseInt(
             visiblePage.target.getAttribute("data-page-number") || "1",
             10
           );
-                    setCurrentPage(pageNum);
-                    setGoToPageInput(String(pageNum));
-                }
-            },
-            { threshold: 0.5, root: viewerRef.current }
-        );
+          setCurrentPage(pageNum);
+          setGoToPageInput(String(pageNum));
+        }
+      },
+      { threshold: 0.5, root: viewerRef.current }
+    );
 
-        const currentRefs = pageRefs.current;
+    const currentRefs = pageRefs.current;
     currentRefs.forEach((ref) => {
-            if (ref) observer.observe(ref);
-        });
+      if (ref) observer.observe(ref);
+    });
 
-        return () => {
+    return () => {
       currentRefs.forEach((ref) => {
-                if (ref) observer.unobserve(ref);
-            });
-        };
-    }, [pdf, pageDimensions]);
-    
-    // Zoom handlers
+        if (ref) observer.unobserve(ref);
+      });
+    };
+  }, [pdf, pageDimensions]);
+
+  // Zoom handlers
   const handleZoomIn = () => setZoomLevel((prev) => Math.min(prev + 0.25, 3));
   const handleZoomOut = () =>
     setZoomLevel((prev) => Math.max(prev - 0.25, 0.5));
 
   const scrollToField = useCallback(
     (fieldIndex: number) => {
-        const field = signableFields[fieldIndex];
-        if (field && viewerRef.current) {
+      const field = signableFields[fieldIndex];
+      if (field && viewerRef.current) {
         const pageElement = viewerRef.current.querySelector(
           `#page-wrapper-${field.page}`
         );
-            if (pageElement) {
-                const yOffset = -150; // Offset from the top of the viewport
-                const viewerTop = viewerRef.current.getBoundingClientRect().top;
+        if (pageElement) {
+          const yOffset = -150; // Offset from the top of the viewport
+          const viewerTop = viewerRef.current.getBoundingClientRect().top;
           const fieldTopInViewer =
             pageElement.getBoundingClientRect().top -
             viewerTop +
@@ -884,11 +873,11 @@ const SignDocumentPage: React.FC = () => {
             top: fieldTopInViewer,
             behavior: "smooth",
           });
-            }
-            setCurrentFieldIndex(fieldIndex);
-            setCurrentPage(field.page);
-            setGoToPageInput(String(field.page));
         }
+        setCurrentFieldIndex(fieldIndex);
+        setCurrentPage(field.page);
+        setGoToPageInput(String(field.page));
+      }
     },
     [signableFields, zoomLevel]
   );
@@ -896,15 +885,22 @@ const SignDocumentPage: React.FC = () => {
   // 🎯 Fonction pour démarrer la signature intelligemment
   const handleStartSigning = useCallback(() => {
     // Trouver le premier champ non rempli
-    const manualFields = signableFields.filter((f) => f.type !== FieldType.DATE);
+    const manualFields = signableFields.filter(
+      (f) => f.type !== FieldType.DATE
+    );
     const firstEmptyFieldIndex = manualFields.findIndex((field) => {
       const value = fieldValues[field.id];
-      
+
       if (field.type === FieldType.TEXT) {
-        return !value || (typeof value === "string" && value.trim().length === 0);
+        return (
+          !value || (typeof value === "string" && value.trim().length === 0)
+        );
       } else if (field.type === FieldType.CHECKBOX) {
         return value !== true;
-      } else if (field.type === FieldType.SIGNATURE || field.type === FieldType.INITIAL) {
+      } else if (
+        field.type === FieldType.SIGNATURE ||
+        field.type === FieldType.INITIAL
+      ) {
         return !value || (typeof value === "string" && value.length === 0);
       }
       return false;
@@ -917,13 +913,18 @@ const SignDocumentPage: React.FC = () => {
     }
 
     const firstEmptyField = manualFields[firstEmptyFieldIndex];
-    const actualFieldIndex = signableFields.findIndex(f => f.id === firstEmptyField.id);
-    
+    const actualFieldIndex = signableFields.findIndex(
+      (f) => f.id === firstEmptyField.id
+    );
+
     // Scroller vers le champ
     scrollToField(actualFieldIndex);
 
     // Si c'est un champ SIGNATURE ou INITIAL, ouvrir automatiquement le popup
-    if (firstEmptyField.type === FieldType.SIGNATURE || firstEmptyField.type === FieldType.INITIAL) {
+    if (
+      firstEmptyField.type === FieldType.SIGNATURE ||
+      firstEmptyField.type === FieldType.INITIAL
+    ) {
       // Petit délai pour laisser le scroll se terminer
       setTimeout(() => {
         setActiveField(firstEmptyField);
@@ -943,21 +944,21 @@ const SignDocumentPage: React.FC = () => {
     // Pour CHECKBOX, le scroll suffit car il est directement cliquable
   }, [signableFields, fieldValues, scrollToField]);
 
-    const handleNextField = () => {
-        if (currentFieldIndex < signableFields.length - 1) {
-            scrollToField(currentFieldIndex + 1);
-        }
-    };
-    const handlePrevField = () => {
-        if (currentFieldIndex > 0) {
-            scrollToField(currentFieldIndex - 1);
-        }
-    };
+  const handleNextField = () => {
+    if (currentFieldIndex < signableFields.length - 1) {
+      scrollToField(currentFieldIndex + 1);
+    }
+  };
+  const handlePrevField = () => {
+    if (currentFieldIndex > 0) {
+      scrollToField(currentFieldIndex - 1);
+    }
+  };
 
-    const handleGoToPage = (e: React.FormEvent) => {
-        e.preventDefault();
-        const pageNum = parseInt(goToPageInput, 10);
-        if (pdf && pageNum >= 1 && pageNum <= pdf.numPages) {
+  const handleGoToPage = (e: React.FormEvent) => {
+    e.preventDefault();
+    const pageNum = parseInt(goToPageInput, 10);
+    if (pdf && pageNum >= 1 && pageNum <= pdf.numPages) {
       pageRefs.current[pageNum - 1]?.scrollIntoView({
         behavior: "smooth",
         block: "start",
@@ -965,135 +966,135 @@ const SignDocumentPage: React.FC = () => {
       const firstFieldIndexOnPage = signableFields.findIndex(
         (f) => f.page === pageNum
       );
-            if (firstFieldIndexOnPage !== -1) {
-                setCurrentFieldIndex(firstFieldIndexOnPage);
-            }
-        } else {
+      if (firstFieldIndexOnPage !== -1) {
+        setCurrentFieldIndex(firstFieldIndexOnPage);
+      }
+    } else {
       addToast(
         `Veuillez entrer un numéro de page valide (1-${pdf?.numPages}).`,
         "error"
       );
-        }
-    };
+    }
+  };
 
-    const handleFieldChange = (fieldId: string, value: string | boolean) => {
+  const handleFieldChange = (fieldId: string, value: string | boolean) => {
     setFieldValues((prev) => ({ ...prev, [fieldId]: value }));
-    };
+  };
 
-    const handleSaveSignature = (dataUrl: string) => {
-        if (activeField) {
-            handleFieldChange(activeField.id, dataUrl);
-        }
-        setActiveField(null);
-    };
+  const handleSaveSignature = (dataUrl: string) => {
+    if (activeField) {
+      handleFieldChange(activeField.id, dataUrl);
+    }
+    setActiveField(null);
+  };
 
-    const handleDateFieldClick = (fieldId: string) => {
+  const handleDateFieldClick = (fieldId: string) => {
     const today = new Date().toLocaleDateString("fr-FR");
     setFieldValues((prev) => ({ ...prev, [fieldId]: today }));
   };
 
-    // Handlers pour déplacer et redimensionner les champs
+  // Handlers pour déplacer et redimensionner les champs
   const handleFieldMouseDown = (
     e: React.MouseEvent | React.TouchEvent,
     fieldId: string
   ) => {
-        if (readOnly) return;
-        e.stopPropagation();
-        e.preventDefault(); // 🔧 FIX MOBILE : Empêcher le scroll pendant le drag
+    if (readOnly) return;
+    e.stopPropagation();
+    e.preventDefault(); // 🔧 FIX MOBILE : Empêcher le scroll pendant le drag
     const field = envelope?.fields.find((f) => f.id === fieldId);
-        if (!field) return;
-        
-        setDraggingField(fieldId);
-        setHasDragged(false);
-        
-        const customDims = fieldDimensions[fieldId];
+    if (!field) return;
+
+    setDraggingField(fieldId);
+    setHasDragged(false);
+
+    const customDims = fieldDimensions[fieldId];
     const { width: defaultWidth, height: defaultHeight } =
       getDefaultFieldDimensions(field.type, field.width, field.height);
-        
-        // 🔧 FIX MOBILE : Gérer les événements touch
+
+    // 🔧 FIX MOBILE : Gérer les événements touch
     const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
     const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
-        
-        // 🔧 FIX POSITIONNEMENT : Convertir les coordonnées relatives au page wrapper
-        const pageWrapper = pageRefs.current[field.page - 1];
-        const pageRect = pageWrapper?.getBoundingClientRect();
-        const viewerRect = viewerRef.current?.getBoundingClientRect();
-        
-        let adjustedX = clientX;
-        let adjustedY = clientY;
-        
-        if (pageRect && viewerRect) {
-            adjustedX = clientX - viewerRect.left;
-            adjustedY = clientY - viewerRect.top;
-        }
-        
-        setInitialDimensions({
-            width: customDims?.width || defaultWidth,
-            height: customDims?.height || defaultHeight,
-            x: customDims?.x || field.x,
-            y: customDims?.y || field.y,
-            mouseX: adjustedX,
+
+    // 🔧 FIX POSITIONNEMENT : Convertir les coordonnées relatives au page wrapper
+    const pageWrapper = pageRefs.current[field.page - 1];
+    const pageRect = pageWrapper?.getBoundingClientRect();
+    const viewerRect = viewerRef.current?.getBoundingClientRect();
+
+    let adjustedX = clientX;
+    let adjustedY = clientY;
+
+    if (pageRect && viewerRect) {
+      adjustedX = clientX - viewerRect.left;
+      adjustedY = clientY - viewerRect.top;
+    }
+
+    setInitialDimensions({
+      width: customDims?.width || defaultWidth,
+      height: customDims?.height || defaultHeight,
+      x: customDims?.x || field.x,
+      y: customDims?.y || field.y,
+      mouseX: adjustedX,
       mouseY: adjustedY,
-        });
-    };
+    });
+  };
 
   const handleResizeMouseDown = (
     e: React.MouseEvent | React.TouchEvent,
     fieldId: string,
     field: Field
   ) => {
-        if (readOnly) return;
-        e.stopPropagation();
-        e.preventDefault(); // 🔧 FIX MOBILE : Empêcher le scroll pendant le resize
-        setResizingField(fieldId);
-        const customDims = fieldDimensions[fieldId];
+    if (readOnly) return;
+    e.stopPropagation();
+    e.preventDefault(); // 🔧 FIX MOBILE : Empêcher le scroll pendant le resize
+    setResizingField(fieldId);
+    const customDims = fieldDimensions[fieldId];
     const { width: defaultWidth, height: defaultHeight } =
       getDefaultFieldDimensions(field.type, field.width, field.height);
-        
-        // 🔧 FIX MOBILE : Gérer les événements touch
+
+    // 🔧 FIX MOBILE : Gérer les événements touch
     const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
     const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
-        
-        // 🔧 FIX POSITIONNEMENT : Convertir les coordonnées relatives au page wrapper
-        const viewerRect = viewerRef.current?.getBoundingClientRect();
-        let adjustedX = clientX;
-        let adjustedY = clientY;
-        
-        if (viewerRect) {
-            adjustedX = clientX - viewerRect.left;
-            adjustedY = clientY - viewerRect.top;
-        }
-        
-        setInitialDimensions({
-            width: customDims?.width || defaultWidth,
-            height: customDims?.height || defaultHeight,
-            x: customDims?.x || field.x,
-            y: customDims?.y || field.y,
-            mouseX: adjustedX,
-      mouseY: adjustedY,
-        });
-    };
 
-    // 📱 Pinch-to-zoom : Détecter le geste tactile à 2 doigts pour redimensionner
+    // 🔧 FIX POSITIONNEMENT : Convertir les coordonnées relatives au page wrapper
+    const viewerRect = viewerRef.current?.getBoundingClientRect();
+    let adjustedX = clientX;
+    let adjustedY = clientY;
+
+    if (viewerRect) {
+      adjustedX = clientX - viewerRect.left;
+      adjustedY = clientY - viewerRect.top;
+    }
+
+    setInitialDimensions({
+      width: customDims?.width || defaultWidth,
+      height: customDims?.height || defaultHeight,
+      x: customDims?.x || field.x,
+      y: customDims?.y || field.y,
+      mouseX: adjustedX,
+      mouseY: adjustedY,
+    });
+  };
+
+  // 📱 Pinch-to-zoom : Détecter le geste tactile à 2 doigts pour redimensionner
   const handleFieldTouchStart = (
     e: React.TouchEvent,
     fieldId: string,
     field: Field
   ) => {
-        if (readOnly || e.touches.length !== 2) return;
-        
-        e.preventDefault();
-        setPinchingField(fieldId);
-        
-        // Calculer la distance entre les 2 doigts
-        const touch1 = e.touches[0];
-        const touch2 = e.touches[1];
-        const distance = Math.hypot(
-            touch2.clientX - touch1.clientX,
-            touch2.clientY - touch1.clientY
-        );
-        setPinchDistance(distance);
-    };
+    if (readOnly || e.touches.length !== 2) return;
+
+    e.preventDefault();
+    setPinchingField(fieldId);
+
+    // Calculer la distance entre les 2 doigts
+    const touch1 = e.touches[0];
+    const touch2 = e.touches[1];
+    const distance = Math.hypot(
+      touch2.clientX - touch1.clientX,
+      touch2.clientY - touch1.clientY
+    );
+    setPinchDistance(distance);
+  };
 
   const handleFieldTouchMove = (
     e: React.TouchEvent,
@@ -1108,221 +1109,221 @@ const SignDocumentPage: React.FC = () => {
       !pinchDistance
     )
       return;
-        
-        e.preventDefault();
-        
-        const touch1 = e.touches[0];
-        const touch2 = e.touches[1];
-        const newDistance = Math.hypot(
-            touch2.clientX - touch1.clientX,
-            touch2.clientY - touch1.clientY
-        );
-        
-        // Calculer le ratio de zoom
-        const ratio = newDistance / pinchDistance;
-        const customDims = fieldDimensions[fieldId];
+
+    e.preventDefault();
+
+    const touch1 = e.touches[0];
+    const touch2 = e.touches[1];
+    const newDistance = Math.hypot(
+      touch2.clientX - touch1.clientX,
+      touch2.clientY - touch1.clientY
+    );
+
+    // Calculer le ratio de zoom
+    const ratio = newDistance / pinchDistance;
+    const customDims = fieldDimensions[fieldId];
     const { width: defaultWidth, height: defaultHeight } =
       getDefaultFieldDimensions(field.type, field.width, field.height);
-        
-        const currentWidth = customDims?.width ?? defaultWidth;
-        const currentHeight = customDims?.height ?? defaultHeight;
-        
-        // Appliquer le zoom avec limites
+
+    const currentWidth = customDims?.width ?? defaultWidth;
+    const currentHeight = customDims?.height ?? defaultHeight;
+
+    // Appliquer le zoom avec limites
     const newWidth = snapToGrid(
       Math.max(50, Math.min(500, currentWidth * ratio))
     );
     const newHeight = snapToGrid(
       Math.max(30, Math.min(400, currentHeight * ratio))
     );
-        
-        setTempTransform({
-            fieldId,
-            dx: 0,
-            dy: 0,
-            width: newWidth,
-      height: newHeight,
-        });
-        
-        setDimensionTooltip({
-            x: touch1.clientX,
-            y: touch1.clientY,
-            width: Math.round(newWidth),
-      height: Math.round(newHeight),
-        });
-    };
 
-    const handleFieldTouchEnd = () => {
-        if (tempTransform && envelope) {
+    setTempTransform({
+      fieldId,
+      dx: 0,
+      dy: 0,
+      width: newWidth,
+      height: newHeight,
+    });
+
+    setDimensionTooltip({
+      x: touch1.clientX,
+      y: touch1.clientY,
+      width: Math.round(newWidth),
+      height: Math.round(newHeight),
+    });
+  };
+
+  const handleFieldTouchEnd = () => {
+    if (tempTransform && envelope) {
       const field = envelope.fields.find((f) => f.id === tempTransform.fieldId);
-            if (field) {
-                const customDims = fieldDimensions[tempTransform.fieldId];
+      if (field) {
+        const customDims = fieldDimensions[tempTransform.fieldId];
         const { width: defaultWidth, height: defaultHeight } =
           getDefaultFieldDimensions(field.type, field.width, field.height);
-                
+
         setFieldDimensions((prev) => ({
-                    ...prev,
-                    [tempTransform.fieldId]: {
-                        x: customDims?.x ?? field.x,
-                        y: customDims?.y ?? field.y,
-                        width: tempTransform.width ?? defaultWidth,
+          ...prev,
+          [tempTransform.fieldId]: {
+            x: customDims?.x ?? field.x,
+            y: customDims?.y ?? field.y,
+            width: tempTransform.width ?? defaultWidth,
             height: tempTransform.height ?? defaultHeight,
           },
-                }));
-            }
-        }
-        
-        setPinchingField(null);
-        setPinchDistance(null);
-        setTempTransform(null);
-        setDimensionTooltip(null);
-    };
+        }));
+      }
+    }
 
-    useEffect(() => {
-        const handleMouseMove = (e: MouseEvent | TouchEvent) => {
-            // 🔧 FIX MOBILE : Gérer les événements touch
+    setPinchingField(null);
+    setPinchDistance(null);
+    setTempTransform(null);
+    setDimensionTooltip(null);
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent | TouchEvent) => {
+      // 🔧 FIX MOBILE : Gérer les événements touch
       const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
       const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
-            
-            if (draggingField && envelope) {
-                // Calculer le déplacement total depuis le début
-                const totalDx = (clientX - initialDimensions.mouseX) / zoomLevel;
-                const totalDy = (clientY - initialDimensions.mouseY) / zoomLevel;
 
-                // Détecter si on a vraiment déplacé (mouvement > 5px)
-                if (Math.abs(totalDx) > 5 || Math.abs(totalDy) > 5) {
-                    setHasDragged(true);
-                }
+      if (draggingField && envelope) {
+        // Calculer le déplacement total depuis le début
+        const totalDx = (clientX - initialDimensions.mouseX) / zoomLevel;
+        const totalDy = (clientY - initialDimensions.mouseY) / zoomLevel;
 
-                // Appliquer le snap à la position finale
+        // Détecter si on a vraiment déplacé (mouvement > 5px)
+        if (Math.abs(totalDx) > 5 || Math.abs(totalDy) > 5) {
+          setHasDragged(true);
+        }
+
+        // Appliquer le snap à la position finale
         const snappedDx =
           snapToGrid(initialDimensions.x + totalDx) - initialDimensions.x;
         const snappedDy =
           snapToGrid(initialDimensions.y + totalDy) - initialDimensions.y;
-                
-                setTempTransform({
-                    fieldId: draggingField,
-                    dx: snappedDx,
+
+        setTempTransform({
+          fieldId: draggingField,
+          dx: snappedDx,
           dy: snappedDy,
-                });
+        });
 
-                // Afficher le tooltip avec les dimensions
-                setDimensionTooltip({
-                    x: clientX,
-                    y: clientY,
-                    width: Math.round(initialDimensions.width),
+        // Afficher le tooltip avec les dimensions
+        setDimensionTooltip({
+          x: clientX,
+          y: clientY,
+          width: Math.round(initialDimensions.width),
           height: Math.round(initialDimensions.height),
-                });
-            }
+        });
+      }
 
-            if (resizingField && envelope) {
+      if (resizingField && envelope) {
         const field = envelope.fields.find((f) => f.id === resizingField);
-                if (!field) return;
+        if (!field) return;
 
-                const deltaX = (clientX - initialDimensions.mouseX) / zoomLevel;
-                const deltaY = (clientY - initialDimensions.mouseY) / zoomLevel;
+        const deltaX = (clientX - initialDimensions.mouseX) / zoomLevel;
+        const deltaY = (clientY - initialDimensions.mouseY) / zoomLevel;
 
-                // 🎨 Pour checkbox, signature et paraphe : maintenir le ratio homothétique
+        // 🎨 Pour checkbox, signature et paraphe : maintenir le ratio homothétique
         if (
           field.type === FieldType.CHECKBOX ||
           field.type === FieldType.SIGNATURE ||
           field.type === FieldType.INITIAL
         ) {
-                    const delta = Math.max(deltaX, deltaY);
-                    const ratio = initialDimensions.width / initialDimensions.height;
+          const delta = Math.max(deltaX, deltaY);
+          const ratio = initialDimensions.width / initialDimensions.height;
           const newWidth = snapToGrid(
             Math.max(20, initialDimensions.width + delta)
           );
           const newHeight = snapToGrid(
             Math.max(20, (initialDimensions.width + delta) / ratio)
           );
-                    
-                    setTempTransform({
-                        fieldId: resizingField,
-                        dx: 0,
-                        dy: 0,
-                        width: newWidth,
-            height: newHeight,
-                    });
 
-                    // Afficher le tooltip avec les dimensions
-                    setDimensionTooltip({
-                        x: clientX,
-                        y: clientY,
-                        width: Math.round(newWidth),
+          setTempTransform({
+            fieldId: resizingField,
+            dx: 0,
+            dy: 0,
+            width: newWidth,
+            height: newHeight,
+          });
+
+          // Afficher le tooltip avec les dimensions
+          setDimensionTooltip({
+            x: clientX,
+            y: clientY,
+            width: Math.round(newWidth),
             height: Math.round(newHeight),
-                    });
-                } else {
-                    // Pour les autres champs (texte, date) : redimensionnement libre
+          });
+        } else {
+          // Pour les autres champs (texte, date) : redimensionnement libre
           const newWidth = snapToGrid(
             Math.max(50, initialDimensions.width + deltaX)
           );
           const newHeight = snapToGrid(
             Math.max(30, initialDimensions.height + deltaY)
           );
-                    
-                    setTempTransform({
-                        fieldId: resizingField,
-                        dx: 0,
-                        dy: 0,
-                        width: newWidth,
+
+          setTempTransform({
+            fieldId: resizingField,
+            dx: 0,
+            dy: 0,
+            width: newWidth,
             height: newHeight,
-                    });
+          });
 
-                    // Afficher le tooltip avec les dimensions
-                    setDimensionTooltip({
-                        x: clientX,
-                        y: clientY,
-                        width: Math.round(newWidth),
+          // Afficher le tooltip avec les dimensions
+          setDimensionTooltip({
+            x: clientX,
+            y: clientY,
+            width: Math.round(newWidth),
             height: Math.round(newHeight),
-                    });
-                }
-            }
-        };
+          });
+        }
+      }
+    };
 
-        const handleMouseUp = () => {
-            // Appliquer les changements définitifs
-            if (tempTransform && envelope) {
+    const handleMouseUp = () => {
+      // Appliquer les changements définitifs
+      if (tempTransform && envelope) {
         const field = envelope.fields.find(
           (f) => f.id === tempTransform.fieldId
         );
-                if (field) {
-                    const customDims = fieldDimensions[tempTransform.fieldId];
-                    const currentX = customDims?.x ?? field.x;
-                    const currentY = customDims?.y ?? field.y;
-                    
+        if (field) {
+          const customDims = fieldDimensions[tempTransform.fieldId];
+          const currentX = customDims?.x ?? field.x;
+          const currentY = customDims?.y ?? field.y;
+
           const { width: defaultWidth, height: defaultHeight } =
             getDefaultFieldDimensions(field.type, field.width, field.height);
-                    const currentWidth = customDims?.width ?? defaultWidth;
-                    const currentHeight = customDims?.height ?? defaultHeight;
-                    
+          const currentWidth = customDims?.width ?? defaultWidth;
+          const currentHeight = customDims?.height ?? defaultHeight;
+
           setFieldDimensions((prev) => ({
-                        ...prev,
-                        [tempTransform.fieldId]: {
-                            x: currentX + tempTransform.dx,
-                            y: currentY + tempTransform.dy,
-                            width: tempTransform.width ?? currentWidth,
+            ...prev,
+            [tempTransform.fieldId]: {
+              x: currentX + tempTransform.dx,
+              y: currentY + tempTransform.dy,
+              width: tempTransform.width ?? currentWidth,
               height: tempTransform.height ?? currentHeight,
             },
-                    }));
-                }
-            }
-            
-            setDraggingField(null);
-            setResizingField(null);
-            setDimensionTooltip(null);
-            setTempTransform(null);
-            
-            // Réinitialiser hasDragged après un court délai pour éviter le onClick immédiat
-            setTimeout(() => setHasDragged(false), 100);
-        };
+          }));
+        }
+      }
 
-        if (draggingField || resizingField) {
-            // 🔧 FIX MOBILE : Ajouter les événements touch
+      setDraggingField(null);
+      setResizingField(null);
+      setDimensionTooltip(null);
+      setTempTransform(null);
+
+      // Réinitialiser hasDragged après un court délai pour éviter le onClick immédiat
+      setTimeout(() => setHasDragged(false), 100);
+    };
+
+    if (draggingField || resizingField) {
+      // 🔧 FIX MOBILE : Ajouter les événements touch
       window.addEventListener("mousemove", handleMouseMove);
       window.addEventListener("mouseup", handleMouseUp);
       window.addEventListener("touchmove", handleMouseMove, { passive: false });
       window.addEventListener("touchend", handleMouseUp);
-            return () => {
+      return () => {
         window.removeEventListener("mousemove", handleMouseMove);
         window.removeEventListener("mouseup", handleMouseUp);
         window.removeEventListener("touchmove", handleMouseMove);
@@ -1340,96 +1341,99 @@ const SignDocumentPage: React.FC = () => {
     tempTransform,
   ]);
 
-    const handleReject = async (reason: string) => {
-        if (!token) return;
-        setIsSubmitting(true);
-        try {
-            const result = await rejectSignature(token, reason);
-            if (result.success) {
+  const handleReject = async (reason: string) => {
+    if (!token) return;
+    setIsSubmitting(true);
+    try {
+      const result = await rejectSignature(token, reason);
+      if (result.success) {
         addToast("Document rejeté avec succès.", "success");
         // ✅ Le dashboard se mettra à jour automatiquement via le listener en temps réel
         navigate("/dashboard");
-            } else {
+      } else {
         throw new Error("Rejection failed");
-            }
-        } catch (err) {
+      }
+    } catch (err) {
       addToast("Échec du rejet. Veuillez réessayer.", "error");
-        } finally {
-            setIsSubmitting(false);
-            setIsRejectModalOpen(false);
-        }
-    };
+    } finally {
+      setIsSubmitting(false);
+      setIsRejectModalOpen(false);
+    }
+  };
 
-    const handleDownload = async () => {
-        if (!envelope) return;
-        
-        addToast("Téléchargement en cours...", "info");
-        const result = await downloadDocument(envelope.document.id, envelope.document.name);
-        
-        if (result.success) {
-            addToast("Document téléchargé avec succès !", "success");
-        } else {
-            addToast(result.error || "Erreur lors du téléchargement", "error");
-        }
-    };
+  const handleDownload = async () => {
+    if (!envelope) return;
 
-    const handleSubmit = async () => {
-        if (!token || !envelope) return;
-        if (!signerName.trim()) {
+    addToast("Téléchargement en cours...", "info");
+    const result = await downloadDocument(
+      envelope.document.id,
+      envelope.document.name
+    );
+
+    if (result.success) {
+      addToast("Document téléchargé avec succès !", "success");
+    } else {
+      addToast(result.error || "Erreur lors du téléchargement", "error");
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!token || !envelope) return;
+    if (!signerName.trim()) {
       addToast("Veuillez entrer votre nom avant de terminer.", "error");
-            return;
-        }
-        
-        // Vérifier UNIQUEMENT les champs MANUELS (pas DATE)
+      return;
+    }
+
+    // Vérifier UNIQUEMENT les champs MANUELS (pas DATE)
     const manualFieldsToCheck = signableFields.filter(
       (f) => f.type !== FieldType.DATE
     );
-        
+
     const missingFields = manualFieldsToCheck.filter((field) => {
-            const value = fieldValues[field.id];
-            
-            if (field.type === FieldType.TEXT) {
+      const value = fieldValues[field.id];
+
+      if (field.type === FieldType.TEXT) {
         return !value || typeof value !== "string" || value.trim().length === 0;
-            } else if (field.type === FieldType.CHECKBOX) {
-                return value !== true;
+      } else if (field.type === FieldType.CHECKBOX) {
+        return value !== true;
       } else if (
         field.type === FieldType.SIGNATURE ||
         field.type === FieldType.INITIAL
       ) {
         return !value || typeof value !== "string" || value.length === 0;
-            }
-            return false;
-        });
-        
-        if (missingFields.length > 0) {
-      addToast("Veuillez remplir tous les champs requis.", "error");
-            return;
-        }
+      }
+      return false;
+    });
 
-        setIsSubmitting(true);
-        try {
+    if (missingFields.length > 0) {
+      addToast("Veuillez remplir tous les champs requis.", "error");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
       const updatedFields: Field[] = envelope.fields.map((field) => ({
-                ...field,
+        ...field,
         value: fieldValues[field.id],
-            }));
-            const result = await submitSignature(token, updatedFields);
-            if (result.success) {
+      }));
+      const result = await submitSignature(token, updatedFields);
+      if (result.success) {
         addToast("Document signé avec succès !", "success");
         // ✅ Le dashboard se mettra à jour automatiquement via le listener en temps réel
         navigate("/dashboard");
-            } else {
+      } else {
         throw new Error("Signature submission failed");
-            }
-        } catch (err) {
+      }
+    } catch (err) {
       addToast(
         "Échec de la soumission de la signature. Veuillez réessayer.",
         "error"
       );
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-    
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const PdfPageRenderer = ({
     pageNum,
     zoom,
@@ -1437,93 +1441,93 @@ const SignDocumentPage: React.FC = () => {
     pageNum: number;
     zoom: number;
   }) => {
-        const canvasRef = useRef<HTMLCanvasElement>(null);
-        const renderTaskRef = useRef<any>(null);
-        const isMountedRef = useRef(true);
-        
-        useEffect(() => {
-            if (!pdf) return;
-            
-            isMountedRef.current = true;
-            
-            // Annuler le rendu précédent s'il existe
-            if (renderTaskRef.current) {
-                try {
-                    renderTaskRef.current.cancel();
-                } catch (e) {
-                    // Ignorer les erreurs d'annulation
-                }
-                renderTaskRef.current = null;
-            }
-            
-            const renderPage = async () => {
-                try {
-                    const page = await pdf.getPage(pageNum);
-                    
-                    if (!isMountedRef.current) return;
-                    
-                    const viewport = page.getViewport({ scale: zoom });
-                    const canvas = canvasRef.current;
-                    
-                    if (canvas && isMountedRef.current) {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const renderTaskRef = useRef<any>(null);
+    const isMountedRef = useRef(true);
+
+    useEffect(() => {
+      if (!pdf) return;
+
+      isMountedRef.current = true;
+
+      // Annuler le rendu précédent s'il existe
+      if (renderTaskRef.current) {
+        try {
+          renderTaskRef.current.cancel();
+        } catch (e) {
+          // Ignorer les erreurs d'annulation
+        }
+        renderTaskRef.current = null;
+      }
+
+      const renderPage = async () => {
+        try {
+          const page = await pdf.getPage(pageNum);
+
+          if (!isMountedRef.current) return;
+
+          const viewport = page.getViewport({ scale: zoom });
+          const canvas = canvasRef.current;
+
+          if (canvas && isMountedRef.current) {
             const context = canvas.getContext("2d");
-                        if (context) {
-                            canvas.height = viewport.height;
-                            canvas.width = viewport.width;
-                            
-                            renderTaskRef.current = page.render({ 
-                                canvasContext: context, 
+            if (context) {
+              canvas.height = viewport.height;
+              canvas.width = viewport.width;
+
+              renderTaskRef.current = page.render({
+                canvasContext: context,
                 viewport,
-                            });
-                            
-                            // Attendre la fin du rendu
-                            await renderTaskRef.current.promise;
-                            renderTaskRef.current = null;
-                        }
-                    }
-                } catch (err: any) {
-                    // Ignorer les erreurs d'annulation
+              });
+
+              // Attendre la fin du rendu
+              await renderTaskRef.current.promise;
+              renderTaskRef.current = null;
+            }
+          }
+        } catch (err: any) {
+          // Ignorer les erreurs d'annulation
           if (err?.name !== "RenderingCancelledException") {
             console.error("Erreur rendu PDF:", err);
-                    }
-                }
-            };
-            
-            renderPage();
-            
-            // Cleanup : annuler le rendu au démontage
-            return () => {
-                isMountedRef.current = false;
-                if (renderTaskRef.current) {
-                    try {
-                        renderTaskRef.current.cancel();
-                    } catch (e) {
-                        // Ignorer les erreurs
-                    }
-                    renderTaskRef.current = null;
-                }
-            };
-        }, [pdf, pageNum, zoom]);
-        
-        return <canvas ref={canvasRef} />;
+          }
+        }
+      };
+
+      renderPage();
+
+      // Cleanup : annuler le rendu au démontage
+      return () => {
+        isMountedRef.current = false;
+        if (renderTaskRef.current) {
+          try {
+            renderTaskRef.current.cancel();
+          } catch (e) {
+            // Ignorer les erreurs
+          }
+          renderTaskRef.current = null;
+        }
+      };
+    }, [pdf, pageNum, zoom]);
+
+    return <canvas ref={canvasRef} />;
   };
 
-    if (isLoading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
-    }
+  }
 
-    if (error) {
-        return (
-             <div className="container mx-auto text-center py-20">
-                 <AlertTriangle className="mx-auto h-12 w-12 text-error" />
+  if (error) {
+    return (
+      <div className="container mx-auto text-center py-20">
+        <AlertTriangle className="mx-auto h-12 w-12 text-error" />
         <h2 className="mt-4 text-2xl font-bold">
           Impossible de charger le document
         </h2>
-                 <p className="mt-2 text-onSurfaceVariant">{error}</p>
+        <p className="mt-2 text-onSurfaceVariant">{error}</p>
         <Button
           variant="gradient"
           withGlow
@@ -1533,15 +1537,15 @@ const SignDocumentPage: React.FC = () => {
         >
           Aller au tableau de bord
         </Button>
-             </div>
+      </div>
     );
-    }
+  }
 
   if (!token || token === ":token") {
-        return (
-             <div className="container mx-auto text-center py-20">
-                 <AlertTriangle className="mx-auto h-12 w-12 text-error" />
-                 <h2 className="mt-4 text-2xl font-bold">Lien de signature invalide</h2>
+    return (
+      <div className="container mx-auto text-center py-20">
+        <AlertTriangle className="mx-auto h-12 w-12 text-error" />
+        <h2 className="mt-4 text-2xl font-bold">Lien de signature invalide</h2>
         <p className="mt-2 text-onSurfaceVariant">
           Le lien que vous avez utilisé n'est pas valide. Veuillez vérifier
           votre email de signature.
@@ -1555,39 +1559,39 @@ const SignDocumentPage: React.FC = () => {
         >
           Aller au tableau de bord
         </Button>
-             </div>
+      </div>
     );
-    }
+  }
 
-    if (!envelope || !pdf) return null;
-    
-    // CHAMPS MANUELS = tous les champs SAUF DATE (car pré-remplie)
+  if (!envelope || !pdf) return null;
+
+  // CHAMPS MANUELS = tous les champs SAUF DATE (car pré-remplie)
   const manualFields = signableFields.filter((f) => f.type !== FieldType.DATE);
-    
-    // Compter les champs MANUELS remplis
-    let manualFieldsFilledCount = 0;
+
+  // Compter les champs MANUELS remplis
+  let manualFieldsFilledCount = 0;
   manualFields.forEach((field) => {
-        const value = fieldValues[field.id];
-        
-        if (field.type === FieldType.TEXT) {
+    const value = fieldValues[field.id];
+
+    if (field.type === FieldType.TEXT) {
       if (value && typeof value === "string" && value.trim().length > 0) {
-                manualFieldsFilledCount++;
-            }
-        } else if (field.type === FieldType.CHECKBOX) {
-            if (value === true) {
-                manualFieldsFilledCount++;
-            }
+        manualFieldsFilledCount++;
+      }
+    } else if (field.type === FieldType.CHECKBOX) {
+      if (value === true) {
+        manualFieldsFilledCount++;
+      }
     } else if (
       field.type === FieldType.SIGNATURE ||
       field.type === FieldType.INITIAL
     ) {
       if (value && typeof value === "string" && value.length > 0) {
-                manualFieldsFilledCount++;
-            }
-        }
-    });
-    
-    // TOUS les champs manuels sont-ils remplis ? (SANS DATE)
+        manualFieldsFilledCount++;
+      }
+    }
+  });
+
+  // TOUS les champs manuels sont-ils remplis ? (SANS DATE)
   const allManualFieldsFilled =
     manualFields.length > 0 && manualFieldsFilledCount === manualFields.length;
 
@@ -1599,11 +1603,11 @@ const SignDocumentPage: React.FC = () => {
     field,
     recipientName,
   }) => (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs bg-inverseSurface text-inverseOnSurface text-xs rounded-lg shadow-lg p-2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-10 scale-95 group-hover:scale-100 origin-bottom">
-            <strong>{field.type}</strong>
-            <span className="text-inverseOnSurface/80"> pour {recipientName}</span>
-        </div>
-    );
+    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs bg-inverseSurface text-inverseOnSurface text-xs rounded-lg shadow-lg p-2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-10 scale-95 group-hover:scale-100 origin-bottom">
+      <strong>{field.type}</strong>
+      <span className="text-inverseOnSurface/80"> pour {recipientName}</span>
+    </div>
+  );
 
   // 🎯 Composant wrapper avec @use-gesture/react pour gestes tactiles optimisés
   const DraggableField: React.FC<{
@@ -1749,34 +1753,34 @@ const SignDocumentPage: React.FC = () => {
     );
   };
 
-    const renderField = (field: Field) => {
-        const value = fieldValues[field.id];
-        const customDims = fieldDimensions[field.id];
-        let x = customDims?.x ?? field.x;
-        let y = customDims?.y ?? field.y;
-        
-        // Appliquer les tailles par défaut pour le destinataire
+  const renderField = (field: Field) => {
+    const value = fieldValues[field.id];
+    const customDims = fieldDimensions[field.id];
+    let x = customDims?.x ?? field.x;
+    let y = customDims?.y ?? field.y;
+
+    // Appliquer les tailles par défaut pour le destinataire
     const { width: defaultWidth, height: defaultHeight } =
       getDefaultFieldDimensions(field.type, field.width, field.height);
-        let width = customDims?.width ?? defaultWidth;
-        let height = customDims?.height ?? defaultHeight;
-        
-        // Appliquer la transformation temporaire si le champ est en cours de déplacement/redimensionnement
-        const isBeingManipulated = tempTransform?.fieldId === field.id;
-        if (isBeingManipulated && tempTransform) {
-            x += tempTransform.dx;
-            y += tempTransform.dy;
-            if (tempTransform.width !== undefined) width = tempTransform.width;
-            if (tempTransform.height !== undefined) height = tempTransform.height;
-        }
-        
-        const baseStyle: React.CSSProperties = {
+    let width = customDims?.width ?? defaultWidth;
+    let height = customDims?.height ?? defaultHeight;
+
+    // Appliquer la transformation temporaire si le champ est en cours de déplacement/redimensionnement
+    const isBeingManipulated = tempTransform?.fieldId === field.id;
+    if (isBeingManipulated && tempTransform) {
+      x += tempTransform.dx;
+      y += tempTransform.dy;
+      if (tempTransform.width !== undefined) width = tempTransform.width;
+      if (tempTransform.height !== undefined) height = tempTransform.height;
+    }
+
+    const baseStyle: React.CSSProperties = {
       position: "absolute",
-            left: `${x * zoomLevel}px`, 
-            top: `${y * zoomLevel}px`,
-            width: `${width * zoomLevel}px`, 
-            height: `${height * zoomLevel}px`,
-            // Ajouter un contour lors de la manipulation
+      left: `${x * zoomLevel}px`,
+      top: `${y * zoomLevel}px`,
+      width: `${width * zoomLevel}px`,
+      height: `${height * zoomLevel}px`,
+      // Ajouter un contour lors de la manipulation
       ...(isBeingManipulated
         ? {
             outline: "3px solid var(--md-sys-color-primary)",
@@ -1790,7 +1794,7 @@ const SignDocumentPage: React.FC = () => {
       (r) => r.id === field.recipientId
     );
     const recipientName = recipient?.name || "Utilisateur assigné";
-        const isCurrentSignerField = field.recipientId === currentSignerId;
+    const isCurrentSignerField = field.recipientId === currentSignerId;
     const fieldIndexInSignable = signableFields.findIndex(
       (sf) => sf.id === field.id
     );
@@ -1800,14 +1804,14 @@ const SignDocumentPage: React.FC = () => {
       currentFieldIndex === fieldIndexInSignable;
 
     // Pour les champs d'autres destinataires, afficher la valeur si elle existe
-        if (!isCurrentSignerField) {
+    if (!isCurrentSignerField) {
       // Si le champ a une valeur (signé), l'afficher
       if (value) {
         if (
           field.type === FieldType.SIGNATURE ||
           field.type === FieldType.INITIAL
         ) {
-             return (
+          return (
             <div
               style={baseStyle}
               className="bg-surface rounded-md border border-outlineVariant flex items-center justify-center p-1"
@@ -1866,19 +1870,19 @@ const SignDocumentPage: React.FC = () => {
           >
             {field.type} pour {recipientName}
           </span>
-                </div>
-            );
-        }
+        </div>
+      );
+    }
 
-        if (readOnly && !value) {
-            return null; // Don't render empty fields for other people in read-only mode
-        }
-        
+    if (readOnly && !value) {
+      return null; // Don't render empty fields for other people in read-only mode
+    }
+
     const interactiveClasses =
       readOnly || !isCurrentSignerField
         ? ""
         : `cursor-pointer transition-colors hover:bg-primary/20`;
-        const fieldWrapperStyle = {
+    const fieldWrapperStyle = {
       border: `2px ${isCurrentActiveField ? "solid" : "dashed"} ${
         value || isCurrentActiveField
           ? isCurrentActiveField
@@ -1888,27 +1892,53 @@ const SignDocumentPage: React.FC = () => {
       }`,
       backgroundColor: value ? "transparent" : "rgba(37, 99, 235, 0.08)",
       borderRadius: "8px",
-        };
-        
-        // Handlers pour onClick qui vérifient si on a draggé
-        const handleSignatureClick = () => {
-            if (!hasDragged && !readOnly && isCurrentSignerField) {
-                setActiveField(field);
-            }
-        };
-        
-        const handleDateClick = () => {
-            if (!hasDragged && !readOnly && isCurrentSignerField) {
-                handleDateFieldClick(field.id);
-            }
-        };
+    };
+
+    // Handlers pour onClick qui vérifient si on a draggé
+    const handleSignatureClick = () => {
+      if (!hasDragged && !readOnly && isCurrentSignerField) {
+        setActiveField(field);
+      }
+    };
+
+    const handleDateClick = () => {
+      if (!hasDragged && !readOnly && isCurrentSignerField) {
+        handleDateFieldClick(field.id);
+      }
+    };
 
     switch (field.type) {
-            case FieldType.SIGNATURE:
-            case FieldType.INITIAL:
-                return (
-                    <div style={baseStyle} className="group">
-                        <FieldTooltip field={field} recipientName={recipientName} />
+      case FieldType.SIGNATURE:
+      case FieldType.INITIAL:
+        return value && isCurrentSignerField && !readOnly ? (
+          <DraggableSignature
+            key={field.id}
+            id={field.id}
+            signatureData={String(value)}
+            x={x}
+            y={y}
+            width={width}
+            height={height}
+            zoomLevel={zoomLevel}
+            onUpdate={(id, updates) => {
+              setFieldDimensions((prev) => ({
+                ...prev,
+                [id]: {
+                  ...prev[id],
+                  x: updates.x ?? prev[id]?.x ?? field.x,
+                  y: updates.y ?? prev[id]?.y ?? field.y,
+                  width: updates.width ?? prev[id]?.width ?? width,
+                  height: updates.height ?? prev[id]?.height ?? height,
+                },
+              }));
+            }}
+            onRemove={() => handleFieldChange(field.id, "")}
+            maxWidth={pageDimensions[field.page - 1]?.width || 600}
+            maxHeight={pageDimensions[field.page - 1]?.height || 800}
+          />
+        ) : (
+          <div style={baseStyle} className="group">
+            <FieldTooltip field={field} recipientName={recipientName} />
             <DraggableField
               field={field}
               isCurrentSignerField={isCurrentSignerField}
@@ -1917,15 +1947,15 @@ const SignDocumentPage: React.FC = () => {
               <div
                 style={{ ...fieldWrapperStyle, width: "100%", height: "100%" }}
                 className={`${interactiveClasses} flex items-center justify-center p-1`}
-                        >
-                            {value ? (
+              >
+                {value ? (
                   <img
                     src={String(value)}
                     alt="signature"
                     className="object-contain w-full h-full pointer-events-none"
                   />
-                            ) : (
-                                <div className="text-center pointer-events-none">
+                ) : (
+                  <div className="text-center pointer-events-none">
                     <span className="text-sm font-semibold text-primary">
                       <Signature className="inline-block h-4 w-4 mr-1" />
                       Cliquez pour signer
@@ -1933,16 +1963,16 @@ const SignDocumentPage: React.FC = () => {
                     <p className="text-xs text-onSurfaceVariant truncate mt-1">
                       {signerName}
                     </p>
-                                </div>
-                            )}
-                        </div>
+                  </div>
+                )}
+              </div>
             </DraggableField>
-                    </div>
-                );
-            case FieldType.DATE:
-                return (
-                    <div style={baseStyle} className="group">
-                        <FieldTooltip field={field} recipientName={recipientName} />
+          </div>
+        );
+      case FieldType.DATE:
+        return (
+          <div style={baseStyle} className="group">
+            <FieldTooltip field={field} recipientName={recipientName} />
             <DraggableField
               field={field}
               isCurrentSignerField={isCurrentSignerField}
@@ -1951,25 +1981,25 @@ const SignDocumentPage: React.FC = () => {
               <div
                 style={{ ...fieldWrapperStyle, width: "100%", height: "100%" }}
                 className={`${interactiveClasses} flex items-center justify-center`}
-                        >
-                            {value ? (
+              >
+                {value ? (
                   <span className="text-sm font-semibold pointer-events-none">
                     {String(value)}
                   </span>
-                            ) : (
+                ) : (
                   <span className="text-sm font-semibold text-primary pointer-events-none">
                     <Calendar className="inline-block h-4 w-4 mr-1" />
                     Ajouter la date
                   </span>
-                            )}
-                        </div>
+                )}
+              </div>
             </DraggableField>
-                    </div>
-                );
-            case FieldType.TEXT:
-                return (
-                    <div style={baseStyle} className="group">
-                        <FieldTooltip field={field} recipientName={recipientName} />
+          </div>
+        );
+      case FieldType.TEXT:
+        return (
+          <div style={baseStyle} className="group">
+            <FieldTooltip field={field} recipientName={recipientName} />
             <div
               className="w-full h-full flex flex-col"
               style={{
@@ -1983,43 +2013,43 @@ const SignDocumentPage: React.FC = () => {
               }}
             >
               {/* Barre de déplacement avec gestes tactiles */}
-                            {isCurrentSignerField && !readOnly && (
+              {isCurrentSignerField && !readOnly && (
                 <DraggableField
                   field={field}
                   isCurrentSignerField={isCurrentSignerField}
                 >
-                                <div
+                  <div
                     className="flex items-center justify-center cursor-move bg-primary/10 hover:bg-primary/20 transition-colors"
-                                    style={{
+                    style={{
                       height: "24px",
                       borderTopLeftRadius: "6px",
                       borderTopRightRadius: "6px",
                       flexShrink: 0,
-                                    }}
-                                >
-                                    <div className="flex gap-1">
-                                        <div className="w-1 h-1 rounded-full bg-primary/40"></div>
-                                        <div className="w-1 h-1 rounded-full bg-primary/40"></div>
-                                        <div className="w-1 h-1 rounded-full bg-primary/40"></div>
-                                    </div>
-                                </div>
+                    }}
+                  >
+                    <div className="flex gap-1">
+                      <div className="w-1 h-1 rounded-full bg-primary/40"></div>
+                      <div className="w-1 h-1 rounded-full bg-primary/40"></div>
+                      <div className="w-1 h-1 rounded-full bg-primary/40"></div>
+                    </div>
+                  </div>
                 </DraggableField>
-                            )}
-                            
-                            <textarea 
+              )}
+
+              <textarea
                 value={(value as string) || ""}
-                                onChange={(e) => {
-                                    const newValue = e.target.value.slice(0, 150); // Limite à 150 caractères
-                                    handleFieldChange(field.id, newValue);
-                                }}
-                                ref={(el) => {
-                                  if (el) {
-                                    textFieldRefs.current[field.id] = el;
-                                  }
-                                }}
-                                style={{
+                onChange={(e) => {
+                  const newValue = e.target.value.slice(0, 150); // Limite à 150 caractères
+                  handleFieldChange(field.id, newValue);
+                }}
+                ref={(el) => {
+                  if (el) {
+                    textFieldRefs.current[field.id] = el;
+                  }
+                }}
+                style={{
                   width: "100%",
-                                    flex: 1,
+                  flex: 1,
                   border: "none",
                   borderBottomLeftRadius: "6px",
                   borderBottomRightRadius: "6px",
@@ -2037,33 +2067,33 @@ const SignDocumentPage: React.FC = () => {
                   wordWrap: "break-word",
                   whiteSpace: "pre-wrap",
                   outline: "none",
-                                }}
-                                placeholder="Écrivez ici..." 
-                                readOnly={readOnly || !isCurrentSignerField}
-                                onFocus={() => setCurrentFieldIndex(fieldIndexInSignable)}
-                                maxLength={150}
-                            />
-                        </div>
-                        {isCurrentSignerField && !readOnly && (
-                            <div
-                                onMouseDown={(e) => handleResizeMouseDown(e, field.id, field)}
-                                onTouchStart={(e) => handleResizeMouseDown(e, field.id, field)}
-                                className="absolute bottom-0 right-0 w-5 h-5 bg-primary cursor-nwse-resize rounded-tl-lg opacity-0 group-hover:opacity-100 transition-opacity touch-none flex items-center justify-center"
+                }}
+                placeholder="Écrivez ici..."
+                readOnly={readOnly || !isCurrentSignerField}
+                onFocus={() => setCurrentFieldIndex(fieldIndexInSignable)}
+                maxLength={150}
+              />
+            </div>
+            {isCurrentSignerField && !readOnly && (
+              <div
+                onMouseDown={(e) => handleResizeMouseDown(e, field.id, field)}
+                onTouchStart={(e) => handleResizeMouseDown(e, field.id, field)}
+                className="absolute bottom-0 right-0 w-5 h-5 bg-primary cursor-nwse-resize rounded-tl-lg opacity-0 group-hover:opacity-100 transition-opacity touch-none flex items-center justify-center"
                 style={{ transform: "translate(50%, 50%)" }}
-                                aria-label="Redimensionner le champ"
-                                title="Glissez pour redimensionner"
-                            >
+                aria-label="Redimensionner le champ"
+                title="Glissez pour redimensionner"
+              >
                 <div className="text-white text-xs font-bold leading-none">
                   ⤢
                 </div>
-                            </div>
-                        )}
-                    </div>
-                 );
-            case FieldType.CHECKBOX:
-                return (
-                    <div style={baseStyle} className="group">
-                        <FieldTooltip field={field} recipientName={recipientName} />
+              </div>
+            )}
+          </div>
+        );
+      case FieldType.CHECKBOX:
+        return (
+          <div style={baseStyle} className="group">
+            <FieldTooltip field={field} recipientName={recipientName} />
             <DraggableField
               field={field}
               isCurrentSignerField={isCurrentSignerField}
@@ -2074,31 +2104,31 @@ const SignDocumentPage: React.FC = () => {
                     readOnly || !isCurrentSignerField ? "" : "cursor-pointer"
                   } pointer-events-none`}
                 >
-                                <input 
-                                    type="checkbox" 
-                                    checked={!!value} 
+                  <input
+                    type="checkbox"
+                    checked={!!value}
                     onChange={(e) =>
                       handleFieldChange(field.id, e.target.checked)
                     }
-                                    className="accent-primary pointer-events-auto" 
+                    className="accent-primary pointer-events-auto"
                     style={{
                       width: `${Math.min(width * 0.7, 40) * zoomLevel}px`,
                       height: `${Math.min(height * 0.7, 40) * zoomLevel}px`,
                     }}
-                                    disabled={readOnly || !isCurrentSignerField}
-                                />
-                            </label>
-                        </div>
+                    disabled={readOnly || !isCurrentSignerField}
+                  />
+                </label>
+              </div>
             </DraggableField>
-                    </div>
-                 );
+          </div>
+        );
       default:
         return null;
-        }
+    }
   };
 
-    return (
-        <>
+  return (
+    <>
       {activeField && (
         <SignaturePad
           onSave={handleSaveSignature}
@@ -2113,21 +2143,35 @@ const SignDocumentPage: React.FC = () => {
           isLoading={isSubmitting}
         />
       )}
-            <div className="bg-surface/80 backdrop-blur-sm p-4 shadow-sm sticky top-16 z-30 border-b border-outlineVariant">
-                <div className="container mx-auto flex flex-wrap justify-between items-center gap-4">
-                    <div className="flex-grow min-w-0">
+      <div className="bg-surface/80 backdrop-blur-sm p-4 shadow-sm sticky top-16 z-30 border-b border-outlineVariant">
+        <div className="container mx-auto flex flex-wrap justify-between items-center gap-4">
+          <div className="flex-grow min-w-0">
             <h1
               className="text-xl font-bold truncate text-onSurface"
               title={envelope.document.name}
             >
               {envelope.document.name}
             </h1>
-                         {alreadySigned || readOnly ? (
+            {alreadySigned || readOnly ? (
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 mt-1">
-                                <div className="bg-tertiaryContainer text-onTertiaryContainer px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5">
-                                    <CheckCircle className="h-3.5 w-3.5" />
-                  Document signé
-                                </div>
+                <div className="bg-tertiaryContainer text-onTertiaryContainer px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 h-7">
+                  <CheckCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                  <span className="whitespace-nowrap">Document signé</span>
+                  <span className="mx-0.5">•</span>
+                  <span className="font-mono text-[10px]">
+                    {envelope.document.id}
+                  </span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(envelope.document.id);
+                      addToast("Numéro de document copié", "success");
+                    }}
+                    className="hover:bg-onTertiaryContainer/10 rounded p-0.5 transition-colors flex-shrink-0"
+                    title="Copier le numéro de document"
+                  >
+                    <Copy className="h-3 w-3" />
+                  </button>
+                </div>
                 <p className="text-sm text-onSurfaceVariant">
                   {(() => {
                     const signer = envelope.recipients.find(
@@ -2138,12 +2182,12 @@ const SignDocumentPage: React.FC = () => {
                       : "Mode lecture seule";
                   })()}
                 </p>
-                            </div>
-                         ) : (
-                            <p className="text-sm text-onSurfaceVariant">{`Signature requise pour : ${signerName}`}</p>
-                         )}
-                    </div>
-                    <div className="flex items-center gap-4 flex-wrap w-full sm:w-auto">
+              </div>
+            ) : (
+              <p className="text-sm text-onSurfaceVariant">{`Signature requise pour : ${signerName}`}</p>
+            )}
+          </div>
+          <div className="flex items-center gap-4 flex-wrap w-full sm:w-auto">
             {!isCompleted && !readOnly && (
               <Button
                 variant="text"
@@ -2162,20 +2206,20 @@ const SignDocumentPage: React.FC = () => {
             >
               <span className="hidden sm:inline">Télécharger</span>
             </Button>
-                        <div className="flex-grow sm:flex-grow-0">
+            <div className="flex-grow sm:flex-grow-0">
               <label htmlFor="signerName" className="sr-only">
                 Confirmez votre nom
               </label>
-                            <input
-                                id="signerName"
-                                type="text"
-                                value={signerName}
-                                onChange={(e) => setSignerName(e.target.value)}
-                                className="w-full sm:w-56 bg-surfaceVariant/60 border border-outlineVariant rounded-full px-4 py-2 text-sm focus:ring-2 focus:ring-primary/80 focus:bg-surface transition-colors"
-                                placeholder="Entrez votre nom complet"
-                                readOnly={readOnly}
-                            />
-                        </div>
+              <input
+                id="signerName"
+                type="text"
+                value={signerName}
+                onChange={(e) => setSignerName(e.target.value)}
+                className="w-full sm:w-56 bg-surfaceVariant/60 border border-outlineVariant rounded-full px-4 py-2 text-sm focus:ring-2 focus:ring-primary/80 focus:bg-surface transition-colors"
+                placeholder="Entrez votre nom complet"
+                readOnly={readOnly}
+              />
+            </div>
             {readOnly ? (
               <Button
                 variant="text"
@@ -2185,20 +2229,20 @@ const SignDocumentPage: React.FC = () => {
                 Fermer
               </Button>
             ) : (
-                          <div className="flex flex-col gap-2 w-full sm:w-auto flex-shrink-0">
-                            <button
-                              onClick={handleSubmit}
-                              disabled={isSubmitting || !isFormValid}
-                              className="btn-premium-shine btn-premium-extended h-11 text-sm focus:outline-none focus:ring-4 focus:ring-primary/30 w-full inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                              aria-busy={isSubmitting}
+              <div className="flex flex-col gap-2 w-full sm:w-auto flex-shrink-0">
+                <button
+                  onClick={handleSubmit}
+                  disabled={isSubmitting || !isFormValid}
+                  className="btn-premium-shine btn-premium-extended h-11 text-sm focus:outline-none focus:ring-4 focus:ring-primary/30 w-full inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-busy={isSubmitting}
                   title={
                     !isFormValid
                       ? "Veuillez remplir tous les champs de signature et confirmer votre nom"
                       : ""
                   }
-                            >
-                              {isSubmitting ? (
-                                <>
+                >
+                  {isSubmitting ? (
+                    <>
                       <svg
                         className="animate-spin h-5 w-5"
                         xmlns="http://www.w3.org/2000/svg"
@@ -2218,62 +2262,62 @@ const SignDocumentPage: React.FC = () => {
                           fill="currentColor"
                           d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                         ></path>
-                                  </svg>
-                                  <span>Envoi en cours...</span>
-                                </>
-                              ) : (
-                                <span>Terminer la signature</span>
-                              )}
-                            </button>
-                            {!isFormValid && !isSubmitting && (
-                              <p className="text-xs text-onSurfaceVariant text-center">
+                      </svg>
+                      <span>Envoi en cours...</span>
+                    </>
+                  ) : (
+                    <span>Terminer la signature</span>
+                  )}
+                </button>
+                {!isFormValid && !isSubmitting && (
+                  <p className="text-xs text-onSurfaceVariant text-center">
                     {!signerName.trim()
                       ? "⚠️ Veuillez confirmer votre nom"
                       : "⚠️ Complétez tous les champs obligatoires (signature, texte, cases à cocher)"}
-                              </p>
-                            )}
-                          </div>
+                  </p>
+                )}
+              </div>
             )}
-                    </div>
-                </div>
-            </div>
+          </div>
+        </div>
+      </div>
       <div
         ref={viewerRef}
         className="bg-surfaceVariant/30 p-4 min-h-[calc(100vh-140px)] relative pb-28 overflow-y-auto"
       >
-                <div className="overflow-x-auto">
-                   {Array.from(new Array(pdf.numPages), (_, index) => (
-                     <div 
+        <div className="overflow-x-auto">
+          {Array.from(new Array(pdf.numPages), (_, index) => (
+            <div
               key={`page-wrapper-${index + 1}`}
               id={`page-wrapper-${index + 1}`}
               ref={(el) => (pageRefs.current[index] = el)}
               data-page-number={index + 1}
-                        className="my-4 shadow-lg mx-auto relative bg-white"
-                        style={{ 
-                            width: pageDimensions[index]?.width * zoomLevel, 
+              className="my-4 shadow-lg mx-auto relative bg-white"
+              style={{
+                width: pageDimensions[index]?.width * zoomLevel,
                 height: pageDimensions[index]?.height * zoomLevel,
-                        }}
-                     >
-                         <PdfPageRenderer pageNum={index + 1} zoom={zoomLevel} />
+              }}
+            >
+              <PdfPageRenderer pageNum={index + 1} zoom={zoomLevel} />
               {envelope.fields
                 .filter((f) => f.page === index + 1)
                 .map((field) => (
                   <React.Fragment key={field.id}>
                     {renderField(field)}
                   </React.Fragment>
-                         ))}
-                     </div>
-                   ))}
-                </div>
-                <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 w-fit max-w-full z-40">
-                    <div className="bg-surface/90 backdrop-blur-sm rounded-full shadow-lg border border-outlineVariant/50 flex items-center p-1 space-x-1 text-onSurface">
+                ))}
+            </div>
+          ))}
+        </div>
+        <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 w-fit max-w-full z-40">
+          <div className="bg-surface/90 backdrop-blur-sm rounded-full shadow-lg border border-outlineVariant/50 flex items-center p-1 space-x-1 text-onSurface">
             <button
               onClick={handleZoomOut}
               className="p-2 rounded-full hover:bg-surfaceVariant transition-colors disabled:opacity-50"
               disabled={zoomLevel <= 0.5}
             >
-                            <ZoomOut className="h-5 w-5" />
-                        </button>
+              <ZoomOut className="h-5 w-5" />
+            </button>
             <span className="text-sm font-semibold w-12 text-center select-none">
               {Math.round(zoomLevel * 100)}%
             </span>
@@ -2282,21 +2326,21 @@ const SignDocumentPage: React.FC = () => {
               className="p-2 rounded-full hover:bg-surfaceVariant transition-colors disabled:opacity-50"
               disabled={zoomLevel >= 3}
             >
-                            <ZoomIn className="h-5 w-5" />
-                        </button>
-                        <div className="w-px h-6 bg-outlineVariant mx-1"></div>
-                        <form onSubmit={handleGoToPage} className="flex items-center">
-                            <span className="text-sm font-medium px-2">Page</span>
-                            <input 
-                                type="number"
-                                value={goToPageInput}
+              <ZoomIn className="h-5 w-5" />
+            </button>
+            <div className="w-px h-6 bg-outlineVariant mx-1"></div>
+            <form onSubmit={handleGoToPage} className="flex items-center">
+              <span className="text-sm font-medium px-2">Page</span>
+              <input
+                type="number"
+                value={goToPageInput}
                 onChange={(e) => setGoToPageInput(e.target.value)}
                 onFocus={(e) => e.target.select()}
-                                className="w-12 text-center bg-surfaceVariant/60 rounded-md py-1 text-sm border border-outlineVariant focus:ring-1 focus:ring-primary focus:border-primary"
-                                min="1"
-                                max={pdf.numPages}
-                                aria-label="Numéro de page"
-                            />
+                className="w-12 text-center bg-surfaceVariant/60 rounded-md py-1 text-sm border border-outlineVariant focus:ring-1 focus:ring-primary focus:border-primary"
+                min="1"
+                max={pdf.numPages}
+                aria-label="Numéro de page"
+              />
               <span className="text-sm text-onSurfaceVariant px-2">
                 {" "}
                 sur {pdf.numPages}
@@ -2306,31 +2350,31 @@ const SignDocumentPage: React.FC = () => {
                 className="p-2 rounded-full hover:bg-surfaceVariant transition-colors"
                 aria-label="Aller à la page"
               >
-                                <ArrowRight className="h-5 w-5" />
-                            </button>
-                        </form>
-                    </div>
-                </div>
-                {!readOnly && signableFields.length > 0 && (
-                    <div className="fixed bottom-0 left-0 right-0 bg-inverseSurface/90 backdrop-blur-sm text-inverseOnSurface p-3 shadow-2xl z-40">
-                       <div className="container mx-auto flex justify-between items-center">
-                            {currentFieldIndex === -1 ? (
-                                <div className="w-full text-center">
+                <ArrowRight className="h-5 w-5" />
+              </button>
+            </form>
+          </div>
+        </div>
+        {!readOnly && signableFields.length > 0 && (
+          <div className="fixed bottom-0 left-0 right-0 bg-inverseSurface/90 backdrop-blur-sm text-inverseOnSurface p-3 shadow-2xl z-40">
+            <div className="container mx-auto flex justify-between items-center">
+              {currentFieldIndex === -1 ? (
+                <div className="w-full text-center">
                   <Button variant="filled" onClick={handleStartSigning}>
                     Démarrer la signature
                   </Button>
-                                </div>
-                            ) : (
-                                <>
-                                    <p className="text-sm font-medium">
-                                        Champ {currentFieldIndex + 1} sur {signableFields.length}
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm font-medium">
+                    Champ {currentFieldIndex + 1} sur {signableFields.length}
                     <span className="hidden sm:inline">
                       {" "}
                       ({manualFieldsFilledCount} rempli
                       {manualFieldsFilledCount > 1 ? "s" : ""})
                     </span>
-                                    </p>
-                                    <div className="flex items-center gap-2">
+                  </p>
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={handlePrevField}
                       disabled={currentFieldIndex <= 0}
@@ -2345,32 +2389,32 @@ const SignDocumentPage: React.FC = () => {
                     >
                       <ChevronRight />
                     </button>
-                                    </div>
-                                </>
-                            )}
-                       </div>
-                    </div>
-                )}
+                  </div>
+                </>
+              )}
             </div>
-            
-            {/* Tooltip des dimensions lors du déplacement/redimensionnement */}
-            {dimensionTooltip && (
-                <div 
-                    style={{
+          </div>
+        )}
+      </div>
+
+      {/* Tooltip des dimensions lors du déplacement/redimensionnement */}
+      {dimensionTooltip && (
+        <div
+          style={{
             position: "fixed",
-                        left: dimensionTooltip.x + 15,
-                        top: dimensionTooltip.y - 30,
-                        zIndex: 9999,
+            left: dimensionTooltip.x + 15,
+            top: dimensionTooltip.y - 30,
+            zIndex: 9999,
             pointerEvents: "none",
-                    }}
-                    className="bg-primary text-onPrimary px-3 py-2 rounded-lg shadow-lg text-sm font-semibold whitespace-nowrap"
-                >
+          }}
+          className="bg-primary text-onPrimary px-3 py-2 rounded-lg shadow-lg text-sm font-semibold whitespace-nowrap"
+        >
           {Math.round(dimensionTooltip.width)} ×{" "}
           {Math.round(dimensionTooltip.height)} px
-                </div>
-            )}
-        </>
-    );
+        </div>
+      )}
+    </>
+  );
 };
 
 export default SignDocumentPage;

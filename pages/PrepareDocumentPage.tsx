@@ -84,8 +84,12 @@ const SummaryModal: React.FC<{
 
   React.useEffect(() => {
     if (isOpen) {
-      // Par défaut, sélectionner tous les destinataires
-      setSelectedRecipients(recipients.map((r) => r.id));
+      // Par défaut, sélectionner uniquement les destinataires valides (nom ET email remplis)
+      setSelectedRecipients(
+        recipients
+          .filter((r) => r.name.trim() && r.email.trim())
+          .map((r) => r.id)
+      );
     }
   }, [isOpen, recipients]);
 
@@ -134,29 +138,36 @@ const SummaryModal: React.FC<{
           <div className="space-y-4">
             <div>
               <h3 className="text-sm font-semibold text-onSurfaceVariant mb-3">
-                DESTINATAIRES ({selectedCount}/{recipients.length} sélectionné
+                DESTINATAIRES ({selectedCount}/
+                {
+                  recipients.filter((r) => r.name.trim() && r.email.trim())
+                    .length
+                }{" "}
+                sélectionné
                 {selectedCount > 1 ? "s" : ""})
               </h3>
               <ul className="space-y-2">
-                {recipients.map((r) => (
-                  <li
-                    key={r.id}
-                    className="flex items-start gap-3 p-3 rounded-lg border border-outlineVariant hover:bg-surfaceVariant/50 transition-colors"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedRecipients.includes(r.id)}
-                      onChange={() => toggleRecipient(r.id)}
-                      className="mt-1 h-4 w-4 accent-primary cursor-pointer"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-onSurface">{r.name}</p>
-                      <p className="text-sm text-onSurfaceVariant truncate">
-                        {r.email}
-                      </p>
-                    </div>
-                  </li>
-                ))}
+                {recipients
+                  .filter((r) => r.name.trim() && r.email.trim())
+                  .map((r) => (
+                    <li
+                      key={r.id}
+                      className="flex items-start gap-3 p-3 rounded-lg border border-outlineVariant hover:bg-surfaceVariant/50 transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedRecipients.includes(r.id)}
+                        onChange={() => toggleRecipient(r.id)}
+                        className="mt-1 h-4 w-4 accent-primary cursor-pointer"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-onSurface">{r.name}</p>
+                        <p className="text-sm text-onSurfaceVariant truncate">
+                          {r.email}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
               </ul>
             </div>
           </div>
@@ -789,7 +800,7 @@ const PrepareDocumentPage: React.FC = () => {
           ? 86
           : selectedFieldType === FieldType.SIGNATURE ||
             selectedFieldType === FieldType.INITIAL
-          ? 244
+          ? 160
           : 110,
       height:
         selectedFieldType === FieldType.CHECKBOX
@@ -798,7 +809,7 @@ const PrepareDocumentPage: React.FC = () => {
           ? 50
           : selectedFieldType === FieldType.SIGNATURE ||
             selectedFieldType === FieldType.INITIAL
-          ? 110
+          ? 88
           : 50,
       tempRecipientId: activeRecipientId,
     };
@@ -1024,28 +1035,23 @@ const PrepareDocumentPage: React.FC = () => {
       addToast("Veuillez charger un document.", "error");
       return;
     }
-    if (recipients.length === 0) {
-      addToast("Veuillez ajouter au moins un destinataire.", "error");
+
+    // Filtrer les destinataires valides (nom ET email remplis)
+    const validRecipients = recipients.filter(
+      (r) => r.name.trim() && r.email.trim()
+    );
+
+    if (validRecipients.length === 0) {
+      addToast(
+        "Veuillez ajouter au moins un destinataire avec nom et email.",
+        "error"
+      );
       return;
     }
 
-    for (const recipient of recipients) {
-      if (!recipient.name.trim()) {
-        addToast(
-          "Veuillez renseigner le nom pour tous les destinataires.",
-          "error"
-        );
-        return;
-      }
-      if (!recipient.email.trim()) {
-        addToast(
-          `Veuillez renseigner l'e-mail pour ${recipient.name}.`,
-          "error"
-        );
-        return;
-      }
-      // Basic email format validation
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    // Valider le format email des destinataires valides
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    for (const recipient of validRecipients) {
       if (!emailRegex.test(recipient.email)) {
         addToast(
           `L'adresse e-mail "${recipient.email}" pour ${recipient.name} semble invalide.`,
@@ -1363,10 +1369,10 @@ Cordialement.`
               onClick={handleSend}
               disabled={
                 !file ||
-                recipients.length === 0 ||
+                recipients.filter((r) => r.name.trim() && r.email.trim())
+                  .length === 0 ||
                 fields.filter((f) => f.type === FieldType.SIGNATURE).length ===
-                  0 ||
-                recipients.some((r) => !r.name.trim() || !r.email.trim())
+                  0
               }
               className="btn-premium-shine btn-premium-extended h-10 text-sm focus:outline-none focus:ring-4 focus:ring-primary/30 w-full sm:w-auto flex-shrink-0 inline-flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
             >
