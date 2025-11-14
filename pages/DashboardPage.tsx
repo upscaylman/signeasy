@@ -3,6 +3,7 @@ import {
   Archive,
   ArchiveRestore,
   CheckSquare,
+  ChevronDown,
   Edit3,
   FileSignature,
   Inbox,
@@ -290,6 +291,46 @@ const DashboardPage: React.FC = () => {
         doc.source === "sent" // Seuls les documents envoyés peuvent être archivés
     );
   }, [documents, searchTerm]);
+
+  // Organiser les archives par année
+  const archivedByYear = useMemo(() => {
+    const grouped = archivedDocuments.reduce((acc, doc) => {
+      const year = new Date(doc.createdAt).getFullYear().toString();
+      if (!acc[year]) {
+        acc[year] = [];
+      }
+      acc[year].push(doc);
+      return acc;
+    }, {} as Record<string, UnifiedDocument[]>);
+
+    // Trier les documents de chaque année par date de création (plus récent en premier)
+    Object.keys(grouped).forEach((year) => {
+      grouped[year].sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+    });
+
+    // Trier les années (plus récente en premier)
+    return Object.entries(grouped).sort(([yearA], [yearB]) =>
+      yearB.localeCompare(yearA)
+    );
+  }, [archivedDocuments]);
+
+  // État pour gérer les années ouvertes/fermées
+  const [openYears, setOpenYears] = useState<Set<string>>(new Set());
+
+  const toggleYear = (year: string) => {
+    setOpenYears((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(year)) {
+        newSet.delete(year);
+      } else {
+        newSet.add(year);
+      }
+      return newSet;
+    });
+  };
 
   const statusOrder: DocumentStatus[] = [
     DocumentStatus.SENT,
@@ -1130,7 +1171,7 @@ const DashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Section Archives */}
+      {/* Section Archives - Organisées par année avec collapse */}
       {archivedDocuments.length > 0 && (
         <div className="container mx-auto mt-12">
           <div className="bg-white rounded-3xl shadow-sm p-4 sm:p-6 lg:p-8">
@@ -1154,28 +1195,74 @@ const DashboardPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-              {archivedDocuments.map((doc) => (
-                <div key={doc.id} className="relative">
-                  <DocumentCard
-                    document={doc}
-                    onSign={handleSign}
-                    onView={handleView}
-                    onDownload={handleDownload}
-                    isSelectionMode={false}
-                    isSelected={false}
-                    onSelect={() => {}}
-                    documentSource="sent"
-                    recipients={doc.recipients}
-                  />
-                  {/* Bouton désarchiver en overlay */}
+            {/* Archives organisées par année */}
+            <div className="space-y-4">
+              {archivedByYear.map(([year, docs]) => (
+                <div
+                  key={year}
+                  className="border border-outlineVariant/30 rounded-2xl overflow-hidden"
+                >
+                  {/* En-tête de l'année - Cliquable pour collapse */}
                   <button
-                    onClick={() => handleUnarchive([doc.id])}
-                    className="absolute top-2 right-2 p-2 bg-surface rounded-lg shadow-md hover:bg-primaryContainer transition-colors group"
-                    title="Désarchiver"
+                    onClick={() => toggleYear(year)}
+                    className="w-full flex items-center justify-between p-4 bg-surfaceVariant/30 hover:bg-surfaceVariant/50 transition-colors"
                   >
-                    <ArchiveRestore className="h-5 w-5 text-primary group-hover:scale-110 transition-transform" />
+                    <div className="flex items-center gap-3">
+                      <div className="bg-primary/10 p-2 rounded-lg">
+                        <Archive className="h-5 w-5 text-primary" />
+                      </div>
+                      <div className="text-left">
+                        <h3 className="text-lg font-bold text-onSurface">
+                          {year}
+                        </h3>
+                        <p className="text-sm text-onSurfaceVariant">
+                          {docs.length} document{docs.length > 1 ? "s" : ""}
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronDown
+                      className={`h-5 w-5 text-onSurfaceVariant transition-transform duration-300 ${
+                        openYears.has(year) ? "rotate-180" : ""
+                      }`}
+                    />
                   </button>
+
+                  {/* Contenu de l'année - Collapse */}
+                  <div
+                    className={`transition-all duration-300 ease-in-out ${
+                      openYears.has(year)
+                        ? "max-h-[10000px] opacity-100"
+                        : "max-h-0 opacity-0 overflow-hidden"
+                    }`}
+                  >
+                    <div className="p-4 bg-surface">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                        {docs.map((doc) => (
+                          <div key={doc.id} className="relative">
+                            <DocumentCard
+                              document={doc}
+                              onSign={handleSign}
+                              onView={handleView}
+                              onDownload={handleDownload}
+                              isSelectionMode={false}
+                              isSelected={false}
+                              onSelect={() => {}}
+                              documentSource="sent"
+                              recipients={doc.recipients}
+                            />
+                            {/* Bouton désarchiver en overlay */}
+                            <button
+                              onClick={() => handleUnarchive([doc.id])}
+                              className="absolute top-2 right-2 p-2 bg-surface rounded-lg shadow-md hover:bg-primaryContainer transition-colors group"
+                              title="Désarchiver"
+                            >
+                              <ArchiveRestore className="h-5 w-5 text-primary group-hover:scale-110 transition-transform" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
