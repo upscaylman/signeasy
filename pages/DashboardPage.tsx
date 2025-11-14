@@ -386,6 +386,14 @@ const DashboardPage: React.FC = () => {
     // Trouver le document
     const doc = documents.find((d) => d.id === id);
 
+    // Afficher un toast informatif si le document est signé
+    if (doc?.status === DocumentStatus.SIGNED) {
+      addToast(
+        "Pour supprimer ce document signé de la base de données, contactez : contact@fo-metaux.fr",
+        "info"
+      );
+    }
+
     if (doc?.source === "received" && doc.originalEmail) {
       // Pour les emails reçus, extraire le token du signatureLink
       const token = doc.originalEmail.signatureLink.split("/").pop();
