@@ -1,10 +1,7 @@
 import {
   ArrowLeft,
   Download,
-  Loader2,
   Signature,
-  Trash2,
-  UploadCloud,
   X,
   ZoomIn,
   ZoomOut,
@@ -145,7 +142,10 @@ const QuickSignPage: React.FC = () => {
         const arrayBuffer = e.target?.result as ArrayBuffer;
         const uint8Array = new Uint8Array(arrayBuffer);
         const base64 = btoa(
-          uint8Array.reduce((data, byte) => data + String.fromCharCode(byte), "")
+          uint8Array.reduce(
+            (data, byte) => data + String.fromCharCode(byte),
+            ""
+          )
         );
 
         setPdfData(base64);
@@ -201,16 +201,22 @@ const QuickSignPage: React.FC = () => {
       if (!pageElement) return;
 
       const rect = pageElement.getBoundingClientRect();
-      const x = ((moveEvent.clientX - rect.left) / zoomLevel);
-      const y = ((moveEvent.clientY - rect.top) / zoomLevel);
+      const x = (moveEvent.clientX - rect.left) / zoomLevel;
+      const y = (moveEvent.clientY - rect.top) / zoomLevel;
 
       setSignatures((prev) =>
         prev.map((sig, i) =>
           i === index
             ? {
                 ...sig,
-                x: Math.max(0, Math.min(x, pageDimensions[sig.page - 1].width - sig.width)),
-                y: Math.max(0, Math.min(y, pageDimensions[sig.page - 1].height - sig.height)),
+                x: Math.max(
+                  0,
+                  Math.min(x, pageDimensions[sig.page - 1].width - sig.width)
+                ),
+                y: Math.max(
+                  0,
+                  Math.min(y, pageDimensions[sig.page - 1].height - sig.height)
+                ),
               }
             : sig
         )
@@ -256,7 +262,9 @@ const QuickSignPage: React.FC = () => {
       }
 
       const signedPdfBytes = await pdfDoc.save();
-      const blob = new Blob([signedPdfBytes as any], { type: "application/pdf" });
+      const blob = new Blob([signedPdfBytes as any], {
+        type: "application/pdf",
+      });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -276,52 +284,54 @@ const QuickSignPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="bg-surface border-b border-outlineVariant sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => navigate("/dashboard")}
-                className="p-2 hover:bg-surfaceVariant rounded-full transition-colors"
-              >
-                <ArrowLeft className="h-6 w-6" />
-              </button>
-              <div>
-                <h1 className="text-2xl font-bold text-onSurface">
-                  Signature Rapide
-                </h1>
-                {fileName && (
-                  <p className="text-sm text-onSurfaceVariant">{fileName}</p>
-                )}
-              </div>
-            </div>
-
-            {pdfData && (
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outlined"
-                  icon={Signature}
-                  onClick={() => setShowSignaturePad(true)}
-                >
-                  Ajouter signature
-                </Button>
-                <Button
-                  variant="filled"
-                  icon={Download}
-                  onClick={handleDownload}
-                  disabled={signatures.length === 0 || isProcessing}
-                >
-                  {isProcessing ? "Traitement..." : "Télécharger"}
-                </Button>
-              </div>
-            )}
+      <div className="bg-surface/80 backdrop-blur-sm p-3 shadow-sm sticky top-16 z-30 border-b border-outlineVariant">
+        <div className="container mx-auto flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+            <Button
+              variant="text"
+              onClick={() => navigate("/dashboard")}
+              icon={ArrowLeft}
+              size="small"
+              className="flex-shrink-0"
+            >
+              <span className="hidden sm:inline">Retour</span>
+            </Button>
+            <h1
+              className="text-sm sm:text-lg font-bold truncate text-onSurface min-w-0"
+              title={fileName || "Signature Rapide"}
+            >
+              {fileName || "Signature Rapide"}
+            </h1>
           </div>
+
+          {pdfData && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outlined"
+                icon={Signature}
+                onClick={() => setShowSignaturePad(true)}
+                size="small"
+              >
+                <span className="hidden sm:inline">Ajouter signature</span>
+                <span className="sm:hidden">Signature</span>
+              </Button>
+              <Button
+                variant="filled"
+                icon={Download}
+                onClick={handleDownload}
+                disabled={signatures.length === 0 || isProcessing}
+                size="small"
+              >
+                {isProcessing ? "Traitement..." : "Télécharger"}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-8">
-        {!pdfData ? (
+      {!pdfData ? (
+        <div className="container mx-auto px-4 py-8">
           <div className="max-w-2xl mx-auto">
             <input
               ref={fileInputRef}
@@ -334,94 +344,103 @@ const QuickSignPage: React.FC = () => {
               className="hidden"
             />
           </div>
-        ) : (
-          <div className="space-y-6">
-            {/* Zoom Controls */}
-            {pdf && (
-              <div className="flex items-center justify-center gap-4 bg-surface p-4 rounded-lg">
+        </div>
+      ) : (
+        <div className="flex-grow flex overflow-hidden relative h-[calc(100vh-8rem)]">
+          {/* PDF Viewer */}
+          <div
+            ref={viewerRef}
+            className="flex-grow bg-surfaceVariant/30 p-2 sm:p-4 overflow-auto"
+          >
+            <div className="w-full max-w-full overflow-x-hidden">
+              <div className="space-y-8">
+                {pdf &&
+                  Array.from({ length: pdf.numPages }, (_, i) => i + 1).map(
+                    (pageNum) => (
+                      <div
+                        key={pageNum}
+                        ref={(el) => (pageRefs.current[pageNum - 1] = el)}
+                        className="relative bg-white shadow-lg mx-auto"
+                        style={{
+                          width: `${
+                            pageDimensions[pageNum - 1]?.width * zoomLevel
+                          }px`,
+                        }}
+                      >
+                        <canvas id={`pdf-page-${pageNum}`} />
+
+                        {/* Signatures on this page */}
+                        {signatures
+                          .filter((sig) => sig.page === pageNum)
+                          .map((sig, index) => (
+                            <div
+                              key={sig.id}
+                              className="absolute border-2 border-primary bg-primary/10 cursor-move group"
+                              style={{
+                                left: `${sig.x * zoomLevel}px`,
+                                top: `${sig.y * zoomLevel}px`,
+                                width: `${sig.width * zoomLevel}px`,
+                                height: `${sig.height * zoomLevel}px`,
+                              }}
+                              onMouseDown={(e) =>
+                                handleSignatureDragStart(
+                                  e,
+                                  signatures.indexOf(sig),
+                                  sig
+                                )
+                              }
+                            >
+                              <img
+                                src={sig.signatureData}
+                                alt="Signature"
+                                className="w-full h-full object-contain pointer-events-none"
+                              />
+                              <button
+                                onClick={() => handleRemoveSignature(sig.id)}
+                                className="absolute -top-2 -right-2 bg-error text-onError rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+                          ))}
+                      </div>
+                    )
+                  )}
+              </div>
+            </div>
+
+            {/* Zoom Controls - Fixed at bottom */}
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-fit max-w-[calc(100vw-2rem)] z-40">
+              <div className="bg-surface/90 backdrop-blur-sm rounded-full shadow-lg border border-outlineVariant/50 flex items-center p-1 gap-1 text-onSurface">
                 <button
-                  onClick={() => setZoomLevel(Math.max(0.5, zoomLevel - 0.1))}
-                  className="p-2 hover:bg-surfaceVariant rounded-full"
+                  onClick={() => setZoomLevel((z) => Math.max(0.25, z - 0.25))}
+                  className="p-1.5 sm:p-2 rounded-full hover:bg-surfaceVariant transition-colors flex-shrink-0"
+                  disabled={zoomLevel <= 0.25}
                 >
-                  <ZoomOut className="h-5 w-5" />
+                  <ZoomOut className="h-4 w-4 sm:h-5 sm:w-5" />
                 </button>
-                <span className="text-sm font-medium">
+                <span className="text-xs sm:text-sm font-medium px-2 sm:px-3 whitespace-nowrap">
                   {Math.round(zoomLevel * 100)}%
                 </span>
                 <button
-                  onClick={() => setZoomLevel(Math.min(2.0, zoomLevel + 0.1))}
-                  className="p-2 hover:bg-surfaceVariant rounded-full"
+                  onClick={() => setZoomLevel((z) => Math.min(3.0, z + 0.25))}
+                  className="p-1.5 sm:p-2 rounded-full hover:bg-surfaceVariant transition-colors flex-shrink-0"
+                  disabled={zoomLevel >= 3.0}
                 >
-                  <ZoomIn className="h-5 w-5" />
+                  <ZoomIn className="h-4 w-4 sm:h-5 sm:w-5" />
                 </button>
               </div>
-            )}
-
-            {/* PDF Viewer */}
-            <div ref={viewerRef} className="space-y-8">
-              {pdf &&
-                Array.from({ length: pdf.numPages }, (_, i) => i + 1).map(
-                  (pageNum) => (
-                    <div
-                      key={pageNum}
-                      ref={(el) => (pageRefs.current[pageNum - 1] = el)}
-                      className="relative bg-white shadow-lg mx-auto"
-                      style={{
-                        width: `${pageDimensions[pageNum - 1]?.width * zoomLevel}px`,
-                      }}
-                    >
-                      <canvas id={`pdf-page-${pageNum}`} />
-
-                      {/* Signatures on this page */}
-                      {signatures
-                        .filter((sig) => sig.page === pageNum)
-                        .map((sig, index) => (
-                          <div
-                            key={sig.id}
-                            className="absolute border-2 border-primary bg-primary/10 cursor-move group"
-                            style={{
-                              left: `${sig.x * zoomLevel}px`,
-                              top: `${sig.y * zoomLevel}px`,
-                              width: `${sig.width * zoomLevel}px`,
-                              height: `${sig.height * zoomLevel}px`,
-                            }}
-                            onMouseDown={(e) =>
-                              handleSignatureDragStart(
-                                e,
-                                signatures.indexOf(sig),
-                                sig
-                              )
-                            }
-                          >
-                            <img
-                              src={sig.signatureData}
-                              alt="Signature"
-                              className="w-full h-full object-contain pointer-events-none"
-                            />
-                            <button
-                              onClick={() => handleRemoveSignature(sig.id)}
-                              className="absolute -top-2 -right-2 bg-error text-onError rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
-                          </div>
-                        ))}
-                    </div>
-                  )
-                )}
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Signature Pad Modal */}
       {showSignaturePad && (
         <SignaturePad
           onSave={handleSaveSignature}
           onCancel={() => setShowSignaturePad(false)}
-          signerName={
-            currentUser?.email || "Utilisateur"
-          }
+          signerName={currentUser?.email || "Utilisateur"}
         />
       )}
     </div>
@@ -429,4 +448,3 @@ const QuickSignPage: React.FC = () => {
 };
 
 export default QuickSignPage;
-
