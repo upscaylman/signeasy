@@ -1,79 +1,132 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 
-const STORAGE_KEY = 'prepare_document_file';
+const STORAGE_KEY = "prepare_document_drafts";
+const MAX_DRAFTS = 3;
 
 export interface DraftDocument {
+  id: string;
   pdfData: string;
   fileName: string;
   timestamp: number;
 }
 
 export const useDraftDocument = () => {
-  const [draft, setDraft] = useState<DraftDocument | null>(null);
+  const [drafts, setDrafts] = useState<DraftDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Charger le brouillon au montage
+  // Charger les brouillons au montage
   useEffect(() => {
-    loadDraft();
+    loadDrafts();
   }, []);
 
-  const loadDraft = () => {
+  const loadDrafts = () => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        const parsed = JSON.parse(stored) as DraftDocument;
-        setDraft(parsed);
+        const parsed = JSON.parse(stored) as DraftDocument[];
+        setDrafts(parsed);
       } else {
-        setDraft(null);
+        setDrafts([]);
       }
     } catch (error) {
-      console.error('Erreur lors du chargement du brouillon:', error);
-      setDraft(null);
+      console.error("Erreur lors du chargement des brouillons:", error);
+      setDrafts([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const saveDraft = (pdfData: string, fileName: string) => {
+  const saveDraft = (pdfData: string, fileName: string): string | null => {
     try {
-      const draftData: DraftDocument = {
-        pdfData,
-        fileName,
-        timestamp: Date.now(),
-      };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(draftData));
-      setDraft(draftData);
-    } catch (error) {
-      console.error('Erreur lors de la sauvegarde du brouillon:', error);
-      // Gérer l'erreur de quota localStorage
-      if (error instanceof DOMException && error.name === 'QuotaExceededError') {
-        console.error('Quota localStorage dépassé');
+      const stored = localStorage.getItem(STORAGE_KEY);
+      let currentDrafts: DraftDocument[] = stored ? JSON.parse(stored) : [];
+
+      // Vérifier si on a déjà un brouillon avec ce nom de fichier
+      const existingIndex = currentDrafts.findIndex(
+        (d) => d.fileName === fileName
+      );
+
+      if (existingIndex !== -1) {
+        // Mettre à jour le brouillon existant
+        currentDrafts[existingIndex] = {
+          ...currentDrafts[existingIndex],
+          pdfData,
+          timestamp: Date.now(),
+        };
+        console.log("💾 Brouillon mis à jour:", fileName);
+      } else {
+        // Vérifier la limite de 3 brouillons
+        if (currentDrafts.length >= MAX_DRAFTS) {
+          console.warn("⚠️ Limite de 3 brouillons atteinte");
+          return null;
+        }
+
+        // Créer un nouveau brouillon
+        const newDraft: DraftDocument = {
+          id: `draft_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          pdfData,
+          fileName,
+          timestamp: Date.now(),
+        };
+        currentDrafts.push(newDraft);
+        console.log("💾 Nouveau brouillon sauvegardé:", fileName);
       }
-    }
-  };
 
-  const deleteDraft = () => {
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-      setDraft(null);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(currentDrafts));
+      setDrafts(currentDrafts);
+      return currentDrafts[currentDrafts.length - 1].id;
     } catch (error) {
-      console.error('Erreur lors de la suppression du brouillon:', error);
+      console.error("Erreur lors de la sauvegarde du brouillon:", error);
+      // Gérer l'erreur de quota localStorage
+      if (
+        error instanceof DOMException &&
+        error.name === "QuotaExceededError"
+      ) {
+        console.error("Quota localStorage dépassé");
+      }
+      return null;
     }
   };
 
-  const refreshDraft = () => {
-    loadDraft();
+  const deleteDraft = (draftId: string) => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (!stored) return;
+
+      const currentDrafts: DraftDocument[] = JSON.parse(stored);
+      const updatedDrafts = currentDrafts.filter((d) => d.id !== draftId);
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedDrafts));
+      setDrafts(updatedDrafts);
+      console.log("🗑️ Brouillon supprimé:", draftId);
+    } catch (error) {
+      console.error("Erreur lors de la suppression du brouillon:", error);
+    }
   };
 
-  const hasDraft = draft !== null;
+  const getDraft = (draftId: string): DraftDocument | null => {
+    return drafts.find((d) => d.id === draftId) || null;
+  };
+
+  const refreshDrafts = () => {
+    loadDrafts();
+  };
+
+  const hasDrafts = drafts.length > 0;
+
+  const canAddDraft = (): boolean => {
+    return drafts.length < MAX_DRAFTS;
+  };
 
   return {
-    draft,
+    drafts,
     isLoading,
     saveDraft,
     deleteDraft,
-    refreshDraft,
-    hasDraft,
+    getDraft,
+    refreshDrafts,
+    hasDrafts,
+    canAddDraft,
+    maxDrafts: MAX_DRAFTS,
   };
 };
-

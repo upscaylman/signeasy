@@ -120,7 +120,7 @@ const DashboardPage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const quickSignFileInputRef = useRef<HTMLInputElement>(null);
   const { currentUser } = useUser();
-  const { draft, deleteDraft, refreshDraft } = useDraftDocument();
+  const { drafts, deleteDraft, refreshDrafts } = useDraftDocument();
   // ✅ Suppression du refreshTrigger car on utilise maintenant un listener en temps réel
 
   // Fonction pour convertir un email en UnifiedDocument
@@ -795,61 +795,71 @@ const DashboardPage: React.FC = () => {
             </div>
           ) : filteredDocuments.length > 0 ? (
             <div className="space-y-12">
-              {/* Carte Brouillon en cours */}
-              {draft && (
+              {/* Cartes Brouillons (max 3) en colonnes horizontales */}
+              {drafts.length > 0 && (
                 <div className="mb-8">
-                  <div className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-2 border-purple-500/30 rounded-2xl p-6 shadow-lg">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-start gap-4 flex-1 min-w-0">
-                        <div className="bg-purple-500/20 p-3 rounded-xl flex-shrink-0">
-                          <Edit3 className="h-6 w-6 text-purple-700" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-lg font-bold text-purple-900 mb-1">
-                            Brouillon en cours
-                          </h3>
-                          <p className="text-sm text-purple-700 mb-2 truncate">
-                            {draft.fileName}
-                          </p>
-                          <p className="text-xs text-purple-600">
-                            Dernière modification :{" "}
-                            {new Date(draft.timestamp).toLocaleString("fr-FR", {
-                              day: "numeric",
-                              month: "long",
-                              year: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </p>
+                  <h2 className="text-xl font-bold text-purple-900 mb-4">
+                    Brouillons en cours ({drafts.length}/3)
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {drafts.map((draft) => (
+                      <div
+                        key={draft.id}
+                        className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-2 border-purple-500/30 rounded-2xl p-4 shadow-lg"
+                      >
+                        <div className="flex flex-col h-full">
+                          <div className="flex items-start gap-3 mb-3">
+                            <div className="bg-purple-500/20 p-2 rounded-xl flex-shrink-0">
+                              <Edit3 className="h-5 w-5 text-purple-700" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-base font-bold text-purple-900 mb-1 truncate">
+                                {draft.fileName}
+                              </h3>
+                              <p className="text-xs text-purple-600">
+                                {new Date(draft.timestamp).toLocaleString(
+                                  "fr-FR",
+                                  {
+                                    day: "numeric",
+                                    month: "short",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  }
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 mt-auto">
+                            <button
+                              onClick={() => {
+                                navigate("/prepare", {
+                                  state: { draftId: draft.id },
+                                });
+                              }}
+                              className="flex-1 px-3 py-2 bg-purple-600 text-white rounded-full font-semibold hover:bg-purple-700 transition-colors focus:outline-none focus:ring-4 focus:ring-purple-600/30 text-sm"
+                            >
+                              Finaliser
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (
+                                  window.confirm(
+                                    "Êtes-vous sûr de vouloir supprimer ce brouillon ?"
+                                  )
+                                ) {
+                                  deleteDraft(draft.id);
+                                  addToast("Brouillon supprimé", "success");
+                                }
+                              }}
+                              className="p-2 text-purple-700 hover:bg-purple-500/20 rounded-full transition-colors focus:outline-none focus:ring-4 focus:ring-purple-600/30"
+                              aria-label="Supprimer le brouillon"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <button
-                          onClick={() => {
-                            navigate("/prepare");
-                          }}
-                          className="px-4 py-2 bg-purple-600 text-white rounded-full font-semibold hover:bg-purple-700 transition-colors focus:outline-none focus:ring-4 focus:ring-purple-600/30 whitespace-nowrap"
-                        >
-                          Finaliser
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (
-                              window.confirm(
-                                "Êtes-vous sûr de vouloir supprimer ce brouillon ?"
-                              )
-                            ) {
-                              deleteDraft();
-                              addToast("Brouillon supprimé", "success");
-                            }
-                          }}
-                          className="p-2 text-purple-700 hover:bg-purple-500/20 rounded-full transition-colors focus:outline-none focus:ring-4 focus:ring-purple-600/30"
-                          aria-label="Supprimer le brouillon"
-                        >
-                          <Trash2 className="h-5 w-5" />
-                        </button>
-                      </div>
-                    </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -972,61 +982,71 @@ const DashboardPage: React.FC = () => {
             </div>
           ) : (
             <div>
-              {/* Carte Brouillon dans l'état vide */}
-              {draft && (
+              {/* Cartes Brouillons dans l'état vide (max 3) en colonnes horizontales */}
+              {drafts.length > 0 && (
                 <div className="mb-8">
-                  <div className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-2 border-purple-500/30 rounded-2xl p-6 shadow-lg">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-start gap-4 flex-1 min-w-0">
-                        <div className="bg-purple-500/20 p-3 rounded-xl flex-shrink-0">
-                          <Edit3 className="h-6 w-6 text-purple-700" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-lg font-bold text-purple-900 mb-1">
-                            Brouillon en cours
-                          </h3>
-                          <p className="text-sm text-purple-700 mb-2 truncate">
-                            {draft.fileName}
-                          </p>
-                          <p className="text-xs text-purple-600">
-                            Dernière modification :{" "}
-                            {new Date(draft.timestamp).toLocaleString("fr-FR", {
-                              day: "numeric",
-                              month: "long",
-                              year: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </p>
+                  <h2 className="text-xl font-bold text-purple-900 mb-4">
+                    Brouillons en cours ({drafts.length}/3)
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {drafts.map((draft) => (
+                      <div
+                        key={draft.id}
+                        className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-2 border-purple-500/30 rounded-2xl p-4 shadow-lg"
+                      >
+                        <div className="flex flex-col h-full">
+                          <div className="flex items-start gap-3 mb-3">
+                            <div className="bg-purple-500/20 p-2 rounded-xl flex-shrink-0">
+                              <Edit3 className="h-5 w-5 text-purple-700" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-base font-bold text-purple-900 mb-1 truncate">
+                                {draft.fileName}
+                              </h3>
+                              <p className="text-xs text-purple-600">
+                                {new Date(draft.timestamp).toLocaleString(
+                                  "fr-FR",
+                                  {
+                                    day: "numeric",
+                                    month: "short",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  }
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 mt-auto">
+                            <button
+                              onClick={() => {
+                                navigate("/prepare", {
+                                  state: { draftId: draft.id },
+                                });
+                              }}
+                              className="flex-1 px-3 py-2 bg-purple-600 text-white rounded-full font-semibold hover:bg-purple-700 transition-colors focus:outline-none focus:ring-4 focus:ring-purple-600/30 text-sm"
+                            >
+                              Finaliser
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (
+                                  window.confirm(
+                                    "Êtes-vous sûr de vouloir supprimer ce brouillon ?"
+                                  )
+                                ) {
+                                  deleteDraft(draft.id);
+                                  addToast("Brouillon supprimé", "success");
+                                }
+                              }}
+                              className="p-2 text-purple-700 hover:bg-purple-500/20 rounded-full transition-colors focus:outline-none focus:ring-4 focus:ring-purple-600/30"
+                              aria-label="Supprimer le brouillon"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <button
-                          onClick={() => {
-                            navigate("/prepare");
-                          }}
-                          className="px-4 py-2 bg-purple-600 text-white rounded-full font-semibold hover:bg-purple-700 transition-colors focus:outline-none focus:ring-4 focus:ring-purple-600/30 whitespace-nowrap"
-                        >
-                          Finaliser
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (
-                              window.confirm(
-                                "Êtes-vous sûr de vouloir supprimer ce brouillon ?"
-                              )
-                            ) {
-                              deleteDraft();
-                              addToast("Brouillon supprimé", "success");
-                            }
-                          }}
-                          className="p-2 text-purple-700 hover:bg-purple-500/20 rounded-full transition-colors focus:outline-none focus:ring-4 focus:ring-purple-600/30"
-                          aria-label="Supprimer le brouillon"
-                        >
-                          <Trash2 className="h-5 w-5" />
-                        </button>
-                      </div>
-                    </div>
+                    ))}
                   </div>
                 </div>
               )}
