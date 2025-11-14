@@ -3,6 +3,7 @@ import {
   Archive,
   ArchiveRestore,
   CheckSquare,
+  FileSignature,
   Inbox,
   LayoutDashboard,
   Mail,
@@ -26,6 +27,7 @@ import Button from "../components/Button";
 import DocumentCard from "../components/DocumentCard";
 import { useToast } from "../components/Toast";
 import { useUser } from "../components/UserContext";
+import { useDraftDocument } from "../hooks/useDraftDocument";
 import {
   archiveDocuments,
   deleteDocuments,
@@ -115,7 +117,9 @@ const DashboardPage: React.FC = () => {
   const { addToast } = useToast();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const quickSignFileInputRef = useRef<HTMLInputElement>(null);
   const { currentUser } = useUser();
+  const { draft, deleteDraft, refreshDraft } = useDraftDocument();
   // ✅ Suppression du refreshTrigger car on utilise maintenant un listener en temps réel
 
   // Fonction pour convertir un email en UnifiedDocument
@@ -382,6 +386,25 @@ const DashboardPage: React.FC = () => {
     }
   };
 
+  const handleQuickSignClick = () => {
+    quickSignFileInputRef.current?.click();
+  };
+
+  const handleQuickSignFileSelected = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Navigate to quick-sign with the file
+    navigate("/quick-sign", {
+      state: {
+        file,
+        fileName: file.name,
+      },
+    });
+  };
+
   const handleDocumentSelect = (docId: string) => {
     setSelectedDocuments((prev) =>
       prev.includes(docId)
@@ -570,6 +593,15 @@ const DashboardPage: React.FC = () => {
         className="hidden"
       />
 
+      {/* Input file pour signature rapide */}
+      <input
+        ref={quickSignFileInputRef}
+        type="file"
+        accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        onChange={handleQuickSignFileSelected}
+        className="hidden"
+      />
+
       <ConfirmationModal
         isOpen={isConfirmDeleteOpen}
         onClose={() => setIsConfirmDeleteOpen(false)}
@@ -680,6 +712,19 @@ const DashboardPage: React.FC = () => {
                   </span>
                 </button>
               )}
+              {/* Bouton Signature Rapide - Desktop uniquement */}
+              {filteredDocuments.length > 0 && (
+                <button
+                  onClick={handleQuickSignClick}
+                  className="hidden lg:flex items-center justify-center h-14 px-6 bg-secondaryContainer text-onSecondaryContainer rounded-full font-semibold hover:elevation-1 transition-all focus:outline-none focus:ring-4 focus:ring-secondary/30 whitespace-nowrap"
+                  aria-label="Signature rapide"
+                >
+                  <FileSignature className="h-6 w-6 flex-shrink-0" />
+                  <span className="tracking-wide text-sm">
+                    Signature rapide
+                  </span>
+                </button>
+              )}
               <div className="relative w-full sm:w-64">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-onSurfaceVariant" />
                 <input
@@ -704,9 +749,19 @@ const DashboardPage: React.FC = () => {
       {/* Container blanc pour bouton + cartes */}
       <div className="container mx-auto">
         <div className="bg-white rounded-3xl shadow-sm p-4 sm:p-6 lg:p-8 relative">
-          {/* Bouton Ajouter un fichier - Full width en mobile/tablette, dans container - Masqué si aucun document */}
+          {/* Boutons - Full width en mobile/tablette, dans container - Masqué si aucun document */}
           {!isSelectionMode && filteredDocuments.length > 0 && (
-            <div className="mb-6 lg:hidden">
+            <div className="mb-6 lg:hidden space-y-3">
+              <button
+                onClick={handleQuickSignClick}
+                className="w-full flex items-center justify-center h-12 sm:h-14 px-6 bg-secondaryContainer text-onSecondaryContainer rounded-full font-semibold hover:elevation-1 transition-all focus:outline-none focus:ring-4 focus:ring-secondary/30"
+                aria-label="Signature rapide"
+              >
+                <FileSignature className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0" />
+                <span className="tracking-wide text-sm sm:text-base whitespace-nowrap ml-2">
+                  Signature rapide
+                </span>
+              </button>
               <button
                 onClick={handleEmptyStateClick}
                 className="w-full flex items-center justify-center h-12 sm:h-14 btn-premium-shine btn-premium-extended focus:outline-none focus:ring-4 focus:ring-primary/30"
@@ -737,6 +792,65 @@ const DashboardPage: React.FC = () => {
             </div>
           ) : filteredDocuments.length > 0 ? (
             <div className="space-y-12">
+              {/* Carte Brouillon en cours */}
+              {draft && (
+                <div className="mb-8">
+                  <div className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-2 border-purple-500/30 rounded-2xl p-6 shadow-lg">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-4 flex-1 min-w-0">
+                        <div className="bg-purple-500/20 p-3 rounded-xl flex-shrink-0">
+                          <Edit3 className="h-6 w-6 text-purple-700" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-lg font-bold text-purple-900 mb-1">
+                            Brouillon en cours
+                          </h3>
+                          <p className="text-sm text-purple-700 mb-2 truncate">
+                            {draft.fileName}
+                          </p>
+                          <p className="text-xs text-purple-600">
+                            Dernière modification :{" "}
+                            {new Date(draft.timestamp).toLocaleString("fr-FR", {
+                              day: "numeric",
+                              month: "long",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                          onClick={() => {
+                            navigate("/prepare");
+                          }}
+                          className="px-4 py-2 bg-purple-600 text-white rounded-full font-semibold hover:bg-purple-700 transition-colors focus:outline-none focus:ring-4 focus:ring-purple-600/30 whitespace-nowrap"
+                        >
+                          Finaliser
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                "Êtes-vous sûr de vouloir supprimer ce brouillon ?"
+                              )
+                            ) {
+                              deleteDraft();
+                              addToast("Brouillon supprimé", "success");
+                            }
+                          }}
+                          className="p-2 text-purple-700 hover:bg-purple-500/20 rounded-full transition-colors focus:outline-none focus:ring-4 focus:ring-purple-600/30"
+                          aria-label="Supprimer le brouillon"
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Documents reçus (Destinataire) */}
               {filteredDocuments.filter((d) => d.source === "received").length >
                 0 && (
@@ -854,45 +968,106 @@ const DashboardPage: React.FC = () => {
               </p>
             </div>
           ) : (
-            <div
-              className={`text-center py-12 sm:py-16 md:py-20 lg:py-24 px-4 sm:px-6 md:px-8 border-4 border-dashed rounded-2xl sm:rounded-3xl transition-all duration-300 cursor-pointer ${
-                isDragging
-                  ? "border-primary bg-primary/10 scale-[1.02]"
-                  : "border-outlineVariant bg-surfaceVariant/20 hover:bg-surfaceVariant/40 hover:border-primary/50"
-              }`}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              onClick={handleEmptyStateClick}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  handleEmptyStateClick();
-                }
-              }}
-            >
-              <Upload className="mx-auto h-12 w-12 sm:h-16 sm:w-16 md:h-20 md:w-20 text-onSurfaceVariant mb-4 sm:mb-6 md:mb-8 pointer-events-none" />
-              <h3 className="text-lg sm:text-xl md:text-2xl font-semibold text-onSurface mb-2 sm:mb-3 md:mb-4 pointer-events-none">
-                Aucun document pour l'instant
-              </h3>
-              <p className="text-xs sm:text-sm md:text-base text-onSurfaceVariant max-w-md mx-auto mb-4 sm:mb-6 md:mb-8 pointer-events-none">
-                Cliquez ici ou glissez-déposez un fichier PDF ou Word
-              </p>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation(); // Empêcher le double déclenchement
-                  handleEmptyStateClick();
+            <div>
+              {/* Carte Brouillon dans l'état vide */}
+              {draft && (
+                <div className="mb-8">
+                  <div className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-2 border-purple-500/30 rounded-2xl p-6 shadow-lg">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-4 flex-1 min-w-0">
+                        <div className="bg-purple-500/20 p-3 rounded-xl flex-shrink-0">
+                          <Edit3 className="h-6 w-6 text-purple-700" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-lg font-bold text-purple-900 mb-1">
+                            Brouillon en cours
+                          </h3>
+                          <p className="text-sm text-purple-700 mb-2 truncate">
+                            {draft.fileName}
+                          </p>
+                          <p className="text-xs text-purple-600">
+                            Dernière modification :{" "}
+                            {new Date(draft.timestamp).toLocaleString("fr-FR", {
+                              day: "numeric",
+                              month: "long",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                          onClick={() => {
+                            navigate("/prepare");
+                          }}
+                          className="px-4 py-2 bg-purple-600 text-white rounded-full font-semibold hover:bg-purple-700 transition-colors focus:outline-none focus:ring-4 focus:ring-purple-600/30 whitespace-nowrap"
+                        >
+                          Finaliser
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                "Êtes-vous sûr de vouloir supprimer ce brouillon ?"
+                              )
+                            ) {
+                              deleteDraft();
+                              addToast("Brouillon supprimé", "success");
+                            }
+                          }}
+                          className="p-2 text-purple-700 hover:bg-purple-500/20 rounded-full transition-colors focus:outline-none focus:ring-4 focus:ring-purple-600/30"
+                          aria-label="Supprimer le brouillon"
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div
+                className={`text-center py-12 sm:py-16 md:py-20 lg:py-24 px-4 sm:px-6 md:px-8 border-4 border-dashed rounded-2xl sm:rounded-3xl transition-all duration-300 cursor-pointer ${
+                  isDragging
+                    ? "border-primary bg-primary/10 scale-[1.02]"
+                    : "border-outlineVariant bg-surfaceVariant/20 hover:bg-surfaceVariant/40 hover:border-primary/50"
+                }`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={handleEmptyStateClick}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleEmptyStateClick();
+                  }
                 }}
-                className="flex items-center justify-center h-12 sm:h-14 w-full sm:w-4/5 md:w-3/4 lg:w-1/2 btn-premium-shine btn-premium-extended focus:outline-none focus:ring-4 focus:ring-primary/30 text-sm sm:text-base mx-auto"
-                aria-label="Ajouter un fichier"
               >
-                <PlusCircle className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0" />
-                <span className="tracking-wide whitespace-nowrap">
-                  Ajouter un fichier
-                </span>
-              </button>
+                <Upload className="mx-auto h-12 w-12 sm:h-16 sm:w-16 md:h-20 md:w-20 text-onSurfaceVariant mb-4 sm:mb-6 md:mb-8 pointer-events-none" />
+                <h3 className="text-lg sm:text-xl md:text-2xl font-semibold text-onSurface mb-2 sm:mb-3 md:mb-4 pointer-events-none">
+                  Aucun document pour l'instant
+                </h3>
+                <p className="text-xs sm:text-sm md:text-base text-onSurfaceVariant max-w-md mx-auto mb-4 sm:mb-6 md:mb-8 pointer-events-none">
+                  Cliquez ici ou glissez-déposez un fichier PDF ou Word
+                </p>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation(); // Empêcher le double déclenchement
+                    handleEmptyStateClick();
+                  }}
+                  className="flex items-center justify-center h-12 sm:h-14 w-full sm:w-4/5 md:w-3/4 lg:w-1/2 btn-premium-shine btn-premium-extended focus:outline-none focus:ring-4 focus:ring-primary/30 text-sm sm:text-base mx-auto"
+                  aria-label="Ajouter un fichier"
+                >
+                  <PlusCircle className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0" />
+                  <span className="tracking-wide whitespace-nowrap">
+                    Ajouter un fichier
+                  </span>
+                </button>
+              </div>
             </div>
           )}
         </div>

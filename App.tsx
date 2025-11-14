@@ -1,26 +1,32 @@
-
-import React from 'react';
-import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import DashboardPage from './pages/DashboardPage';
-import PrepareDocumentPage from './pages/PrepareDocumentPage';
-import SignDocumentPage from './pages/SignDocumentPage';
-import VerifyPage from './pages/VerifyPage';
-import InboxPage from './pages/InboxPage';
-import Header from './components/Header';
-import Footer from './components/Footer';
-import CookieBanner from './components/CookieBanner';
-import { ToastProvider } from './components/Toast';
-import { UserProvider, useUser } from './components/UserContext';
-import EmailLoginModal from './components/EmailLoginModal';
+import React from "react";
+import {
+  HashRouter,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+} from "react-router-dom";
+import CookieBanner from "./components/CookieBanner";
+import EmailLoginModal from "./components/EmailLoginModal";
+import Footer from "./components/Footer";
+import Header from "./components/Header";
+import { ToastProvider } from "./components/Toast";
+import { UserProvider, useUser } from "./components/UserContext";
+import DashboardPage from "./pages/DashboardPage";
+import InboxPage from "./pages/InboxPage";
+import PrepareDocumentPage from "./pages/PrepareDocumentPage";
+import QuickSignPage from "./pages/QuickSignPage";
+import SignDocumentPage from "./pages/SignDocumentPage";
+import VerifyPage from "./pages/VerifyPage";
 // Vérification automatique de la configuration Firebase
-import './utils/firebaseCheck';
+import "./utils/firebaseCheck";
 
 const AppContent: React.FC = () => {
   const { currentUser, setCurrentUser, isLoading } = useUser();
   const location = useLocation();
 
   // Vérifier si on est sur une route /sign/:token
-  const isSigningRoute = location.pathname.startsWith('/sign/');
+  const isSigningRoute = location.pathname.startsWith("/sign/");
 
   if (isLoading) {
     return (
@@ -38,7 +44,7 @@ const AppContent: React.FC = () => {
   // Afficher le modal SEULEMENT si pas d'utilisateur ET pas sur une route /sign/:token
   if (!currentUser && !isSigningRoute) {
     return (
-      <EmailLoginModal 
+      <EmailLoginModal
         isOpen={true}
         onSubmit={(email) => setCurrentUser({ email })}
       />
@@ -53,6 +59,7 @@ const AppContent: React.FC = () => {
         <Routes>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/prepare" element={<PrepareDocumentPage />} />
+          <Route path="/quick-sign" element={<QuickSignPage />} />
           {/* Route /sign/:token accessible SANS authentification - SignDocumentPage fera l'auto-login */}
           <Route path="/sign/:token" element={<SignDocumentPage />} />
           <Route path="/inbox" element={<InboxPage />} />
