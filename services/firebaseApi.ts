@@ -37,8 +37,12 @@ const PREDEFINED_AUTHORIZED_EMAILS = [
   "bouvier.jul@gmail.com", // Admin
 ];
 
-// Email admin
-const ADMIN_EMAIL = "bouvier.jul@gmail.com";
+// Liste des emails administrateurs
+const ADMIN_EMAILS = [
+  "bouvier.jul@gmail.com",
+  "vrodriguez@fo-metaux.fr",
+  "aguillermin@fo-metaux.fr",
+];
 
 export const checkEmailAccess = async (email: string): Promise<boolean> => {
   try {
@@ -73,7 +77,7 @@ export const checkEmailAccess = async (email: string): Promise<boolean> => {
 };
 
 export const isAdmin = (email: string): boolean => {
-  return email.toLowerCase() === ADMIN_EMAIL;
+  return ADMIN_EMAILS.includes(email.toLowerCase());
 };
 
 export const getAuthorizedUsers = async (): Promise<
