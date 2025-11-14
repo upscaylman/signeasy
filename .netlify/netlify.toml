@@ -7,7 +7,7 @@ plugins = []
 [functions."*"]
 
 [build]
-publish = "C:\\Users\\neoph\\OneDrive\\Documents\\signeasy\\signeasy-project\\dist"
+publish = "C:\\Users\\neoph\\Desktop\\signeasy\\signeasy\\dist"
 publishOrigin = "config"
 commandOrigin = "config"
 command = "npm run build"

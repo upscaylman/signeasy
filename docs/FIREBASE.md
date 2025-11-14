@@ -5,16 +5,16 @@
 Créez un fichier `.env.local` à la racine avec :
 
 ```env
-VITE_FIREBASE_API_KEY=AIzaSyB6l7PjzQUTz4ERwoyca5C_mPj_jOKWG70
-VITE_FIREBASE_AUTH_DOMAIN=signeasyfo.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=signeasyfo
-VITE_FIREBASE_STORAGE_BUCKET=signeasyfo.firebasestorage.app
-VITE_FIREBASE_MESSAGING_SENDER_ID=884877138273
-VITE_FIREBASE_APP_ID=1:884877138273:web:1dd64d62b197163b50cd20
+VITE_FIREBASE_API_KEY=...
+VITE_FIREBASE_AUTH_DOMAIN=...
+VITE_FIREBASE_PROJECT_ID=...
+VITE_FIREBASE_STORAGE_BUCKET=...
+VITE_FIREBASE_MESSAGING_SENDER_ID=...
+VITE_FIREBASE_APP_ID=1:884877138273:web:...
 
-VITE_EMAILJS_SERVICE_ID=service_tcdw2fd
-VITE_EMAILJS_TEMPLATE_ID=template_6m6pxue
-VITE_EMAILJS_PUBLIC_KEY=g2n34kxUJPlU6tsI0
+VITE_EMAILJS_SERVICE_ID=...
+VITE_EMAILJS_TEMPLATE_ID=...
+VITE_EMAILJS_PUBLIC_KEY=...
 ```
 
 ## 🔒 Règles Firebase
@@ -52,4 +52,3 @@ service firebase.storage {
 1. Build : `npm run build`
 2. Ajouter les variables sur Netlify
 3. Déployer le dossier `dist`
-
