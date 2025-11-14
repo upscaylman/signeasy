@@ -3,6 +3,7 @@ import {
   Archive,
   ArchiveRestore,
   CheckSquare,
+  Edit3,
   FileSignature,
   Inbox,
   LayoutDashboard,
@@ -735,12 +736,14 @@ const DashboardPage: React.FC = () => {
                   className="w-full p-2.5 pl-11 border border-outline bg-surface rounded-full focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
                 />
               </div>
-              <Button
-                variant="outlined"
-                onClick={() => setIsSelectionMode(true)}
-              >
-                Sélectionner
-              </Button>
+              {filteredDocuments.length > 0 && (
+                <Button
+                  variant="outlined"
+                  onClick={() => setIsSelectionMode(true)}
+                >
+                  Sélectionner
+                </Button>
+              )}
             </div>
           </div>
         )}
@@ -1054,19 +1057,34 @@ const DashboardPage: React.FC = () => {
                 <p className="text-xs sm:text-sm md:text-base text-onSurfaceVariant max-w-md mx-auto mb-4 sm:mb-6 md:mb-8 pointer-events-none">
                   Cliquez ici ou glissez-déposez un fichier PDF ou Word
                 </p>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation(); // Empêcher le double déclenchement
-                    handleEmptyStateClick();
-                  }}
-                  className="flex items-center justify-center h-12 sm:h-14 w-full sm:w-4/5 md:w-3/4 lg:w-1/2 btn-premium-shine btn-premium-extended focus:outline-none focus:ring-4 focus:ring-primary/30 text-sm sm:text-base mx-auto"
-                  aria-label="Ajouter un fichier"
-                >
-                  <PlusCircle className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0" />
-                  <span className="tracking-wide whitespace-nowrap">
-                    Ajouter un fichier
-                  </span>
-                </button>
+                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-4/5 md:w-3/4 lg:w-2/3 mx-auto">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation(); // Empêcher le double déclenchement
+                      handleEmptyStateClick();
+                    }}
+                    className="flex items-center justify-center h-12 sm:h-14 px-6 btn-premium-shine btn-premium-extended focus:outline-none focus:ring-4 focus:ring-primary/30 text-sm sm:text-base flex-1"
+                    aria-label="Ajouter un fichier"
+                  >
+                    <PlusCircle className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0" />
+                    <span className="tracking-wide whitespace-nowrap">
+                      Ajouter un fichier
+                    </span>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation(); // Empêcher le double déclenchement
+                      handleQuickSignClick();
+                    }}
+                    className="flex items-center justify-center h-12 sm:h-14 px-6 bg-secondaryContainer text-onSecondaryContainer rounded-full font-semibold hover:elevation-1 transition-all focus:outline-none focus:ring-4 focus:ring-secondary/30 text-sm sm:text-base flex-1"
+                    aria-label="Signature rapide"
+                  >
+                    <FileSignature className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0" />
+                    <span className="tracking-wide whitespace-nowrap">
+                      Signature rapide
+                    </span>
+                  </button>
+                </div>
               </div>
             </div>
           )}

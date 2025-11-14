@@ -416,6 +416,7 @@ const PrepareDocumentPage: React.FC = () => {
   const location = useLocation();
   const { addToast } = useToast();
   const { currentUser } = useUser();
+  const { saveDraft, deleteDraft } = useDraftDocument();
 
   // State
   const [file, setFile] = useState<File | null>(null);
@@ -588,6 +589,9 @@ const PrepareDocumentPage: React.FC = () => {
           setPageDimensions(dimensions);
 
           addRecipient();
+
+          // 💾 Sauvegarder automatiquement le brouillon
+          saveDraft(base64, fileToProcess.name);
         } catch (error) {
           addToast(
             "Erreur lors du chargement du PDF. Le fichier est peut-être corrompu.",
@@ -853,7 +857,7 @@ const PrepareDocumentPage: React.FC = () => {
 
     const SERVICES = [
       { id: "service_ltiackr", name: "Outlook" }, // ✅ Outlook en priorité
-      { id: "service_tcdw2fd", name: "Gmail" },   // Fallback sur Gmail
+      { id: "service_tcdw2fd", name: "Gmail" }, // Fallback sur Gmail
     ];
     const TEMPLATE_ID = "template_6m6pxue"; // Template pour demande de signature
     const PUBLIC_KEY = "g2n34kxUJPlU6tsI0";
@@ -958,6 +962,10 @@ const PrepareDocumentPage: React.FC = () => {
           "success"
         );
       }
+
+      // 🗑️ Supprimer le brouillon après envoi réussi
+      deleteDraft();
+
       navigate("/dashboard");
     } catch (error) {
       addToast("Erreur lors de la création de l'enveloppe.", "error");
