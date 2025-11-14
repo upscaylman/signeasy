@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { FileSignature, LayoutDashboard, ShieldCheck, Inbox, LogOut } from 'lucide-react';
-import { getUnreadEmailCount } from '../services/firebaseApi';
+import { getUnreadEmailCount, subscribeToNotifications } from '../services/firebaseApi';
 import { useUser } from './UserContext';
 import Tooltip from './Tooltip';
 import MobileMenu from './MobileMenu';
@@ -78,19 +78,34 @@ const Header: React.FC = () => {
   };
   
   useEffect(() => {
+    if (!currentUser?.email) {
+      setUnreadCount(0);
+      return;
+    }
+    
     fetchUnreadCount();
+    
+    // 🔔 Listener en temps réel pour détecter les changements
+    const unsubscribe = subscribeToNotifications(
+      currentUser.email,
+      () => {
+        console.log("🔔 Badge notification - Rafraîchissement en temps réel");
+        fetchUnreadCount();
+      }
+    );
     
     // Listen for custom event when storage is updated
     window.addEventListener('storage_updated', fetchUnreadCount);
 
-    // Rafraîchir toutes les 30 secondes
-    const interval = setInterval(fetchUnreadCount, 30000);
+    // 🔄 Polling de secours toutes les 10 secondes
+    const interval = setInterval(fetchUnreadCount, 10000);
 
     return () => {
+      unsubscribe();
       window.removeEventListener('storage_updated', fetchUnreadCount);
       clearInterval(interval);
     };
-  }, [currentUser]);
+  }, [currentUser?.email]);
 
   // Also refetch when navigating to the inbox, in case the event is missed
   useEffect(() => {
@@ -138,13 +153,9 @@ const Header: React.FC = () => {
                 Boîte de réception
               </NavLink>
               {unreadCount > 0 && (
-                 <span className="
-                   absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center
-                   rounded-full bg-primary text-onPrimary text-xs font-bold
-                   animate-fade-in-scale elevation-2 badge-pulse
-                 ">
-                    {unreadCount}
-                 </span>
+                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-onPrimary text-xs font-bold animate-fade-in-scale elevation-2 badge-pulse">
+                  {unreadCount}
+                </span>
               )}
             </div>
             <NavLink 

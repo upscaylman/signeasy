@@ -126,11 +126,7 @@ const MobileMenu: React.FC = () => {
               Boîte de réception
             </NavLink>
             {unreadCount > 0 && (
-              <span className="
-                absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center
-                rounded-full bg-primary text-onPrimary text-xs font-bold
-                animate-fade-in-scale elevation-2 badge-pulse
-              ">
+              <span className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-onPrimary text-xs font-bold animate-fade-in-scale elevation-2 badge-pulse">
                 {unreadCount}
               </span>
             )}

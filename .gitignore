@@ -40,3 +40,6 @@ firebase-debug.log
 
 # Test output
 test-output/
+
+# Local Netlify folder
+.netlify
