@@ -417,7 +417,7 @@ const PrepareDocumentPage: React.FC = () => {
   const location = useLocation();
   const { addToast } = useToast();
   const { currentUser } = useUser();
-  const { saveDraft, deleteDraft } = useDraftDocument();
+  const { draft, saveDraft, deleteDraft } = useDraftDocument();
 
   // State
   const [file, setFile] = useState<File | null>(null);
@@ -624,13 +624,13 @@ const PrepareDocumentPage: React.FC = () => {
     }
   };
 
-  // Charger automatiquement le fichier depuis le Dashboard
+  // Charger automatiquement le fichier depuis le Dashboard ou depuis le brouillon
   useEffect(() => {
     const pdfData = (location.state as any)?.pdfData;
     const fileName = (location.state as any)?.fileName;
 
     if (pdfData && fileName) {
-      // Convertir le base64 en File object
+      // Convertir le base64 en File object depuis location.state
       fetch(pdfData)
         .then((res) => res.blob())
         .then((blob) => {
@@ -644,8 +644,22 @@ const PrepareDocumentPage: React.FC = () => {
 
       // Nettoyer le state pour éviter de recharger à chaque render
       navigate(location.pathname, { replace: true, state: {} });
+    } else if (draft && !file) {
+      // Si pas de données dans location.state et pas de fichier déjà chargé, charger depuis localStorage
+      fetch(draft.pdfData)
+        .then((res) => res.blob())
+        .then((blob) => {
+          const draftFile = new File([blob], draft.fileName, {
+            type: "application/pdf",
+          });
+          loadPdfFile(draftFile);
+        })
+        .catch((err) => {
+          console.error("Erreur lors du chargement du brouillon:", err);
+          addToast("Erreur lors du chargement du brouillon.", "error");
+        });
     }
-  }, []);
+  }, [draft, file]);
 
   // --- Recipient Management ---
   const addRecipient = () => {
