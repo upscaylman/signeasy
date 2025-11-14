@@ -1,6 +1,5 @@
 import {
   collection,
-  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -14,15 +13,18 @@ import {
   BellOff,
   Check,
   CheckCircle,
+  Edit3,
   Mail,
   Send,
   X,
   XCircle,
 } from "lucide-react";
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { db } from "../config/firebase";
+import { useDraftDocument } from "../hooks/useDraftDocument";
 import { subscribeToNotifications } from "../services/firebaseApi";
+import { useToast } from "./Toast";
 import Tooltip from "./Tooltip";
 import { useUser } from "./UserContext";
 
@@ -35,15 +37,17 @@ interface Notification {
     | "COMPLETE"
     | "RECEIVED"
     | "SIGNED_BY_ME"
-    | "REJECTED_BY_ME";
+    | "REJECTED_BY_ME"
+    | "DRAFT";
   documentId: string;
   documentName: string;
   message: string;
   timestamp: string;
   read: boolean;
   recipientName?: string;
-  source: "sent" | "received"; // Pour distinguer expéditeur vs destinataire
+  source: "sent" | "received" | "draft"; // Pour distinguer expéditeur vs destinataire vs brouillon
   emailId?: string; // Pour les notifications de type email
+  draftId?: string; // Pour les notifications de type brouillon
 }
 
 const NotificationDropdown: React.FC = () => {
@@ -53,6 +57,8 @@ const NotificationDropdown: React.FC = () => {
   const [menuHeight, setMenuHeight] = useState("calc(100dvh - 64px)");
   const navigate = useNavigate();
   const { currentUser } = useUser();
+  const { drafts, deleteDraft } = useDraftDocument();
+  const { addToast } = useToast();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
@@ -230,7 +236,23 @@ const NotificationDropdown: React.FC = () => {
 
       // Récupérer les notifications masquées depuis localStorage
       const dismissedKey = `dismissed_notifications_${currentUser.email}`;
-      const dismissed = JSON.parse(localStorage.getItem(dismissedKey) || '[]');
+      const dismissed = JSON.parse(localStorage.getItem(dismissedKey) || "[]");
+
+      // ========== PARTIE 3 : NOTIFICATIONS BROUILLONS ==========
+      // Ajouter les brouillons comme notifications
+      const draftNotifications: Notification[] = drafts.map((draft) => ({
+        id: `draft_${draft.id}`,
+        type: "DRAFT" as const,
+        documentId: draft.id,
+        documentName: draft.fileName,
+        message: "Brouillon en attente de finalisation",
+        timestamp: new Date(draft.timestamp).toISOString(),
+        read: true, // Les brouillons sont toujours considérés comme "lus"
+        source: "draft" as const,
+        draftId: draft.id,
+      }));
+
+      allNotifications.push(...draftNotifications);
 
       // Trier par date décroissante, filtrer les masquées, et limiter à 10
       const sortedNotifications = allNotifications
@@ -246,7 +268,7 @@ const NotificationDropdown: React.FC = () => {
     } catch (error) {
       console.error("Erreur lors de la récupération des notifications:", error);
     }
-  }, [currentUser?.email]);
+  }, [currentUser?.email, drafts]);
 
   useEffect(() => {
     if (!currentUser?.email) {
@@ -259,13 +281,12 @@ const NotificationDropdown: React.FC = () => {
     fetchNotifications();
 
     // 🔔 Listener en temps réel pour détecter les changements
-    const unsubscribe = subscribeToNotifications(
-      currentUser.email,
-      () => {
-        console.log("🔔 Notification en temps réel - Rafraîchissement des notifications");
-        fetchNotifications();
-      }
-    );
+    const unsubscribe = subscribeToNotifications(currentUser.email, () => {
+      console.log(
+        "🔔 Notification en temps réel - Rafraîchissement des notifications"
+      );
+      fetchNotifications();
+    });
 
     // 🔄 Polling de secours toutes les 10 secondes (au cas où le listener manque un changement)
     const interval = setInterval(fetchNotifications, 10000);
@@ -279,7 +300,10 @@ const NotificationDropdown: React.FC = () => {
   // Marquer une notification comme lue
   const markAsRead = async (notification: Notification) => {
     try {
-      if (notification.source === "sent") {
+      if (notification.source === "draft") {
+        // Les brouillons sont toujours "lus", pas besoin de mise à jour
+        return;
+      } else if (notification.source === "sent") {
         // Notification expéditeur : Mettre à jour dans audit trail
         const auditDocRef = doc(db, "auditTrails", notification.documentId);
         const auditDoc = await getDoc(auditDocRef);
@@ -368,7 +392,7 @@ const NotificationDropdown: React.FC = () => {
     try {
       // Sauvegarder dans localStorage les notifications masquées
       const dismissedKey = `dismissed_notifications_${currentUser?.email}`;
-      const dismissed = JSON.parse(localStorage.getItem(dismissedKey) || '[]');
+      const dismissed = JSON.parse(localStorage.getItem(dismissedKey) || "[]");
       dismissed.push(notification.id);
       localStorage.setItem(dismissedKey, JSON.stringify(dismissed));
 
@@ -377,7 +401,7 @@ const NotificationDropdown: React.FC = () => {
       if (!notification.read) {
         setUnreadCount((prev) => Math.max(0, prev - 1));
       }
-      
+
       console.log("🔕 Notification masquée (indépendant):", notification.id);
     } catch (error) {
       console.error("Erreur lors de la suppression de la notification:", error);
@@ -390,7 +414,10 @@ const NotificationDropdown: React.FC = () => {
     setIsOpen(false);
 
     // Rediriger selon la source
-    if (notification.source === "received") {
+    if (notification.source === "draft") {
+      // Brouillon -> Rediriger vers PrepareDocumentPage avec le draftId
+      navigate("/prepare", { state: { draftId: notification.draftId } });
+    } else if (notification.source === "received") {
       navigate("/inbox"); // Destinataire -> inbox
     } else {
       navigate("/dashboard"); // Expéditeur -> dashboard
@@ -414,6 +441,8 @@ const NotificationDropdown: React.FC = () => {
         return <CheckCircle className="h-4 w-4 text-green-500" />;
       case "REJECTED_BY_ME":
         return <XCircle className="h-4 w-4 text-red-500" />;
+      case "DRAFT":
+        return <Edit3 className="h-4 w-4 text-purple-500" />;
       default:
         return <Bell className="h-4 w-4 text-gray-500" />;
     }
@@ -486,58 +515,101 @@ const NotificationDropdown: React.FC = () => {
             ) : (
               <div className="flex flex-col">
                 {notifications.map((notification) => (
-                  <button
+                  <div
                     key={notification.id}
-                    onClick={() => handleNotificationClick(notification)}
                     className={`
-                      w-full p-4 border-b border-outlineVariant/50 text-left
+                      w-full p-4 border-b border-outlineVariant/50
                       hover:bg-surfaceVariant/50 transition-colors group relative
                       ${!notification.read ? "bg-primaryContainer/10" : ""}
                     `}
                   >
-                    <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 mt-1">
-                        {getIcon(notification.type)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p
-                          className={`text-sm ${
-                            !notification.read ? "font-semibold" : "font-medium"
-                          } text-onSurface`}
-                        >
-                          {notification.message}
-                        </p>
-                        <p className="text-xs text-onSurfaceVariant truncate mt-1">
-                          {notification.documentName}
-                        </p>
-                        <p className="text-xs text-onSurfaceVariant mt-1">
-                          {new Date(notification.timestamp).toLocaleString(
-                            "fr-FR",
-                            {
-                              day: "2-digit",
-                              month: "2-digit",
-                              year: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            }
-                          )}
-                        </p>
-                      </div>
-                      {!notification.read && (
-                        <div className="flex-shrink-0">
-                          <div className="w-2 h-2 rounded-full bg-primary"></div>
-                        </div>
-                      )}
-                    </div>
-                    {/* Bouton de suppression */}
                     <button
-                      onClick={(e) => deleteNotification(notification, e)}
-                      className="absolute top-2 right-2 p-1.5 rounded-full hover:bg-error/10 text-error opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="Supprimer cette notification"
+                      onClick={() => handleNotificationClick(notification)}
+                      className="w-full text-left"
                     >
-                      <X className="h-4 w-4" />
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 mt-1">
+                          {getIcon(notification.type)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className={`text-sm ${
+                              !notification.read
+                                ? "font-semibold"
+                                : "font-medium"
+                            } text-onSurface`}
+                          >
+                            {notification.message}
+                          </p>
+                          <p className="text-xs text-onSurfaceVariant truncate mt-1">
+                            {notification.documentName}
+                          </p>
+                          <p className="text-xs text-onSurfaceVariant mt-1">
+                            {new Date(notification.timestamp).toLocaleString(
+                              "fr-FR",
+                              {
+                                day: "2-digit",
+                                month: "2-digit",
+                                year: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }
+                            )}
+                          </p>
+                        </div>
+                        {!notification.read && (
+                          <div className="flex-shrink-0">
+                            <div className="w-2 h-2 rounded-full bg-primary"></div>
+                          </div>
+                        )}
+                      </div>
                     </button>
-                  </button>
+
+                    {/* Boutons spéciaux pour les brouillons */}
+                    {notification.type === "DRAFT" && notification.draftId && (
+                      <div className="flex items-center gap-2 mt-3">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate("/prepare", {
+                              state: { draftId: notification.draftId },
+                            });
+                            setIsOpen(false);
+                          }}
+                          className="flex-1 px-3 py-1.5 bg-purple-600 text-white rounded-full text-xs font-semibold hover:bg-purple-700 transition-colors"
+                        >
+                          Finaliser
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (
+                              window.confirm(
+                                "Êtes-vous sûr de vouloir supprimer ce brouillon ?"
+                              )
+                            ) {
+                              deleteDraft(notification.draftId!);
+                              addToast("Brouillon supprimé", "success");
+                            }
+                          }}
+                          className="px-3 py-1.5 text-error hover:bg-error/10 rounded-full text-xs font-semibold transition-colors"
+                        >
+                          Supprimer
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Bouton de suppression de notification (masquer) */}
+                    {notification.type !== "DRAFT" && (
+                      <button
+                        onClick={(e) => deleteNotification(notification, e)}
+                        className="absolute top-2 right-2 p-1.5 rounded-full hover:bg-error/10 text-error opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Supprimer cette notification"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
             )}

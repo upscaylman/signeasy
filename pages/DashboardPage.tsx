@@ -120,7 +120,8 @@ const DashboardPage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const quickSignFileInputRef = useRef<HTMLInputElement>(null);
   const { currentUser } = useUser();
-  const { drafts, deleteDraft, refreshDrafts } = useDraftDocument();
+  const { drafts, deleteDraft, refreshDrafts, canAddDraft } =
+    useDraftDocument();
   // ✅ Suppression du refreshTrigger car on utilise maintenant un listener en temps réel
 
   // Fonction pour convertir un email en UnifiedDocument
@@ -536,6 +537,14 @@ const DashboardPage: React.FC = () => {
     e.stopPropagation();
     setIsDragging(false);
 
+    if (!canAddDraft()) {
+      addToast(
+        "⚠️ Limite de 3 brouillons atteinte. Veuillez finaliser ou supprimer un brouillon avant d'ajouter un nouveau fichier.",
+        "info"
+      );
+      return;
+    }
+
     const files = e.dataTransfer.files;
     if (files.length > 0) {
       await handleFileSelected(files[0]);
@@ -577,6 +586,13 @@ const DashboardPage: React.FC = () => {
   };
 
   const handleEmptyStateClick = () => {
+    if (!canAddDraft()) {
+      addToast(
+        "⚠️ Limite de 3 brouillons atteinte. Veuillez finaliser ou supprimer un brouillon avant d'ajouter un nouveau fichier.",
+        "info"
+      );
+      return;
+    }
     fileInputRef.current?.click();
   };
 
