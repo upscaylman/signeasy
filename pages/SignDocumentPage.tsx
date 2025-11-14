@@ -28,7 +28,6 @@ import React, {
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Button from "../components/Button";
 import DraggableSignature from "../components/DraggableSignature";
-import SignaturePadComponent from "../components/SignaturePad";
 import { useToast } from "../components/Toast";
 import { useUser } from "../components/UserContext";
 import {
@@ -165,16 +164,37 @@ const SignaturePad: React.FC<{
     { name: "Épaisse", width: 6 },
   ];
 
+  // Initialiser le canvas avec la bonne taille et les bonnes propriétés
   useEffect(() => {
     if (activeTab === "draw" && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.strokeStyle = strokeColor;
-        ctx.lineWidth = lineWidth;
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
-      }
+      // Attendre que le canvas soit rendu
+      const initCanvas = () => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const ratio = Math.max(window.devicePixelRatio || 1, 2);
+
+        // Redimensionner le canvas
+        canvas.width = rect.width * ratio;
+        canvas.height = rect.height * ratio;
+
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          // Réinitialiser la transformation avant de rescale
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.scale(ratio, ratio);
+          ctx.strokeStyle = strokeColor;
+          ctx.lineWidth = lineWidth;
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+        }
+      };
+
+      // Attendre le prochain frame pour que le canvas soit rendu
+      requestAnimationFrame(() => {
+        setTimeout(initCanvas, 0);
+      });
     }
   }, [activeTab, strokeColor, lineWidth]);
 
@@ -335,23 +355,32 @@ const SignaturePad: React.FC<{
 
         <div className="bg-surfaceVariant/50 rounded-2xl p-2">
           {activeTab === "draw" && (
-            <SignaturePadComponent
-              signerName={signerName}
-              onSave={(dataUrl) => {
-                const canvas = canvasRef.current;
-                if (canvas) {
-                  const ctx = canvas.getContext("2d");
-                  const img = new Image();
-                  img.onload = () => {
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    ctx?.drawImage(img, 0, 0);
-                  };
-                  img.src = dataUrl;
-                }
-              }}
-              onCancel={() => {}}
-            />
+            <div className="space-y-3">
+              {/* Message d'aide */}
+              <div>
+                <p className="text-xs text-onSurfaceVariant text-center">
+                  ✍️ Dessinez votre signature avec précision. Utilisez un stylet
+                  ou votre doigt pour un meilleur résultat.
+                </p>
+              </div>
+              {/* Canvas pour dessiner */}
+              <canvas
+                ref={canvasRef}
+                className="bg-white rounded-xl cursor-crosshair w-full border-2 border-primary/30 touch-none shadow-inner max-w-full"
+                style={{
+                  touchAction: "none",
+                  height: "320px",
+                  display: "block",
+                }}
+                onMouseDown={startDrawing}
+                onMouseMove={draw}
+                onMouseUp={stopDrawing}
+                onMouseLeave={stopDrawing}
+                onTouchStart={startDrawing}
+                onTouchMove={draw}
+                onTouchEnd={stopDrawing}
+              />
+            </div>
           )}
           {activeTab === "type" && (
             <div className="h-[280px] flex flex-col items-center justify-center bg-white rounded-xl p-4 gap-2">
@@ -447,7 +476,7 @@ const SignaturePad: React.FC<{
         {activeTab === "draw" && (
           <div className="mt-4 flex flex-col gap-3">
             <div className="flex items-center justify-center flex-wrap gap-2">
-              <span className="text-sm font-medium text-onSurfaceVariant">
+              <span className="text-sm font-medium text-onSurfaceVariant hidden sm:inline">
                 Couleur :
               </span>
               {signatureColors.map(({ name, color }) => (

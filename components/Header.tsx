@@ -6,7 +6,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import {
   getUnreadEmailCount,
   subscribeToNotifications,
@@ -128,7 +128,10 @@ const Header: React.FC = () => {
     <header className="glass-effect-strong border-b border-outlineVariant/50 sticky top-0 z-40 animate-slide-down backdrop-blur-xl">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 sm:h-18">
-          <div className="flex items-center space-x-3">
+          <Link
+            to="/dashboard"
+            className="flex items-center space-x-3 cursor-pointer transition-opacity hover:opacity-80"
+          >
             <div className="bg-gradient-primary p-2 rounded-lg flex items-center justify-center h-10 w-10 elevation-2 progressive-glow transition-transform hover:scale-110">
               <PenTool className="h-6 w-6 text-onPrimary" />
             </div>
@@ -141,7 +144,7 @@ const Header: React.FC = () => {
             <span className="sm:hidden text-xl font-bold whitespace-nowrap">
               <span className="text-gradient-primary">SignEase</span>
             </span>
-          </div>
+          </Link>
           {/* Navigation Desktop - avec labels */}
           <nav className="hidden lg:flex items-center space-x-2">
             <NavLink
