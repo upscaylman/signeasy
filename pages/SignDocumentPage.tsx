@@ -2181,7 +2181,7 @@ const SignDocumentPage: React.FC = () => {
             >
               {envelope.document.name}
             </h1>
-            {alreadySigned || readOnly ? (
+            {envelope.document.status === DocumentStatus.SIGNED ? (
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 mt-1">
                 <div className="bg-tertiaryContainer text-onTertiaryContainer px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 h-7">
                   <CheckCircle className="h-3.5 w-3.5 flex-shrink-0" />
@@ -2212,6 +2212,17 @@ const SignDocumentPage: React.FC = () => {
                   })()}
                 </p>
               </div>
+            ) : readOnly ? (
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 mt-1">
+                <div className="bg-tertiaryContainer text-onTertiaryContainer px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 h-7">
+                  <CheckCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                  <span className="whitespace-nowrap">Mode lecture seule</span>
+                </div>
+              </div>
+            ) : alreadySigned ? (
+              <p className="text-sm text-onSurfaceVariant">
+                Document en cours de signature
+              </p>
             ) : (
               <p className="text-sm text-onSurfaceVariant">{`Signature requise pour : ${signerName}`}</p>
             )}
@@ -2235,20 +2246,21 @@ const SignDocumentPage: React.FC = () => {
             >
               <span className="hidden sm:inline">Télécharger</span>
             </Button>
-            <div className="flex-grow sm:flex-grow-0">
-              <label htmlFor="signerName" className="sr-only">
-                Confirmez votre nom
-              </label>
-              <input
-                id="signerName"
-                type="text"
-                value={signerName}
-                onChange={(e) => setSignerName(e.target.value)}
-                className="w-full sm:w-56 bg-surfaceVariant/60 border border-outlineVariant rounded-full px-4 py-2 text-sm focus:ring-2 focus:ring-primary/80 focus:bg-surface transition-colors"
-                placeholder="Entrez votre nom complet"
-                readOnly={readOnly}
-              />
-            </div>
+            {!readOnly && (
+              <div className="flex-grow sm:flex-grow-0">
+                <label htmlFor="signerName" className="sr-only">
+                  Confirmez votre nom
+                </label>
+                <input
+                  id="signerName"
+                  type="text"
+                  value={signerName}
+                  onChange={(e) => setSignerName(e.target.value)}
+                  className="w-full sm:w-56 bg-surfaceVariant/60 border border-outlineVariant rounded-full px-4 py-2 text-sm focus:ring-2 focus:ring-primary/80 focus:bg-surface transition-colors"
+                  placeholder="Entrez votre nom complet"
+                />
+              </div>
+            )}
             {readOnly ? (
               <Button
                 variant="text"

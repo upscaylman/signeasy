@@ -277,6 +277,96 @@ export const subscribeToDocuments = (
   return unsubscribe;
 };
 
+// 🔄 LISTENER EN TEMPS RÉEL pour les emails reçus
+export const subscribeToEmails = (
+  userEmail: string,
+  onUpdate: (emails: MockEmail[]) => void
+): (() => void) => {
+  if (!userEmail) {
+    return () => {}; // Retourner une fonction vide si pas d'email
+  }
+
+  let unsubscribeFn: (() => void) | null = null;
+
+  const q = query(
+    collection(db, "emails"),
+    where("toEmail", "==", userEmail.toLowerCase()),
+    orderBy("sentAt", "desc")
+  );
+
+  // Créer le listener en temps réel
+  try {
+    unsubscribeFn = onSnapshot(
+      q,
+      (snapshot) => {
+        const emails = snapshot.docs.map((docSnapshot) => {
+          const data = docSnapshot.data();
+          return { id: docSnapshot.id, ...data } as MockEmail;
+        });
+
+        console.log(
+          "🔄 Emails reçus mis à jour en temps réel:",
+          emails.length
+        );
+        onUpdate(emails);
+      },
+      (error) => {
+        // Gérer l'erreur si l'index composite n'existe pas
+        if (error.code === "failed-precondition") {
+          console.warn(
+            "⚠️ Index composite manquant pour emails, utilisation sans orderBy"
+          );
+          // Réessayer sans orderBy
+          const qWithoutOrder = query(
+            collection(db, "emails"),
+            where("toEmail", "==", userEmail.toLowerCase())
+          );
+          unsubscribeFn = onSnapshot(qWithoutOrder, (snapshot) => {
+            const emails = snapshot.docs.map((docSnapshot) => {
+              const data = docSnapshot.data();
+              return { id: docSnapshot.id, ...data } as MockEmail;
+            });
+            // Trier manuellement
+            emails.sort(
+              (a, b) =>
+                new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime()
+            );
+            console.log(
+              "🔄 Emails reçus mis à jour en temps réel (sans orderBy):",
+              emails.length
+            );
+            onUpdate(emails);
+          });
+        } else {
+          console.error("❌ Erreur subscribeToEmails:", error);
+          onUpdate([]);
+        }
+      }
+    );
+  } catch (error) {
+    console.error("❌ Erreur lors de la création du listener emails:", error);
+    // Fallback: créer un listener sans orderBy
+    const qWithoutOrder = query(
+      collection(db, "emails"),
+      where("toEmail", "==", userEmail.toLowerCase())
+    );
+    unsubscribeFn = onSnapshot(qWithoutOrder, (snapshot) => {
+      const emails = snapshot.docs.map((docSnapshot) => {
+        const data = docSnapshot.data();
+        return { id: docSnapshot.id, ...data } as MockEmail;
+      });
+      emails.sort(
+        (a, b) =>
+          new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime()
+      );
+      onUpdate(emails);
+    });
+  }
+
+  // Retourner la fonction de désabonnement
+  return unsubscribeFn || (() => {});
+};
+
 // 🔔 LISTENER EN TEMPS RÉEL pour les notifications (audit trails)
 export const subscribeToNotifications = (
   userEmail: string,

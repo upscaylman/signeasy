@@ -40,6 +40,7 @@ import {
   getEnvelopeByDocumentId,
   getTokenForDocumentSigner,
   subscribeToDocuments,
+  subscribeToEmails,
 } from "../services/firebaseApi";
 import type { Document, MockEmail, Recipient } from "../types";
 import { DocumentStatus } from "../types";
@@ -216,60 +217,76 @@ const DashboardPage: React.FC = () => {
 
     setIsLoading(true);
 
-    // S'abonner aux changements en temps réel des documents envoyés
-    const unsubscribe = subscribeToDocuments(
-      currentUser.email,
-      async (sentDocs) => {
-        try {
-          // Charger aussi les emails reçus
-          const receivedEmails = await getEmails(currentUser.email);
+    let sentDocs: Document[] = [];
+    let receivedEmails: MockEmail[] = [];
 
-          // Déterminer le rôle de l'utilisateur
-          let role: "destinataire" | "expéditeur" | "both" = "expéditeur";
-          if (sentDocs.length > 0 && receivedEmails.length > 0) {
-            role = "both";
-          } else if (receivedEmails.length > 0 && sentDocs.length === 0) {
-            role = "destinataire";
-          }
-          setUserRole(role);
-
-          // Convertir les documents envoyés en UnifiedDocument avec leurs destinataires
-          const unifiedSentDocs: UnifiedDocument[] = await Promise.all(
-            sentDocs.map(async (doc) => {
-              const envelope = await getEnvelopeByDocumentId(doc.id);
-              return {
-                ...doc,
-                source: "sent" as const,
-                recipients: envelope?.recipients || [],
-              };
-            })
-          );
-
-          // Convertir les emails reçus en UnifiedDocument
-          const unifiedReceivedDocs: UnifiedDocument[] = receivedEmails.map(
-            emailToUnifiedDocument
-          );
-
-          // Combiner et trier par date décroissante
-          const allDocs = [...unifiedSentDocs, ...unifiedReceivedDocs].sort(
-            (a, b) =>
-              new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-          );
-
-          setDocuments(allDocs);
-        } catch (error) {
-          console.error("Failed to fetch unified documents", error);
-          addToast("Erreur lors du chargement", "error");
-        } finally {
-          setIsLoading(false);
+    // Fonction pour mettre à jour les documents unifiés
+    const updateUnifiedDocuments = async () => {
+      try {
+        // Déterminer le rôle de l'utilisateur
+        let role: "destinataire" | "expéditeur" | "both" = "expéditeur";
+        if (sentDocs.length > 0 && receivedEmails.length > 0) {
+          role = "both";
+        } else if (receivedEmails.length > 0 && sentDocs.length === 0) {
+          role = "destinataire";
         }
+        setUserRole(role);
+
+        // Convertir les documents envoyés en UnifiedDocument avec leurs destinataires
+        const unifiedSentDocs: UnifiedDocument[] = await Promise.all(
+          sentDocs.map(async (doc) => {
+            const envelope = await getEnvelopeByDocumentId(doc.id);
+            return {
+              ...doc,
+              source: "sent" as const,
+              recipients: envelope?.recipients || [],
+            };
+          })
+        );
+
+        // Convertir les emails reçus en UnifiedDocument
+        const unifiedReceivedDocs: UnifiedDocument[] = receivedEmails.map(
+          emailToUnifiedDocument
+        );
+
+        // Combiner et trier par date décroissante
+        const allDocs = [...unifiedSentDocs, ...unifiedReceivedDocs].sort(
+          (a, b) =>
+            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        );
+
+        setDocuments(allDocs);
+        setIsLoading(false);
+      } catch (error) {
+        console.error("Failed to fetch unified documents", error);
+        addToast("Erreur lors du chargement", "error");
+        setIsLoading(false);
+      }
+    };
+
+    // S'abonner aux changements en temps réel des documents envoyés
+    const unsubscribeSent = subscribeToDocuments(
+      currentUser.email,
+      (docs) => {
+        sentDocs = docs;
+        updateUnifiedDocuments();
       }
     );
 
-    // Nettoyer le listener au démontage du composant
+    // S'abonner aux changements en temps réel des emails reçus
+    const unsubscribeReceived = subscribeToEmails(
+      currentUser.email,
+      (emails) => {
+        receivedEmails = emails;
+        updateUnifiedDocuments();
+      }
+    );
+
+    // Nettoyer les listeners au démontage du composant
     return () => {
-      console.log("📤 Désabonnement du listener en temps réel");
-      unsubscribe();
+      console.log("📤 Désabonnement des listeners en temps réel");
+      unsubscribeSent();
+      unsubscribeReceived();
     };
   }, [currentUser?.email, addToast]);
 
@@ -282,13 +299,13 @@ const DashboardPage: React.FC = () => {
     );
   }, [documents, searchTerm]);
 
-  // Filtrer les documents archivés
+  // Filtrer les documents archivés (tous les rôles, mais uniquement les signés)
   const archivedDocuments = useMemo(() => {
     return documents.filter(
       (doc) =>
         doc.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
         doc.archived === true &&
-        doc.source === "sent" // Seuls les documents envoyés peuvent être archivés
+        doc.status === DocumentStatus.SIGNED // Seuls les documents signés peuvent être archivés
     );
   }, [documents, searchTerm]);
 
@@ -338,6 +355,14 @@ const DashboardPage: React.FC = () => {
     DocumentStatus.SIGNED,
     DocumentStatus.REJECTED,
   ];
+
+  // Fonction pour adapter le label du statut selon le contexte
+  const getStatusLabel = (status: DocumentStatus, source?: "sent" | "received") => {
+    if (status === DocumentStatus.SENT && source === "received") {
+      return "Reçus";
+    }
+    return status;
+  };
 
   const groupedDocuments = useMemo(() => {
     return filteredDocuments.reduce((acc, doc) => {
@@ -479,30 +504,51 @@ const DashboardPage: React.FC = () => {
 
   const handleArchive = async () => {
     try {
-      // Séparer les documents envoyés et les emails reçus
+      // Récupérer les documents sélectionnés
       const docsToArchive = selectedDocuments
         .map((id) => documents.find((d) => d.id === id))
         .filter((d): d is UnifiedDocument => d !== undefined);
 
-      // Archiver uniquement les documents envoyés (source='sent')
-      const sentDocIds = docsToArchive
-        .filter((d) => d.source === "sent")
-        .map((d) => d.id);
+      // Filtrer uniquement les documents signés (pour tous les rôles)
+      const signedDocs = docsToArchive.filter(
+        (d) => d.status === DocumentStatus.SIGNED
+      );
 
-      if (sentDocIds.length > 0) {
-        await archiveDocuments(sentDocIds, true);
+      if (signedDocs.length === 0) {
+        addToast(
+          "Seuls les documents signés peuvent être archivés.",
+          "info"
+        );
+        return;
+      }
+
+      // Extraire les IDs des documents signés
+      // Pour les documents reçus (emails), on doit utiliser l'ID du document original
+      const docIdsToArchive = signedDocs.map((doc) => {
+        // Si c'est un document reçu (email), extraire l'ID réel du document
+        if (doc.source === "received" && doc.id.startsWith("email-")) {
+          return doc.id.substring(6); // Enlever le préfixe "email-"
+        }
+        return doc.id;
+      });
+
+      if (docIdsToArchive.length > 0) {
+        await archiveDocuments(docIdsToArchive, true);
         setDocuments((prev) =>
-          prev.map((doc) =>
-            sentDocIds.includes(doc.id) ? { ...doc, archived: true } : doc
-          )
+          prev.map((doc) => {
+            const docId = doc.source === "received" && doc.id.startsWith("email-")
+              ? doc.id.substring(6)
+              : doc.id;
+            return docIdsToArchive.includes(docId)
+              ? { ...doc, archived: true }
+              : doc;
+          })
         );
         addToast(
-          `${sentDocIds.length} document(s) archivé(s) avec succès.`,
+          `${docIdsToArchive.length} document(s) archivé(s) avec succès.`,
           "success"
         );
         handleExitSelectionMode();
-      } else {
-        addToast("Seuls les documents envoyés peuvent être archivés.", "info");
       }
     } catch (error) {
       console.error("Erreur lors de l'archivage:", error);
@@ -991,7 +1037,7 @@ const DashboardPage: React.FC = () => {
                       return docsInStatus.length > 0 ? (
                         <section key={`received-${status}`}>
                           <h3 className="text-lg font-semibold text-onSurface mb-3 ml-2">
-                            {status}
+                            {getStatusLabel(status, "received")}
                           </h3>
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                             {docsInStatus.map((doc) => (
