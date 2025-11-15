@@ -1021,6 +1021,25 @@ export const rejectSignature = async (
       console.log("   ✅ Email original du destinataire mis à jour (rejet)");
     }
 
+    // 📧 Créer un email pour l'expéditeur avec le message de rejet
+    const creatorEmail = envelope.document.creatorEmail || signer.email;
+    const rejectionEmailId = `email-rejection-${envelope.document.id}-${Date.now()}`;
+    const rejectionEmail: MockEmail = {
+      id: rejectionEmailId,
+      from: signer.email,
+      to: creatorEmail,
+      toEmail: creatorEmail,
+      subject: `❌ Document rejeté : ${envelope.document.name}`,
+      body: `Bonjour,\n\nLe document "${envelope.document.name}" a été rejeté par ${signer.name} (${signer.email}).\n\nRaison du rejet :\n${reason}\n\nDate de rejet : ${new Date().toLocaleString("fr-FR")}`,
+      signatureLink: "", // Pas de lien de signature pour un rejet
+      documentName: envelope.document.name,
+      sentAt: new Date().toISOString(),
+      read: false,
+    };
+
+    await setDoc(doc(db, "emails", rejectionEmailId), rejectionEmail);
+    console.log("   ✅ Email de rejet créé pour l'expéditeur");
+
     return { success: true };
   } catch (error) {
     console.error("Erreur rejectSignature:", error);

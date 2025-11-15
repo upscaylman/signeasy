@@ -1668,9 +1668,9 @@ const SignDocumentPage: React.FC = () => {
       }
     };
 
-    const handleDateClick = () => {
+    const handleDateClick = (fieldId?: string) => {
       if (!hasDragged && !readOnly && isCurrentSignerField) {
-        handleDateFieldClick(field.id);
+        handleDateFieldClick(fieldId || field.id);
       }
     };
 
@@ -1687,6 +1687,11 @@ const SignDocumentPage: React.FC = () => {
             width={width}
             height={height}
             zoomLevel={zoomLevel}
+            currentPage={field.page}
+            totalPages={pdf?.numPages || 1}
+            pageDimensions={pageDimensions}
+            pageRefs={pageRefs}
+            viewerRef={viewerRef}
             onUpdate={(id, updates) => {
               setFieldDimensions((prev) => ({
                 ...prev,

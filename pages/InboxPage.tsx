@@ -1306,6 +1306,29 @@ const InboxPage: React.FC = () => {
                     </div>
                   ))}
                 </div>
+              ) : selectedItem.type === "email" && selectedItem.body ? (
+                <div className="flex flex-col h-full p-6">
+                  <div className="bg-surface rounded-lg shadow-sm border border-outlineVariant p-6 max-w-3xl mx-auto w-full">
+                    <div className="mb-4 pb-4 border-b border-outlineVariant">
+                      <h3 className="text-lg font-semibold text-onSurface mb-2">
+                        {selectedItem.title}
+                      </h3>
+                      {selectedItem.from && (
+                        <p className="text-sm text-onSurfaceVariant">
+                          De : {selectedItem.from}
+                        </p>
+                      )}
+                      <p className="text-xs text-onSurfaceVariant mt-1">
+                        {new Date(selectedItem.timestamp).toLocaleString("fr-FR")}
+                      </p>
+                    </div>
+                    <div className="prose prose-sm max-w-none">
+                      <pre className="whitespace-pre-wrap text-sm text-onSurface font-sans bg-surfaceVariant/30 p-4 rounded-lg border border-outlineVariant">
+                        {selectedItem.body}
+                      </pre>
+                    </div>
+                  </div>
+                </div>
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-onSurfaceVariant px-4">
                   <FileText className="h-12 w-12 mb-4 opacity-30" />
