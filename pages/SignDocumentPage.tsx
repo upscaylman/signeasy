@@ -10,7 +10,9 @@ import {
   Copy,
   Download,
   Loader2,
+  Settings,
   Signature,
+  Type as TypeIcon,
   Upload,
   X,
   XCircle,
@@ -27,7 +29,9 @@ import React, {
 } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Button from "../components/Button";
+import DraggableFieldUnified from "../components/DraggableFieldUnified";
 import DraggableSignature from "../components/DraggableSignature";
+import SignaturePadUnified from "../components/SignaturePadUnified";
 import { useToast } from "../components/Toast";
 import { useUser } from "../components/UserContext";
 import {
@@ -133,426 +137,7 @@ const RejectModal: React.FC<{
   );
 };
 
-const SignaturePad: React.FC<{
-  onSave: (dataUrl: string) => void;
-  onCancel: () => void;
-  signerName: string;
-}> = ({ onSave, onCancel, signerName }) => {
-  const { addToast } = useToast();
-  const [activeTab, setActiveTab] = useState<"draw" | "type" | "upload">(
-    "draw"
-  );
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [typedName, setTypedName] = useState(signerName);
-  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
-  const [scale, setScale] = useState(1); // Zoom pour redimensionnement proportionnel
-
-  // Drawing tools state
-  const [strokeColor, setStrokeColor] = useState("#000000");
-  const [lineWidth, setLineWidth] = useState(2);
-
-  const signatureColors = [
-    { name: "Noir", color: "#000000" },
-    { name: "Bleu", color: "#2563EB" },
-    { name: "Rouge", color: "#BA1A1A" },
-  ];
-
-  const signatureWidths = [
-    { name: "Fine", width: 2 },
-    { name: "Moyenne", width: 4 },
-    { name: "Épaisse", width: 6 },
-  ];
-
-  // Initialiser le canvas avec la bonne taille et les bonnes propriétés
-  useEffect(() => {
-    if (activeTab === "draw" && canvasRef.current) {
-      // Attendre que le canvas soit rendu
-      const initCanvas = () => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-
-        const rect = canvas.getBoundingClientRect();
-        const ratio = Math.max(window.devicePixelRatio || 1, 2);
-
-        // Redimensionner le canvas
-        canvas.width = rect.width * ratio;
-        canvas.height = rect.height * ratio;
-
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          // Réinitialiser la transformation avant de rescale
-          ctx.setTransform(1, 0, 0, 1, 0, 0);
-          ctx.scale(ratio, ratio);
-          ctx.strokeStyle = strokeColor;
-          ctx.lineWidth = lineWidth;
-          ctx.lineCap = "round";
-          ctx.lineJoin = "round";
-        }
-      };
-
-      // Attendre le prochain frame pour que le canvas soit rendu
-      requestAnimationFrame(() => {
-        setTimeout(initCanvas, 0);
-      });
-    }
-  }, [activeTab, strokeColor, lineWidth]);
-
-  const getPosition = (e: React.MouseEvent | React.TouchEvent) => {
-    const rect = canvasRef.current!.getBoundingClientRect();
-    if ("touches" in e) {
-      return {
-        x: e.touches[0].clientX - rect.left,
-        y: e.touches[0].clientY - rect.top,
-      };
-    }
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-  };
-
-  const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault(); // 🔧 FIX MOBILE : Empêcher le scroll pendant le dessin
-    const { x, y } = getPosition(e);
-    const ctx = canvasRef.current!.getContext("2d")!;
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    setIsDrawing(true);
-  };
-
-  const draw = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!isDrawing) return;
-    e.preventDefault(); // 🔧 FIX MOBILE : Empêcher le scroll pendant le dessin
-    const { x, y } = getPosition(e);
-    const ctx = canvasRef.current!.getContext("2d")!;
-    ctx.lineTo(x, y);
-    ctx.stroke();
-  };
-
-  const stopDrawing = (e: React.TouchEvent | React.MouseEvent) => {
-    if ("touches" in e) {
-      e.preventDefault(); // 🔧 FIX MOBILE : Empêcher le scroll après le dessin
-    }
-    setIsDrawing(false);
-  };
-
-  const clearCanvas = () => {
-    const canvas = canvasRef.current!;
-    const ctx = canvas.getContext("2d")!;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-  };
-
-  const handleSave = () => {
-    let dataUrl = "";
-    if (activeTab === "draw" && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const context = canvas.getContext("2d");
-      if (context) {
-        const pixelBuffer = new Uint32Array(
-          context.getImageData(0, 0, canvas.width, canvas.height).data.buffer
-        );
-        if (!pixelBuffer.some((color) => color !== 0)) {
-          addToast(
-            "Veuillez dessiner votre signature avant de l'appliquer.",
-            "info"
-          );
-          return;
-        }
-      }
-      dataUrl = canvas.toDataURL("image/png");
-    } else if (activeTab === "type") {
-      if (!typedName.trim()) {
-        addToast("Veuillez taper votre nom pour créer une signature.", "info");
-        return;
-      }
-      const tempCanvas = document.createElement("canvas");
-      tempCanvas.width = 400;
-      tempCanvas.height = 100;
-      const ctx = tempCanvas.getContext("2d")!;
-      ctx.font = '48px "Caveat", cursive';
-      ctx.fillStyle = strokeColor;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(
-        typedName.trim(),
-        tempCanvas.width / 2,
-        tempCanvas.height / 2
-      );
-      dataUrl = tempCanvas.toDataURL("image/png");
-    } else if (activeTab === "upload") {
-      if (!uploadedImage) {
-        addToast("Veuillez téléverser une image pour votre signature.", "info");
-        return;
-      }
-      dataUrl = uploadedImage;
-    }
-    if (dataUrl) onSave(dataUrl);
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && (file.type === "image/png" || file.type === "image/jpeg")) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setUploadedImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    } else if (file) {
-      addToast(
-        "Veuillez téléverser un fichier image valide (PNG ou JPG).",
-        "error"
-      );
-    }
-  };
-
-  const tabClasses = (tabName: "draw" | "type" | "upload") =>
-    `px-4 py-2 text-sm font-semibold rounded-full transition-colors w-full ${
-      activeTab === tabName
-        ? "bg-primaryContainer text-onPrimaryContainer"
-        : "hover:bg-surfaceVariant"
-    }`;
-
-  return (
-    <div
-      className="fixed inset-0 bg-scrim/50 flex items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto modal-backdrop"
-      onClick={onCancel}
-    >
-      <div
-        className="bg-surface rounded-3xl shadow-xl w-full max-w-lg p-4 sm:p-6 my-auto max-h-[95vh] overflow-y-auto modal-content"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg sm:text-xl font-bold text-onSurface">
-            Créer une signature
-          </h2>
-          <button
-            onClick={onCancel}
-            className="p-1 rounded-full hover:bg-surfaceVariant"
-            aria-label="Fermer"
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        <div className="flex space-x-1 sm:space-x-2 bg-surfaceVariant p-1 rounded-full mb-4">
-          <button
-            className={tabClasses("draw")}
-            onClick={() => setActiveTab("draw")}
-          >
-            Dessiner
-          </button>
-          <button
-            className={tabClasses("type")}
-            onClick={() => setActiveTab("type")}
-          >
-            Taper
-          </button>
-          <button
-            className={tabClasses("upload")}
-            onClick={() => setActiveTab("upload")}
-          >
-            Importer
-          </button>
-        </div>
-
-        <div className="bg-surfaceVariant/50 rounded-2xl p-2">
-          {activeTab === "draw" && (
-            <div className="space-y-3">
-              {/* Message d'aide */}
-              <div>
-                <p className="text-xs text-onSurfaceVariant text-center">
-                  ✍️ Dessinez votre signature avec précision. Utilisez un stylet
-                  ou votre doigt pour un meilleur résultat.
-                </p>
-              </div>
-              {/* Canvas pour dessiner */}
-              <canvas
-                ref={canvasRef}
-                className="bg-white rounded-xl cursor-crosshair w-full border-2 border-primary/30 touch-none shadow-inner max-w-full"
-                style={{
-                  touchAction: "none",
-                  height: "320px",
-                  display: "block",
-                }}
-                onMouseDown={startDrawing}
-                onMouseMove={draw}
-                onMouseUp={stopDrawing}
-                onMouseLeave={stopDrawing}
-                onTouchStart={startDrawing}
-                onTouchMove={draw}
-                onTouchEnd={stopDrawing}
-              />
-            </div>
-          )}
-          {activeTab === "type" && (
-            <div className="h-[280px] flex flex-col items-center justify-center bg-white rounded-xl p-4 gap-2">
-              <label className="text-xs font-semibold text-onSurfaceVariant">
-                Taille:
-              </label>
-              <input
-                type="range"
-                min="0.8"
-                max="1.4"
-                step="0.1"
-                value={scale}
-                onChange={(e) => setScale(parseFloat(e.target.value))}
-                className="w-32"
-              />
-              <span className="text-xs text-onSurfaceVariant font-medium mb-2">
-                {Math.round(scale * 100)}%
-              </span>
-              <input
-                type="text"
-                value={typedName}
-                onChange={(e) => setTypedName(e.target.value)}
-                className="text-6xl font-['Caveat',_cursive] text-center w-full bg-transparent outline-none border-b-2 border-solid border-outline focus:border-primary transition-colors"
-                style={{
-                  transform: `scale(${scale})`,
-                  transformOrigin: "center",
-                  fontSize: `${48 * scale}px`,
-                }}
-                placeholder="Tapez votre nom"
-              />
-            </div>
-          )}
-          {activeTab === "upload" && (
-            <div className="h-[280px] flex flex-col items-center justify-center bg-white rounded-xl p-4 gap-3">
-              {uploadedImage ? (
-                <>
-                  <label className="text-xs font-semibold text-onSurfaceVariant">
-                    Taille:
-                  </label>
-                  <input
-                    type="range"
-                    min="0.8"
-                    max="1.4"
-                    step="0.1"
-                    value={scale}
-                    onChange={(e) => setScale(parseFloat(e.target.value))}
-                    className="w-32"
-                  />
-                  <span className="text-xs text-onSurfaceVariant font-medium">
-                    {Math.round(scale * 100)}%
-                  </span>
-                  <img
-                    src={uploadedImage}
-                    alt="Aperçu de la signature"
-                    className="max-h-40 object-contain border border-outlineVariant/50 rounded-lg p-1"
-                    style={{
-                      transform: `scale(${scale})`,
-                      transformOrigin: "center",
-                    }}
-                  />
-                  <Button
-                    variant="text"
-                    onClick={() => setUploadedImage(null)}
-                    className="mt-1"
-                  >
-                    Changer l'image
-                  </Button>
-                </>
-              ) : (
-                <label className="cursor-pointer text-center w-full h-full flex flex-col items-center justify-center border-2 border-dashed border-outlineVariant rounded-lg hover:bg-surfaceVariant transition-colors">
-                  <Upload
-                    size={40}
-                    className="mx-auto text-onSurfaceVariant mb-2"
-                  />
-                  <span className="text-primary font-semibold">
-                    Cliquez pour téléverser
-                  </span>
-                  <p className="text-xs text-onSurfaceVariant mt-1">
-                    Fichier PNG ou JPG
-                  </p>
-                  <input
-                    type="file"
-                    className="sr-only"
-                    accept="image/png, image/jpeg"
-                    onChange={handleFileUpload}
-                  />
-                </label>
-              )}
-            </div>
-          )}
-        </div>
-
-        {activeTab === "draw" && (
-          <div className="mt-4 flex flex-col gap-3">
-            <div className="flex items-center justify-center flex-wrap gap-2">
-              <span className="text-sm font-medium text-onSurfaceVariant hidden sm:inline">
-                Couleur :
-              </span>
-              {signatureColors.map(({ name, color }) => (
-                <button
-                  key={name}
-                  title={name}
-                  onClick={() => setStrokeColor(color)}
-                  className={`h-8 w-8 rounded-full transition-all duration-200 flex-shrink-0 ${
-                    strokeColor === color
-                      ? "ring-2 ring-offset-2 ring-offset-surface ring-primary"
-                      : ""
-                  }`}
-                  style={{ backgroundColor: color }}
-                />
-              ))}
-            </div>
-            <div className="flex items-center justify-center flex-wrap gap-2">
-              <span className="text-sm font-medium text-onSurfaceVariant">
-                Épaisseur :
-              </span>
-              {signatureWidths.map(({ name, width }) => (
-                <button
-                  key={name}
-                  title={name}
-                  onClick={() => setLineWidth(width)}
-                  className={`p-2 rounded-lg transition-colors flex-shrink-0 ${
-                    lineWidth === width
-                      ? "bg-primaryContainer"
-                      : "hover:bg-surfaceVariant"
-                  }`}
-                >
-                  <div className="h-4 w-6 flex items-center justify-center">
-                    <div
-                      className="bg-onSurface rounded-full"
-                      style={{ height: `${width}px`, width: "100%" }}
-                    ></div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 mt-6">
-          <div className="flex-shrink-0">
-            {activeTab === "draw" && (
-              <Button
-                variant="text"
-                onClick={clearCanvas}
-                className="w-full sm:w-auto"
-              >
-                Effacer
-              </Button>
-            )}
-          </div>
-          <div className="flex gap-3 flex-wrap sm:flex-nowrap">
-            <Button
-              variant="text"
-              onClick={onCancel}
-              className="flex-1 sm:flex-initial"
-            >
-              Annuler
-            </Button>
-            <button
-              onClick={handleSave}
-              className="btn-premium-shine btn-premium-extended h-11 text-sm focus:outline-none focus:ring-4 focus:ring-primary/30 flex-1 sm:flex-initial inline-flex items-center justify-center"
-            >
-              <span className="hidden sm:inline">Appliquer la signature</span>
-              <span className="sm:hidden">Appliquer</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
+const SignaturePad = SignaturePadUnified;
 
 // Main Page Component
 const SignDocumentPage: React.FC = () => {
@@ -585,6 +170,12 @@ const SignDocumentPage: React.FC = () => {
   const [signerName, setSignerName] = useState("");
   const [alreadySigned, setAlreadySigned] = useState(false);
   const [readOnly, setReadOnly] = useState(location.state?.readOnly === true);
+  const [applyToAllInitials, setApplyToAllInitials] = useState(false);
+  const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
+  const [showTextOptions, setShowTextOptions] = useState(false);
+  const [textFieldOptions, setTextFieldOptions] = useState<{
+    [key: string]: { fontSize: number; lineHeight: number; wordWrap: boolean };
+  }>({});
   const [autoAuthAttempted, setAutoAuthAttempted] = useState(false);
   // 📱 Zoom adaptatif : 50% sur mobile, 100% sur desktop
   const getInitialZoom = () => {
@@ -828,6 +419,68 @@ const SignDocumentPage: React.FC = () => {
     pageRefs.current = pageRefs.current.slice(0, pdf?.numPages || 0);
   }, [pdf]);
 
+  // Recalculer la taille des champs texte quand les options changent
+  useEffect(() => {
+    if (!envelope) return;
+    
+    envelope.fields
+      .filter((f) => f.type === FieldType.TEXT && fieldValues[f.id])
+      .forEach((field) => {
+        const textValue = fieldValues[field.id] as string;
+        const textOptions = textFieldOptions[field.id] || {
+          fontSize: field.textOptions?.fontSize || 12,
+          lineHeight: field.textOptions?.lineHeight || 1.3,
+          wordWrap: field.textOptions?.wordWrap !== false,
+        };
+        
+        setTimeout(() => {
+          const measureEl = document.createElement("div");
+          measureEl.style.position = "absolute";
+          measureEl.style.visibility = "hidden";
+          measureEl.style.whiteSpace = textOptions.wordWrap ? "pre-wrap" : "nowrap";
+          measureEl.style.fontSize = `${textOptions.fontSize}px`;
+          measureEl.style.fontFamily = getComputedStyle(document.body).fontFamily;
+          measureEl.style.lineHeight = `${textOptions.lineHeight}`;
+          measureEl.style.padding = "8px";
+          measureEl.style.width = textOptions.wordWrap 
+            ? `${fieldDimensions[field.id]?.width || field.width || 200}px` 
+            : "auto";
+          measureEl.style.maxWidth = "500px";
+          measureEl.textContent = textValue;
+          document.body.appendChild(measureEl);
+          
+          const measuredWidth = measureEl.scrollWidth;
+          const measuredHeight = measureEl.scrollHeight;
+          document.body.removeChild(measureEl);
+          
+          const currentDims = fieldDimensions[field.id];
+          const baseWidth = currentDims?.width || field.width || 200;
+          const baseHeight = currentDims?.height || field.height || 50;
+          
+          let newWidth = baseWidth;
+          let newHeight = baseHeight;
+          
+          if (textOptions.wordWrap) {
+            newHeight = Math.max(50, measuredHeight + 16);
+          } else {
+            newWidth = Math.max(200, Math.min(measuredWidth + 16, 500));
+            newHeight = Math.max(50, measuredHeight + 16);
+          }
+          
+          setFieldDimensions((prev) => ({
+            ...prev,
+            [field.id]: {
+              ...prev[field.id],
+              width: newWidth,
+              height: newHeight,
+              x: prev[field.id]?.x ?? field.x,
+              y: prev[field.id]?.y ?? field.y,
+            },
+          }));
+        }, 10);
+      });
+  }, [textFieldOptions, envelope, fieldValues]);
+
   // 📱 Ajuster le zoom lors du redimensionnement de la fenêtre (changement d'orientation sur mobile)
   useEffect(() => {
     const handleResize = () => {
@@ -1008,12 +661,97 @@ const SignDocumentPage: React.FC = () => {
 
   const handleFieldChange = (fieldId: string, value: string | boolean) => {
     setFieldValues((prev) => ({ ...prev, [fieldId]: value }));
+    
+    // Auto-ajuster la taille pour les champs texte
+    const field = envelope?.fields.find((f) => f.id === fieldId);
+    if (field && field.type === FieldType.TEXT && typeof value === "string") {
+      const textOptions = textFieldOptions[fieldId] || {
+        fontSize: field.textOptions?.fontSize || 12,
+        lineHeight: field.textOptions?.lineHeight || 1.3,
+        wordWrap: field.textOptions?.wordWrap !== false,
+      };
+      
+      // Auto-ajuster la taille basée sur le contenu
+      setTimeout(() => {
+        const measureEl = document.createElement("div");
+        measureEl.style.position = "absolute";
+        measureEl.style.visibility = "hidden";
+        measureEl.style.whiteSpace = textOptions.wordWrap ? "pre-wrap" : "nowrap";
+        measureEl.style.fontSize = `${textOptions.fontSize}px`;
+        measureEl.style.fontFamily = getComputedStyle(document.body).fontFamily;
+        measureEl.style.lineHeight = `${textOptions.lineHeight}`;
+        measureEl.style.padding = "8px";
+        measureEl.style.width = textOptions.wordWrap 
+          ? `${fieldDimensions[fieldId]?.width || field.width || 200}px` 
+          : "auto";
+        measureEl.style.maxWidth = "500px";
+        measureEl.textContent = value;
+        document.body.appendChild(measureEl);
+        
+        const measuredWidth = measureEl.scrollWidth;
+        const measuredHeight = measureEl.scrollHeight;
+        document.body.removeChild(measureEl);
+        
+        const currentDims = fieldDimensions[fieldId];
+        const baseWidth = currentDims?.width || field.width || 200;
+        const baseHeight = currentDims?.height || field.height || 50;
+        
+        // Calculer les nouvelles dimensions
+        let newWidth = baseWidth;
+        let newHeight = baseHeight;
+        
+        if (textOptions.wordWrap) {
+          // Avec retour à la ligne : garder la largeur, ajuster la hauteur
+          newHeight = Math.max(50, measuredHeight + 16);
+        } else {
+          // Sans retour à la ligne : ajuster la largeur, garder la hauteur minimale
+          newWidth = Math.max(200, Math.min(measuredWidth + 16, 500));
+          newHeight = Math.max(50, measuredHeight + 16);
+        }
+        
+        setFieldDimensions((prev) => ({
+          ...prev,
+          [fieldId]: {
+            ...prev[fieldId],
+            width: newWidth,
+            height: newHeight,
+            x: prev[fieldId]?.x ?? field.x,
+            y: prev[fieldId]?.y ?? field.y,
+          },
+        }));
+      }, 10);
+    }
   };
 
   const handleSaveSignature = (dataUrl: string) => {
     if (activeField) {
-      handleFieldChange(activeField.id, dataUrl);
+      // Si c'est une initiale et que la checkbox est cochée, appliquer à tous les champs INITIAL vides
+      if (
+        applyToAllInitials &&
+        (activeField.type === FieldType.INITIAL ||
+          (activeField.type === FieldType.SIGNATURE &&
+            activeField.signatureSubType === 'initial'))
+      ) {
+        const initialFields = envelope?.fields.filter(
+          (f) =>
+            f.recipientId === currentSignerId &&
+            (f.type === FieldType.INITIAL ||
+              (f.type === FieldType.SIGNATURE && f.signatureSubType === 'initial')) &&
+            !fieldValues[f.id]
+        ) || [];
+        
+        // Appliquer la signature à tous les champs INITIAL vides
+        const newFieldValues = { ...fieldValues };
+        initialFields.forEach((field) => {
+          newFieldValues[field.id] = dataUrl;
+        });
+        setFieldValues(newFieldValues);
+      } else {
+        // Sinon, appliquer seulement au champ actif
+        handleFieldChange(activeField.id, dataUrl);
+      }
     }
+    setApplyToAllInitials(false);
     setActiveField(null);
   };
 
@@ -2000,75 +1738,112 @@ const SignDocumentPage: React.FC = () => {
         );
       case FieldType.DATE:
         return (
-          <div style={baseStyle} className="group">
-            <FieldTooltip field={field} recipientName={recipientName} />
-            <DraggableField
-              field={field}
-              isCurrentSignerField={isCurrentSignerField}
-              onFieldClick={handleDateClick}
-            >
-              <div
-                style={{ ...fieldWrapperStyle, width: "100%", height: "100%" }}
-                className={`${interactiveClasses} flex items-center justify-center`}
-              >
-                {value ? (
-                  <span className="text-sm font-semibold pointer-events-none">
-                    {String(value)}
-                  </span>
-                ) : (
-                  <span className="text-sm font-semibold text-primary pointer-events-none">
-                    <Calendar className="inline-block h-4 w-4 mr-1" />
-                    Ajouter la date
-                  </span>
-                )}
-              </div>
-            </DraggableField>
-          </div>
+          <DraggableFieldUnified
+            id={field.id}
+            x={x}
+            y={y}
+            width={width}
+            height={height}
+            zoomLevel={zoomLevel}
+            onUpdate={(id, updates) => {
+              setFieldDimensions((prev) => ({
+                ...prev,
+                [id]: {
+                  ...prev[id],
+                  x: updates.x ?? prev[id]?.x ?? field.x,
+                  y: updates.y ?? prev[id]?.y ?? field.y,
+                  width: updates.width ?? prev[id]?.width ?? width,
+                  height: updates.height ?? prev[id]?.height ?? height,
+                },
+              }));
+            }}
+            maxWidth={pageDimensions[field.page - 1]?.width || 600}
+            maxHeight={pageDimensions[field.page - 1]?.height || 800}
+            isSelected={selectedFieldId === field.id}
+            onSelect={() => {
+              if (!readOnly && isCurrentSignerField) {
+                setSelectedFieldId(field.id);
+                if (!hasDragged) {
+                  handleDateClick(field.id);
+                }
+              }
+            }}
+          >
+            <div className="w-full h-full bg-surface rounded-md border border-outlineVariant flex items-center justify-center">
+              {value ? (
+                <span className="text-sm font-semibold text-onSurface pointer-events-none">
+                  {String(value)}
+                </span>
+              ) : (
+                <span className="text-sm font-semibold text-primary pointer-events-none flex items-center gap-1">
+                  <Calendar className="h-4 w-4" />
+                  Ajouter la date
+                </span>
+              )}
+            </div>
+          </DraggableFieldUnified>
         );
       case FieldType.TEXT:
+        const textValue = (value as string) || "";
+        const textOptions = textFieldOptions[field.id] || {
+          fontSize: field.textOptions?.fontSize || 12,
+          lineHeight: field.textOptions?.lineHeight || 1.3,
+          wordWrap: field.textOptions?.wordWrap !== false,
+        };
+        
+        // Utiliser les dimensions personnalisées ou les dimensions par défaut
+        const customDims = fieldDimensions[field.id];
+        const finalWidth = customDims?.width ?? width;
+        const finalHeight = customDims?.height ?? height;
+        
         return (
-          <div style={baseStyle} className="group">
-            <FieldTooltip field={field} recipientName={recipientName} />
-            <div
-              className="w-full h-full flex flex-col"
-              style={{
-                border: `2px solid ${
-                  isCurrentActiveField
-                    ? "var(--md-sys-color-tertiary)"
-                    : "var(--md-sys-color-primary)"
-                }`,
-                borderRadius: "8px",
-                backgroundColor: "var(--md-sys-color-surface)",
-              }}
-            >
-              {/* Barre de déplacement avec gestes tactiles */}
-              {isCurrentSignerField && !readOnly && (
-                <DraggableField
-                  field={field}
-                  isCurrentSignerField={isCurrentSignerField}
+          <DraggableFieldUnified
+            id={field.id}
+            x={x}
+            y={y}
+            width={finalWidth}
+            height={finalHeight}
+            zoomLevel={zoomLevel}
+            onUpdate={(id, updates) => {
+              setFieldDimensions((prev) => ({
+                ...prev,
+                [id]: {
+                  ...prev[id],
+                  x: updates.x ?? prev[id]?.x ?? field.x,
+                  y: updates.y ?? prev[id]?.y ?? field.y,
+                  width: updates.width ?? prev[id]?.width ?? finalWidth,
+                  height: updates.height ?? prev[id]?.height ?? finalHeight,
+                },
+              }));
+            }}
+            maxWidth={pageDimensions[field.page - 1]?.width || 600}
+            maxHeight={pageDimensions[field.page - 1]?.height || 800}
+            isSelected={selectedFieldId === field.id}
+            onSelect={() => {
+              if (!readOnly && isCurrentSignerField) {
+                setSelectedFieldId(field.id);
+              }
+            }}
+          >
+            <div className="w-full h-full bg-surface rounded-md border border-outlineVariant flex flex-col relative">
+              {/* Bouton options - visible seulement si sélectionné */}
+              {isCurrentSignerField && !readOnly && selectedFieldId === field.id && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowTextOptions(true);
+                  }}
+                  className="absolute -top-2 -right-2 bg-primary text-onPrimary rounded-full p-1.5 z-10 shadow-lg"
+                  title="Options de mise en page"
                 >
-                  <div
-                    className="flex items-center justify-center cursor-move bg-primary/10 hover:bg-primary/20 transition-colors"
-                    style={{
-                      height: "24px",
-                      borderTopLeftRadius: "6px",
-                      borderTopRightRadius: "6px",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <div className="flex gap-1">
-                      <div className="w-1 h-1 rounded-full bg-primary/40"></div>
-                      <div className="w-1 h-1 rounded-full bg-primary/40"></div>
-                      <div className="w-1 h-1 rounded-full bg-primary/40"></div>
-                    </div>
-                  </div>
-                </DraggableField>
+                  <Settings className="h-3.5 w-3.5" />
+                </button>
               )}
-
+              
               <textarea
-                value={(value as string) || ""}
+                value={textValue}
                 onChange={(e) => {
-                  const newValue = e.target.value.slice(0, 150); // Limite à 150 caractères
+                  const newValue = e.target.value;
                   handleFieldChange(field.id, newValue);
                 }}
                 ref={(el) => {
@@ -2078,93 +1853,277 @@ const SignDocumentPage: React.FC = () => {
                 }}
                 style={{
                   width: "100%",
-                  flex: 1,
+                  height: "100%",
                   border: "none",
-                  borderBottomLeftRadius: "6px",
-                  borderBottomRightRadius: "6px",
-                  borderTopLeftRadius:
-                    isCurrentSignerField && !readOnly ? "0" : "6px",
-                  borderTopRightRadius:
-                    isCurrentSignerField && !readOnly ? "0" : "6px",
-                  padding: "4px 8px",
-                  fontSize: "12px",
+                  borderRadius: "6px",
+                  padding: "8px",
+                  fontSize: `${textOptions.fontSize}px`,
                   backgroundColor: "transparent",
                   resize: "none",
                   fontFamily: "inherit",
-                  lineHeight: "1.3",
-                  overflow: "auto",
-                  wordWrap: "break-word",
-                  whiteSpace: "pre-wrap",
+                  lineHeight: textOptions.lineHeight,
+                  overflow: textOptions.wordWrap ? "auto" : "hidden",
+                  wordWrap: textOptions.wordWrap ? "break-word" : "normal",
+                  whiteSpace: textOptions.wordWrap ? "pre-wrap" : "nowrap",
                   outline: "none",
+                  textOverflow: textOptions.wordWrap ? "clip" : "ellipsis",
                 }}
                 placeholder="Écrivez ici..."
                 readOnly={readOnly || !isCurrentSignerField}
                 onFocus={() => setCurrentFieldIndex(fieldIndexInSignable)}
-                maxLength={150}
               />
             </div>
-            {isCurrentSignerField && !readOnly && (
-              <div
-                onMouseDown={(e) => handleResizeMouseDown(e, field.id, field)}
-                onTouchStart={(e) => handleResizeMouseDown(e, field.id, field)}
-                className="absolute bottom-0 right-0 w-5 h-5 bg-primary cursor-nwse-resize rounded-tl-lg opacity-0 group-hover:opacity-100 transition-opacity touch-none flex items-center justify-center"
-                style={{ transform: "translate(50%, 50%)" }}
-                aria-label="Redimensionner le champ"
-                title="Glissez pour redimensionner"
-              >
-                <div className="text-white text-xs font-bold leading-none">
-                  ⤢
-                </div>
-              </div>
-            )}
-          </div>
+          </DraggableFieldUnified>
         );
       case FieldType.CHECKBOX:
         return (
-          <div style={baseStyle} className="group">
-            <FieldTooltip field={field} recipientName={recipientName} />
-            <DraggableField
-              field={field}
-              isCurrentSignerField={isCurrentSignerField}
-            >
-              <div className="flex items-center justify-center w-full h-full">
-                <label
-                  className={`${
-                    readOnly || !isCurrentSignerField ? "" : "cursor-pointer"
-                  } pointer-events-none`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={!!value}
-                    onChange={(e) =>
-                      handleFieldChange(field.id, e.target.checked)
-                    }
-                    className="accent-primary pointer-events-auto"
-                    style={{
-                      width: `${Math.min(width * 0.7, 40) * zoomLevel}px`,
-                      height: `${Math.min(height * 0.7, 40) * zoomLevel}px`,
-                    }}
-                    disabled={readOnly || !isCurrentSignerField}
-                  />
-                </label>
-              </div>
-            </DraggableField>
-          </div>
+          <DraggableFieldUnified
+            id={field.id}
+            x={x}
+            y={y}
+            width={width}
+            height={height}
+            zoomLevel={zoomLevel}
+            onUpdate={(id, updates) => {
+              setFieldDimensions((prev) => ({
+                ...prev,
+                [id]: {
+                  ...prev[id],
+                  x: updates.x ?? prev[id]?.x ?? field.x,
+                  y: updates.y ?? prev[id]?.y ?? field.y,
+                  width: updates.width ?? prev[id]?.width ?? width,
+                  height: updates.height ?? prev[id]?.height ?? height,
+                },
+              }));
+            }}
+            maxWidth={pageDimensions[field.page - 1]?.width || 600}
+            maxHeight={pageDimensions[field.page - 1]?.height || 800}
+            isSelected={selectedFieldId === field.id}
+            onSelect={() => {
+              if (!readOnly && isCurrentSignerField) {
+                setSelectedFieldId(field.id);
+              }
+            }}
+          >
+            <div className="w-full h-full bg-surface rounded-md border border-outlineVariant flex items-center justify-center">
+              <label
+                className={`${
+                  readOnly || !isCurrentSignerField ? "" : "cursor-pointer"
+                } pointer-events-none`}
+              >
+                <input
+                  type="checkbox"
+                  checked={!!value}
+                  onChange={(e) =>
+                    handleFieldChange(field.id, e.target.checked)
+                  }
+                  className="accent-primary pointer-events-auto"
+                  style={{
+                    width: `${Math.min(width * 0.7, 40) * zoomLevel}px`,
+                    height: `${Math.min(height * 0.7, 40) * zoomLevel}px`,
+                  }}
+                  disabled={readOnly || !isCurrentSignerField}
+                />
+              </label>
+            </div>
+          </DraggableFieldUnified>
         );
       default:
         return null;
     }
   };
 
+  // Calculer si on doit afficher la checkbox "Appliquer à toutes les initiales"
+  const shouldShowApplyToAllInitials = activeField && 
+    (activeField.type === FieldType.INITIAL ||
+      (activeField.type === FieldType.SIGNATURE && activeField.signatureSubType === 'initial')) &&
+    envelope &&
+    currentSignerId &&
+    envelope.fields.filter(
+      (f) =>
+        f.recipientId === currentSignerId &&
+        (f.type === FieldType.INITIAL ||
+          (f.type === FieldType.SIGNATURE && f.signatureSubType === 'initial')) &&
+        !fieldValues[f.id]
+    ).length >= 2;
+
+  // Obtenir le champ texte actuel pour les options
+  const currentTextField = selectedFieldId
+    ? envelope?.fields.find((f) => f.id === selectedFieldId && f.type === FieldType.TEXT)
+    : null;
+  const currentTextOptions = currentTextField
+    ? textFieldOptions[currentTextField.id] || {
+        fontSize: currentTextField.textOptions?.fontSize || 12,
+        lineHeight: currentTextField.textOptions?.lineHeight || 1.3,
+        wordWrap: currentTextField.textOptions?.wordWrap !== false,
+      }
+    : null;
+
   return (
     <>
       {activeField && (
-        <SignaturePad
-          onSave={handleSaveSignature}
-          onCancel={() => setActiveField(null)}
-          signerName={signerName}
-        />
+        <>
+          {/* Checkbox "Appliquer à toutes les initiales" - affichée seulement si >= 2 champs INITIAL vides */}
+          {shouldShowApplyToAllInitials && (
+            <div className="fixed inset-0 bg-scrim/50 flex items-end justify-center z-[45] p-2 sm:p-4 pointer-events-none">
+              <div
+                className="bg-surface rounded-2xl shadow-xl p-4 sm:p-6 max-w-md w-full mb-4 pointer-events-auto"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={applyToAllInitials}
+                    onChange={(e) => setApplyToAllInitials(e.target.checked)}
+                    className="w-5 h-5 accent-primary"
+                  />
+                  <span className="text-sm font-medium text-onSurface">
+                    Appliquer cette initiale à tous les champs d'initiales vides
+                  </span>
+                </label>
+              </div>
+            </div>
+          )}
+          <SignaturePad
+            onSave={handleSaveSignature}
+            onCancel={() => {
+              setApplyToAllInitials(false);
+              setActiveField(null);
+            }}
+            signerName={signerName}
+            initialTab={
+              activeField.type === FieldType.SIGNATURE && activeField.signatureSubType === 'initial'
+                ? 'draw' // Paraphe = dessin, pas écriture
+                : activeField.type === FieldType.INITIAL
+                ? 'type'
+                : 'draw'
+            }
+          />
+        </>
       )}
+      
+      {/* Modal Options de mise en page pour le texte */}
+      {showTextOptions && currentTextField && currentTextOptions && (
+        <div
+          className="fixed inset-0 bg-scrim/50 flex items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto modal-backdrop"
+          onClick={() => setShowTextOptions(false)}
+        >
+          <div
+            className="bg-surface rounded-3xl shadow-xl w-full max-w-md p-4 sm:p-6 my-auto max-h-[95vh] overflow-y-auto modal-content"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg sm:text-xl font-bold text-onSurface">
+                Options de mise en page
+              </h2>
+              <button
+                onClick={() => setShowTextOptions(false)}
+                className="p-1 rounded-full hover:bg-surfaceVariant"
+                aria-label="Fermer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Taille de caractère */}
+              <div>
+                <label className="text-sm font-medium text-onSurfaceVariant mb-2 block">
+                  Taille de caractère: {currentTextOptions.fontSize}px
+                </label>
+                <input
+                  type="range"
+                  min="8"
+                  max="24"
+                  step="1"
+                  value={currentTextOptions.fontSize}
+                  onChange={(e) => {
+                    setTextFieldOptions((prev) => ({
+                      ...prev,
+                      [currentTextField.id]: {
+                        ...prev[currentTextField.id],
+                        fontSize: parseInt(e.target.value, 10),
+                        lineHeight: prev[currentTextField.id]?.lineHeight || 1.3,
+                        wordWrap: prev[currentTextField.id]?.wordWrap !== false,
+                      },
+                    }));
+                  }}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-onSurfaceVariant mt-1">
+                  <span>8px</span>
+                  <span>24px</span>
+                </div>
+              </div>
+
+              {/* Hauteur de ligne */}
+              <div>
+                <label className="text-sm font-medium text-onSurfaceVariant mb-2 block">
+                  Hauteur de ligne: {currentTextOptions.lineHeight.toFixed(1)}
+                </label>
+                <input
+                  type="range"
+                  min="1"
+                  max="2"
+                  step="0.1"
+                  value={currentTextOptions.lineHeight}
+                  onChange={(e) => {
+                    setTextFieldOptions((prev) => ({
+                      ...prev,
+                      [currentTextField.id]: {
+                        ...prev[currentTextField.id],
+                        fontSize: prev[currentTextField.id]?.fontSize || 12,
+                        lineHeight: parseFloat(e.target.value),
+                        wordWrap: prev[currentTextField.id]?.wordWrap !== false,
+                      },
+                    }));
+                  }}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-onSurfaceVariant mt-1">
+                  <span>1.0</span>
+                  <span>2.0</span>
+                </div>
+              </div>
+
+              {/* Retour à la ligne */}
+              <div>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={currentTextOptions.wordWrap}
+                    onChange={(e) => {
+                      setTextFieldOptions((prev) => ({
+                        ...prev,
+                        [currentTextField.id]: {
+                          ...prev[currentTextField.id],
+                          fontSize: prev[currentTextField.id]?.fontSize || 12,
+                          lineHeight: prev[currentTextField.id]?.lineHeight || 1.3,
+                          wordWrap: e.target.checked,
+                        },
+                      }));
+                    }}
+                    className="w-5 h-5 accent-primary"
+                  />
+                  <span className="text-sm font-medium text-onSurface">
+                    Retour à la ligne automatique
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <Button
+                variant="text"
+                onClick={() => setShowTextOptions(false)}
+              >
+                Fermer
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {isRejectModalOpen && (
         <RejectModal
           onConfirm={handleReject}
@@ -2325,6 +2284,12 @@ const SignDocumentPage: React.FC = () => {
       <div
         ref={viewerRef}
         className="bg-surfaceVariant/30 p-4 min-h-[calc(100vh-140px)] relative pb-28 overflow-y-auto"
+        onClick={() => {
+          // Désélectionner le champ quand on clique sur le viewer
+          if (!readOnly) {
+            setSelectedFieldId(null);
+          }
+        }}
       >
         <div className="overflow-x-auto">
           {Array.from(new Array(pdf.numPages), (_, index) => (

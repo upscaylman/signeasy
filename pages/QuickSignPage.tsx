@@ -5,7 +5,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Button from "../components/Button";
 import DraggableSignature from "../components/DraggableSignature";
-import SignaturePad from "../components/SignaturePad";
+import SignaturePadUnified from "../components/SignaturePadUnified";
 import { useToast } from "../components/Toast";
 import { useUser } from "../components/UserContext";
 import { convertWordToPdf, isWordFile } from "../utils/wordToPdf";
@@ -47,7 +47,11 @@ const QuickSignPage: React.FC = () => {
   const [pageDimensions, setPageDimensions] = useState<
     { width: number; height: number }[]
   >([]);
-  const [zoomLevel, setZoomLevel] = useState(1.0);
+  // 📱 Zoom adaptatif : 50% sur mobile, 100% sur desktop
+  const getInitialZoom = () => {
+    return window.innerWidth < 768 ? 0.5 : 1.0;
+  };
+  const [zoomLevel, setZoomLevel] = useState(getInitialZoom());
   const [isProcessing, setIsProcessing] = useState(false);
   const [signatures, setSignatures] = useState<SignaturePosition[]>([]);
   const [showSignaturePad, setShowSignaturePad] = useState(false);
@@ -158,21 +162,39 @@ const QuickSignPage: React.FC = () => {
   };
 
   const handleSaveSignature = (signatureData: string) => {
-    // Ajouter la signature sur la première page par défaut
+    if (!pdf || pageDimensions.length === 0) {
+      addToast("Veuillez d'abord charger un document", "error");
+      return;
+    }
+
+    // Détecter la dernière page
+    const lastPage = pdf.numPages;
+    const lastPageDimensions = pageDimensions[lastPage - 1];
+    
+    // Dimensions par défaut de la signature
+    const signatureWidth = 200;
+    const signatureHeight = 100;
+    
+    // Positionner en bas à droite de la dernière page
+    // x: largeur de la page - largeur signature - marge (20px)
+    // y: hauteur de la page - hauteur signature - marge (20px)
+    const x = lastPageDimensions.width - signatureWidth - 20;
+    const y = lastPageDimensions.height - signatureHeight - 20;
+
     const newSignature: SignaturePosition = {
       id: `sig-${Date.now()}`,
       signatureData,
-      page: 1,
-      x: 50,
-      y: 50,
-      width: 200,
-      height: 100,
+      page: lastPage,
+      x: Math.max(0, x), // S'assurer que x n'est pas négatif
+      y: Math.max(0, y), // S'assurer que y n'est pas négatif
+      width: signatureWidth,
+      height: signatureHeight,
     };
 
     setSignatures([...signatures, newSignature]);
     setShowSignaturePad(false);
     addToast(
-      "Signature ajoutée - Déplacez-la avec votre doigt ou la souris",
+      "Signature ajoutée sur la dernière page - Déplacez-la avec votre doigt ou la souris",
       "success"
     );
   };
@@ -184,7 +206,13 @@ const QuickSignPage: React.FC = () => {
 
   const handleSignatureUpdate = (
     id: string,
-    updates: { x?: number; y?: number; width?: number; height?: number }
+    updates: { 
+      x?: number; 
+      y?: number; 
+      width?: number; 
+      height?: number;
+      page?: number;
+    }
   ) => {
     setSignatures((prev) =>
       prev.map((sig) =>
@@ -346,6 +374,11 @@ const QuickSignPage: React.FC = () => {
                               width={sig.width}
                               height={sig.height}
                               zoomLevel={zoomLevel}
+                              currentPage={sig.page}
+                              totalPages={pdf.numPages}
+                              pageDimensions={pageDimensions}
+                              pageRefs={pageRefs}
+                              viewerRef={viewerRef}
                               onUpdate={handleSignatureUpdate}
                               onRemove={handleRemoveSignature}
                               maxWidth={
@@ -390,7 +423,7 @@ const QuickSignPage: React.FC = () => {
 
       {/* Signature Pad Modal */}
       {showSignaturePad && (
-        <SignaturePad
+        <SignaturePadUnified
           onSave={handleSaveSignature}
           onCancel={() => setShowSignaturePad(false)}
           signerName={currentUser?.email || "Utilisateur"}

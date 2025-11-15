@@ -265,13 +265,10 @@ const DashboardPage: React.FC = () => {
     };
 
     // S'abonner aux changements en temps réel des documents envoyés
-    const unsubscribeSent = subscribeToDocuments(
-      currentUser.email,
-      (docs) => {
-        sentDocs = docs;
-        updateUnifiedDocuments();
-      }
-    );
+    const unsubscribeSent = subscribeToDocuments(currentUser.email, (docs) => {
+      sentDocs = docs;
+      updateUnifiedDocuments();
+    });
 
     // S'abonner aux changements en temps réel des emails reçus
     const unsubscribeReceived = subscribeToEmails(
@@ -357,7 +354,10 @@ const DashboardPage: React.FC = () => {
   ];
 
   // Fonction pour adapter le label du statut selon le contexte
-  const getStatusLabel = (status: DocumentStatus, source?: "sent" | "received") => {
+  const getStatusLabel = (
+    status: DocumentStatus,
+    source?: "sent" | "received"
+  ) => {
     if (status === DocumentStatus.SENT && source === "received") {
       return "Reçus";
     }
@@ -515,10 +515,7 @@ const DashboardPage: React.FC = () => {
       );
 
       if (signedDocs.length === 0) {
-        addToast(
-          "Seuls les documents signés peuvent être archivés.",
-          "info"
-        );
+        addToast("Seuls les documents signés peuvent être archivés.", "info");
         return;
       }
 
@@ -536,9 +533,10 @@ const DashboardPage: React.FC = () => {
         await archiveDocuments(docIdsToArchive, true);
         setDocuments((prev) =>
           prev.map((doc) => {
-            const docId = doc.source === "received" && doc.id.startsWith("email-")
-              ? doc.id.substring(6)
-              : doc.id;
+            const docId =
+              doc.source === "received" && doc.id.startsWith("email-")
+                ? doc.id.substring(6)
+                : doc.id;
             return docIdsToArchive.includes(docId)
               ? { ...doc, archived: true }
               : doc;
@@ -1245,7 +1243,7 @@ const DashboardPage: React.FC = () => {
                     aria-label="Signature rapide"
                   >
                     <FileSignature className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0" />
-                    <span className="tracking-wide whitespace-nowrap">
+                    <span className="tracking-wide whitespace-nowrap ml-2">
                       Signature rapide
                     </span>
                   </button>

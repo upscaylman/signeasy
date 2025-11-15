@@ -10,9 +10,20 @@ interface DraggableSignatureProps {
   width: number;
   height: number;
   zoomLevel: number;
+  currentPage: number;
+  totalPages: number;
+  pageDimensions: { width: number; height: number }[];
+  pageRefs: React.MutableRefObject<(HTMLDivElement | null)[]>;
+  viewerRef: React.RefObject<HTMLDivElement>;
   onUpdate: (
     id: string,
-    updates: { x?: number; y?: number; width?: number; height?: number }
+    updates: { 
+      x?: number; 
+      y?: number; 
+      width?: number; 
+      height?: number;
+      page?: number;
+    }
   ) => void;
   onRemove: (id: string) => void;
   maxWidth: number;
@@ -27,6 +38,11 @@ const DraggableSignature: React.FC<DraggableSignatureProps> = ({
   width,
   height,
   zoomLevel,
+  currentPage,
+  totalPages,
+  pageDimensions,
+  pageRefs,
+  viewerRef,
   onUpdate,
   onRemove,
   maxWidth,
@@ -44,6 +60,69 @@ const DraggableSignature: React.FC<DraggableSignatureProps> = ({
     width: number;
     height: number;
   } | null>(null);
+
+  // Fonction pour détecter dans quelle page se trouve la signature basée sur sa position absolue
+  const detectPageFromPosition = (
+    sigX: number,
+    sigY: number,
+    currentSigPage: number
+  ): { page: number; newX: number; newY: number } => {
+    if (!viewerRef.current || !containerRef.current || pageRefs.current.length === 0) {
+      return { page: currentSigPage, newX: sigX, newY: sigY };
+    }
+
+    const viewerRect = viewerRef.current.getBoundingClientRect();
+    const signatureRect = containerRef.current.getBoundingClientRect();
+    const scrollTop = viewerRef.current.scrollTop;
+    
+    // Position du coin supérieur gauche de la signature par rapport au viewer (en pixels écran)
+    const signatureTopLeftScreenX = signatureRect.left - viewerRect.left;
+    const signatureTopLeftScreenY = signatureRect.top - viewerRect.top + scrollTop;
+    
+    // Position du centre de la signature pour la détection de page
+    const signatureCenterScreenX = signatureTopLeftScreenX + (signatureRect.width / 2);
+    const signatureCenterScreenY = signatureTopLeftScreenY + (signatureRect.height / 2);
+    
+    // Parcourir toutes les pages pour trouver dans laquelle se trouve le centre de la signature
+    for (let i = 0; i < totalPages; i++) {
+      const pageRef = pageRefs.current[i];
+      if (!pageRef) continue;
+      
+      const pageRect = pageRef.getBoundingClientRect();
+      const pageTop = pageRect.top - viewerRect.top + scrollTop;
+      const pageBottom = pageTop + (pageDimensions[i]?.height || 0) * zoomLevel;
+      const pageLeft = pageRect.left - viewerRect.left;
+      const pageRight = pageLeft + (pageDimensions[i]?.width || 0) * zoomLevel;
+      
+      // Vérifier si le centre de la signature est dans cette page
+      if (
+        signatureCenterScreenY >= pageTop &&
+        signatureCenterScreenY <= pageBottom &&
+        signatureCenterScreenX >= pageLeft &&
+        signatureCenterScreenX <= pageRight
+      ) {
+        // Calculer la position relative (coin supérieur gauche) dans cette nouvelle page
+        const newX = (signatureTopLeftScreenX - pageLeft) / zoomLevel;
+        const newY = (signatureTopLeftScreenY - pageTop) / zoomLevel;
+        
+        // Limiter aux bordures de la nouvelle page
+        const newPageWidth = pageDimensions[i]?.width || maxWidth;
+        const newPageHeight = pageDimensions[i]?.height || maxHeight;
+        
+        const clampedX = Math.max(0, Math.min(newX, newPageWidth - width));
+        const clampedY = Math.max(0, Math.min(newY, newPageHeight - height));
+        
+        return {
+          page: i + 1,
+          newX: clampedX,
+          newY: clampedY,
+        };
+      }
+    }
+    
+    // Si aucune page trouvée, garder la page actuelle avec les coordonnées ajustées
+    return { page: currentSigPage, newX: sigX, newY: sigY };
+  };
 
   // Gérer le clic en dehors pour désélectionner
   React.useEffect(() => {
@@ -86,7 +165,24 @@ const DraggableSignature: React.FC<DraggableSignatureProps> = ({
       if (last) {
         setIsDragging(false);
         if (tempTransform) {
-          onUpdate(id, { x: tempTransform.x, y: tempTransform.y });
+          // Détecter si la signature a changé de page
+          const pageDetection = detectPageFromPosition(
+            tempTransform.x,
+            tempTransform.y,
+            currentPage
+          );
+          
+          // Si la page a changé, mettre à jour avec la nouvelle page et position
+          if (pageDetection.page !== currentPage) {
+            onUpdate(id, {
+              x: pageDetection.newX,
+              y: pageDetection.newY,
+              page: pageDetection.page,
+            });
+          } else {
+            // Sinon, juste mettre à jour la position
+            onUpdate(id, { x: tempTransform.x, y: tempTransform.y });
+          }
           setTempTransform(null);
         }
       }
@@ -107,11 +203,11 @@ const DraggableSignature: React.FC<DraggableSignatureProps> = ({
       }
 
       if (active) {
-        // Calculer nouvelles dimensions avec limites
-        const newWidth = Math.max(50, Math.min(400, currentSize.width * scale));
+        // Calculer nouvelles dimensions avec limites basées sur la page
+        const newWidth = Math.max(50, Math.min(maxWidth, currentSize.width * scale));
         const newHeight = Math.max(
           30,
-          Math.min(300, currentSize.height * scale)
+          Math.min(maxHeight, currentSize.height * scale)
         );
 
         // Ajuster la position pour garder le centre
@@ -191,35 +287,35 @@ const DraggableSignature: React.FC<DraggableSignatureProps> = ({
       let newX = startPosX;
       let newY = startPosY;
 
-      // Maintenir le ratio d'aspect
-      const aspectRatio = startWidth / startHeight;
-
+      // Redimensionnement libre (sans ratio d'aspect)
       switch (corner) {
         case "se": // Bas-droite
-          newWidth = Math.max(50, Math.min(400, startWidth + deltaX));
-          newHeight = newWidth / aspectRatio;
+          newWidth = Math.max(50, startWidth + deltaX);
+          newHeight = Math.max(30, startHeight + deltaY);
           break;
         case "sw": // Bas-gauche
-          newWidth = Math.max(50, Math.min(400, startWidth - deltaX));
-          newHeight = newWidth / aspectRatio;
+          newWidth = Math.max(50, startWidth - deltaX);
+          newHeight = Math.max(30, startHeight + deltaY);
           newX = startPosX + (startWidth - newWidth);
           break;
         case "ne": // Haut-droite
-          newWidth = Math.max(50, Math.min(400, startWidth + deltaX));
-          newHeight = newWidth / aspectRatio;
+          newWidth = Math.max(50, startWidth + deltaX);
+          newHeight = Math.max(30, startHeight - deltaY);
           newY = startPosY + (startHeight - newHeight);
           break;
         case "nw": // Haut-gauche
-          newWidth = Math.max(50, Math.min(400, startWidth - deltaX));
-          newHeight = newWidth / aspectRatio;
+          newWidth = Math.max(50, startWidth - deltaX);
+          newHeight = Math.max(30, startHeight - deltaY);
           newX = startPosX + (startWidth - newWidth);
           newY = startPosY + (startHeight - newHeight);
           break;
       }
 
-      // Limiter aux bordures
+      // Limiter aux bordures de la page
       newX = Math.max(0, Math.min(newX, maxWidth - newWidth));
       newY = Math.max(0, Math.min(newY, maxHeight - newHeight));
+      newWidth = Math.min(newWidth, maxWidth - newX);
+      newHeight = Math.min(newHeight, maxHeight - newY);
 
       setTempTransform({
         x: newX,
@@ -302,8 +398,12 @@ const DraggableSignature: React.FC<DraggableSignatureProps> = ({
       {isSelected && (
         <>
           <div
-            onMouseDown={(e) => handleResizeStart(e, "nw")}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              handleResizeStart(e, "nw");
+            }}
             onTouchStart={(e) => {
+              e.stopPropagation();
               const touch = e.touches[0];
               const mouseEvent = new MouseEvent("mousedown", {
                 clientX: touch.clientX,
@@ -312,12 +412,16 @@ const DraggableSignature: React.FC<DraggableSignatureProps> = ({
               });
               handleResizeStart(mouseEvent as any, "nw");
             }}
-            className="absolute -top-2 -left-2 w-6 h-6 bg-primary rounded-full cursor-nw-resize shadow-lg border-2 border-white"
-            style={{ touchAction: "none" }}
+            className="absolute -top-2 -left-2 w-6 h-6 bg-primary rounded-full cursor-nw-resize shadow-lg border-2 border-white z-50"
+            style={{ touchAction: "none", pointerEvents: "auto" }}
           />
           <div
-            onMouseDown={(e) => handleResizeStart(e, "ne")}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              handleResizeStart(e, "ne");
+            }}
             onTouchStart={(e) => {
+              e.stopPropagation();
               const touch = e.touches[0];
               const mouseEvent = new MouseEvent("mousedown", {
                 clientX: touch.clientX,
@@ -326,12 +430,16 @@ const DraggableSignature: React.FC<DraggableSignatureProps> = ({
               });
               handleResizeStart(mouseEvent as any, "ne");
             }}
-            className="absolute -top-2 -right-2 w-6 h-6 bg-primary rounded-full cursor-ne-resize shadow-lg border-2 border-white"
-            style={{ touchAction: "none" }}
+            className="absolute -top-2 -right-2 w-6 h-6 bg-primary rounded-full cursor-ne-resize shadow-lg border-2 border-white z-50"
+            style={{ touchAction: "none", pointerEvents: "auto" }}
           />
           <div
-            onMouseDown={(e) => handleResizeStart(e, "sw")}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              handleResizeStart(e, "sw");
+            }}
             onTouchStart={(e) => {
+              e.stopPropagation();
               const touch = e.touches[0];
               const mouseEvent = new MouseEvent("mousedown", {
                 clientX: touch.clientX,
@@ -340,12 +448,16 @@ const DraggableSignature: React.FC<DraggableSignatureProps> = ({
               });
               handleResizeStart(mouseEvent as any, "sw");
             }}
-            className="absolute -bottom-2 -left-2 w-6 h-6 bg-primary rounded-full cursor-sw-resize shadow-lg border-2 border-white"
-            style={{ touchAction: "none" }}
+            className="absolute -bottom-2 -left-2 w-6 h-6 bg-primary rounded-full cursor-sw-resize shadow-lg border-2 border-white z-50"
+            style={{ touchAction: "none", pointerEvents: "auto" }}
           />
           <div
-            onMouseDown={(e) => handleResizeStart(e, "se")}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              handleResizeStart(e, "se");
+            }}
             onTouchStart={(e) => {
+              e.stopPropagation();
               const touch = e.touches[0];
               const mouseEvent = new MouseEvent("mousedown", {
                 clientX: touch.clientX,
@@ -354,8 +466,8 @@ const DraggableSignature: React.FC<DraggableSignatureProps> = ({
               });
               handleResizeStart(mouseEvent as any, "se");
             }}
-            className="absolute -bottom-2 -right-2 w-6 h-6 bg-primary rounded-full cursor-se-resize shadow-lg border-2 border-white"
-            style={{ touchAction: "none" }}
+            className="absolute -bottom-2 -right-2 w-6 h-6 bg-primary rounded-full cursor-se-resize shadow-lg border-2 border-white z-50"
+            style={{ touchAction: "none", pointerEvents: "auto" }}
           />
         </>
       )}

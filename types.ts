@@ -37,6 +37,13 @@ export interface Field {
   height: number;
   recipientId: string;
   value?: string | boolean | null;
+  signatureSubType?: 'signature' | 'initial'; // Sous-type pour FieldType.SIGNATURE : 'signature' (dessiner) ou 'initial' (taper)
+  parapheGroupId?: string; // ID de groupe pour synchroniser les paraphes sur toutes les pages
+  textOptions?: {
+    fontSize?: number; // Taille de police en px
+    lineHeight?: number; // Hauteur de ligne
+    wordWrap?: boolean; // Retour à la ligne automatique
+  };
 }
 
 export interface Recipient {
