@@ -13,6 +13,11 @@ interface SignaturePadUnifiedProps {
   onCancel: () => void;
   signerName: string;
   initialTab?: "draw" | "type" | "upload";
+  isParaphe?: boolean; // Indique si c'est un paraphe (true) ou une signature (false)
+  showApplyToAll?: boolean; // Afficher la checkbox "Appliquer à tous"
+  applyToAll?: boolean; // État de la checkbox
+  onApplyToAllChange?: (checked: boolean) => void; // Callback pour changer l'état
+  applyToAllLabel?: string; // Label de la checkbox
 }
 
 const SignaturePadUnified: React.FC<SignaturePadUnifiedProps> = ({
@@ -20,6 +25,11 @@ const SignaturePadUnified: React.FC<SignaturePadUnifiedProps> = ({
   onCancel,
   signerName,
   initialTab = "draw",
+  isParaphe = false,
+  showApplyToAll = false,
+  applyToAll = false,
+  onApplyToAllChange,
+  applyToAllLabel,
 }) => {
   const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState<"draw" | "type" | "upload">(
@@ -134,7 +144,9 @@ const SignaturePadUnified: React.FC<SignaturePadUnifiedProps> = ({
         );
         if (!pixelBuffer.some((color) => color !== 0)) {
           addToast(
-            "Veuillez dessiner votre signature avant de l'appliquer.",
+            isParaphe 
+              ? "Veuillez dessiner votre paraphe avant de l'appliquer."
+              : "Veuillez dessiner votre signature avant de l'appliquer.",
             "info"
           );
           return;
@@ -143,7 +155,12 @@ const SignaturePadUnified: React.FC<SignaturePadUnifiedProps> = ({
       dataUrl = canvas.toDataURL("image/png");
     } else if (activeTab === "type") {
       if (!typedName.trim()) {
-        addToast("Veuillez taper votre nom pour créer une signature.", "info");
+        addToast(
+          isParaphe 
+            ? "Veuillez taper votre nom pour créer un paraphe."
+            : "Veuillez taper votre nom pour créer une signature.",
+          "info"
+        );
         return;
       }
       const tempCanvas = document.createElement("canvas");
@@ -162,7 +179,12 @@ const SignaturePadUnified: React.FC<SignaturePadUnifiedProps> = ({
       dataUrl = tempCanvas.toDataURL("image/png");
     } else if (activeTab === "upload") {
       if (!uploadedImage) {
-        addToast("Veuillez téléverser une image pour votre signature.", "info");
+        addToast(
+          isParaphe 
+            ? "Veuillez téléverser une image pour votre paraphe."
+            : "Veuillez téléverser une image pour votre signature.",
+          "info"
+        );
         return;
       }
       dataUrl = uploadedImage;
@@ -204,7 +226,7 @@ const SignaturePadUnified: React.FC<SignaturePadUnifiedProps> = ({
       >
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg sm:text-xl font-bold text-onSurface">
-            Créer une signature
+            {isParaphe ? "Créer un paraphe" : "Créer une signature"}
           </h2>
           <button
             onClick={onCancel}
@@ -242,8 +264,9 @@ const SignaturePadUnified: React.FC<SignaturePadUnifiedProps> = ({
               {/* Message d'aide */}
               <div>
                 <p className="text-xs text-onSurfaceVariant text-center">
-                  ✍️ Dessinez votre signature avec précision. Utilisez un stylet
-                  ou votre doigt pour un meilleur résultat.
+                  ✍️ {isParaphe 
+                    ? "Dessinez votre paraphe avec précision. Utilisez un stylet ou votre doigt pour un meilleur résultat."
+                    : "Dessinez votre signature avec précision. Utilisez un stylet ou votre doigt pour un meilleur résultat."}
                 </p>
               </div>
               {/* Canvas pour dessiner */}
@@ -263,6 +286,22 @@ const SignaturePadUnified: React.FC<SignaturePadUnifiedProps> = ({
                 onTouchMove={draw}
                 onTouchEnd={stopDrawing}
               />
+              {/* Checkbox "Appliquer à tous" - seulement pour les paraphes dans l'onglet dessiner */}
+              {showApplyToAll && isParaphe && onApplyToAllChange && applyToAllLabel && (
+                <div className="bg-surface rounded-lg p-3 border border-outlineVariant">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={applyToAll}
+                      onChange={(e) => onApplyToAllChange(e.target.checked)}
+                      className="w-5 h-5 accent-primary"
+                    />
+                    <span className="text-sm font-medium text-onSurface">
+                      {applyToAllLabel}
+                    </span>
+                  </label>
+                </div>
+              )}
             </div>
           )}
           {activeTab === "type" && (
@@ -427,7 +466,9 @@ const SignaturePadUnified: React.FC<SignaturePadUnifiedProps> = ({
               onClick={handleSave}
               className="btn-premium-shine btn-premium-extended h-11 text-sm focus:outline-none focus:ring-4 focus:ring-primary/30 flex-1 sm:flex-initial inline-flex items-center justify-center"
             >
-              <span className="hidden sm:inline">Appliquer la signature</span>
+              <span className="hidden sm:inline">
+                {isParaphe ? "Appliquer le paraphe" : "Appliquer la signature"}
+              </span>
               <span className="sm:hidden">Appliquer</span>
             </button>
           </div>

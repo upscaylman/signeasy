@@ -1591,7 +1591,7 @@ const SignDocumentPage: React.FC = () => {
             >
               <img
                 src={String(value)}
-                alt="signature"
+                alt={field.type === FieldType.SIGNATURE && field.signatureSubType === 'initial' ? "paraphe" : "signature"}
                 className="object-contain w-full h-full"
               />
             </div>
@@ -1733,14 +1733,16 @@ const SignDocumentPage: React.FC = () => {
                 {value ? (
                   <img
                     src={String(value)}
-                    alt="signature"
+                    alt={field.type === FieldType.SIGNATURE && field.signatureSubType === 'initial' ? "paraphe" : "signature"}
                     className="object-contain w-full h-full pointer-events-none"
                   />
                 ) : (
                   <div className="text-center pointer-events-none">
                     <span className="text-sm font-semibold text-primary">
                       <Signature className="inline-block h-4 w-4 mr-1" />
-                      Cliquez pour signer
+                      {field.type === FieldType.SIGNATURE && field.signatureSubType === 'initial'
+                        ? "Cliquez pour parapher"
+                        : "Cliquez pour signer"}
                     </span>
                     <p className="text-xs text-onSurfaceVariant truncate mt-1">
                       {signerName}
@@ -1977,44 +1979,30 @@ const SignDocumentPage: React.FC = () => {
   return (
     <>
       {activeField && (
-        <>
-          {/* Checkbox "Appliquer à toutes les initiales" - affichée seulement si >= 2 champs INITIAL vides */}
-          {shouldShowApplyToAllInitials && (
-            <div className="fixed inset-0 bg-scrim/50 flex items-end justify-center z-[45] p-2 sm:p-4 pointer-events-none">
-              <div
-                className="bg-surface rounded-2xl shadow-xl p-4 sm:p-6 max-w-md w-full mb-4 pointer-events-auto"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={applyToAllInitials}
-                    onChange={(e) => setApplyToAllInitials(e.target.checked)}
-                    className="w-5 h-5 accent-primary"
-                  />
-                  <span className="text-sm font-medium text-onSurface">
-                    Appliquer cette initiale à tous les champs d'initiales vides
-                  </span>
-                </label>
-              </div>
-            </div>
-          )}
-          <SignaturePad
-            onSave={handleSaveSignature}
-            onCancel={() => {
-              setApplyToAllInitials(false);
-              setActiveField(null);
-            }}
-            signerName={signerName}
-            initialTab={
-              activeField.type === FieldType.SIGNATURE && activeField.signatureSubType === 'initial'
-                ? 'draw' // Paraphe = dessin, pas écriture
-                : activeField.type === FieldType.INITIAL
-                ? 'type'
-                : 'draw'
-            }
-          />
-        </>
+        <SignaturePad
+          onSave={handleSaveSignature}
+          onCancel={() => {
+            setApplyToAllInitials(false);
+            setActiveField(null);
+          }}
+          signerName={signerName}
+          initialTab={
+            activeField.type === FieldType.SIGNATURE && activeField.signatureSubType === 'initial'
+              ? 'draw' // Paraphe = dessin, pas écriture
+              : activeField.type === FieldType.INITIAL
+              ? 'type'
+              : 'draw'
+          }
+          isParaphe={activeField.type === FieldType.SIGNATURE && activeField.signatureSubType === 'initial'}
+          showApplyToAll={shouldShowApplyToAllInitials}
+          applyToAll={applyToAllInitials}
+          onApplyToAllChange={setApplyToAllInitials}
+          applyToAllLabel={
+            activeField.type === FieldType.SIGNATURE && activeField.signatureSubType === 'initial'
+              ? "Appliquer ce paraphe à tous les champs de paraphes vides"
+              : "Appliquer cette initiale à tous les champs d'initiales vides"
+          }
+        />
       )}
       
       {/* Modal Options de mise en page pour le texte */}
@@ -2252,7 +2240,7 @@ const SignDocumentPage: React.FC = () => {
                   aria-busy={isSubmitting}
                   title={
                     !isFormValid
-                      ? "Veuillez remplir tous les champs de signature et confirmer votre nom"
+                      ? "Veuillez remplir tous les champs de signature/paraphe et confirmer votre nom"
                       : ""
                   }
                 >
@@ -2288,7 +2276,7 @@ const SignDocumentPage: React.FC = () => {
                   <p className="text-xs text-onSurfaceVariant text-center">
                     {!signerName.trim()
                       ? "⚠️ Veuillez confirmer votre nom"
-                      : "⚠️ Complétez tous les champs obligatoires (signature, texte, cases à cocher)"}
+                      : "⚠️ Complétez tous les champs obligatoires (signature/paraphe, texte, cases à cocher)"}
                   </p>
                 )}
               </div>

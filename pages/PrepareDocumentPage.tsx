@@ -418,7 +418,7 @@ const FieldPropertiesPanel: React.FC<{
                 </label>
                 {field.parapheGroupId && (
                   <p className="text-xs text-onSurfaceVariant mt-1 ml-8">
-                    Les paraphes de ce groupe seront synchronisés
+                    Les paraphes de ce groupe seront synchronisés (jusqu'à l'avant-dernière page)
                   </p>
                 )}
               </div>
@@ -514,7 +514,12 @@ const FieldPropertiesPanel: React.FC<{
               }`}
             >
               <Signature className="h-5 w-5 flex-shrink-0" />
-              <span>{field.value ? "Modifier le dessin" : "Dessiner"}</span>
+              <span>
+                {field.value 
+                  ? (field.signatureSubType === 'initial' ? "Modifier le paraphe" : "Modifier la signature")
+                  : (field.signatureSubType === 'initial' ? "Dessiner le paraphe" : "Dessiner la signature")
+                }
+              </span>
             </button>
             {field.value && (
               <button
@@ -524,7 +529,7 @@ const FieldPropertiesPanel: React.FC<{
                 }}
                 className="mt-2 text-xs text-error hover:underline w-full text-center"
               >
-                Supprimer le dessin
+                {field.signatureSubType === 'initial' ? "Supprimer le paraphe" : "Supprimer la signature"}
               </button>
             )}
           </div>
@@ -945,18 +950,12 @@ const PrepareDocumentPage: React.FC = () => {
     if (selectedFieldIndex === fieldIndex) {
       setSelectedFieldIndex(null);
     }
-    const fieldToRemove = fields[fieldIndex];
-    // Si c'est un paraphe avec un groupe, supprimer tous les paraphes du groupe
-    if (fieldToRemove?.parapheGroupId && fieldToRemove.signatureSubType === 'initial') {
-      setFields(fields.filter((f, i) => 
-        i === fieldIndex || f.parapheGroupId !== fieldToRemove.parapheGroupId
-      ));
-    } else {
-      setFields(fields.filter((_, i) => i !== fieldIndex));
-    }
+    // Supprimer uniquement le champ sélectionné, même s'il fait partie d'un groupe
+    // Permet la suppression indépendante des paraphes groupés
+    setFields(fields.filter((_, i) => i !== fieldIndex));
   };
 
-  // Fonction pour placer un paraphe sur toutes les pages
+  // Fonction pour placer un paraphe sur toutes les pages (jusqu'à l'avant-dernière page)
   const handlePlaceOnAllPages = (field: TempField, originalFieldIndex: number) => {
     if (!field.parapheGroupId || field.signatureSubType !== 'initial') return;
     
@@ -968,9 +967,10 @@ const PrepareDocumentPage: React.FC = () => {
         (f, index) => index !== originalFieldIndex && !(f.parapheGroupId === groupId && f.signatureSubType === 'initial')
       );
       
-      // Créer les nouveaux champs pour toutes les pages avec les mêmes propriétés que le champ original
+      // Créer les nouveaux champs jusqu'à l'avant-dernière page (pas la dernière)
       const newFields: TempField[] = [];
-      for (let page = 1; page <= totalPages; page++) {
+      const lastPage = totalPages - 1; // Jusqu'à l'avant-dernière page
+      for (let page = 1; page <= lastPage; page++) {
         newFields.push({
           ...field,
           page,
@@ -1566,31 +1566,48 @@ Cordialement.`
     // Afficher la signature/paraphe si elle existe
     const hasSignature = field.value && typeof field.value === 'string';
 
-    const baseStyle: React.CSSProperties = {
-      position: "absolute",
-      left: `${field.x * zoomLevel}px`,
-      top: `${field.y * zoomLevel}px`,
-      width: `${field.width * zoomLevel}px`,
-      height: `${field.height * zoomLevel}px`,
+    // Style pour le conteneur interne (contenu avec bordure colorée)
+    const innerStyle: React.CSSProperties = {
+      width: "100%",
+      height: "100%",
       border: `2px solid ${color}`,
       backgroundColor: `${color}20`,
       cursor: "move",
     };
 
+    // Style pour le conteneur externe (avec bordure rouge en hover/sélection)
+    // Les coordonnées du champ représentent le contenu interne
+    // Le conteneur externe est décalé de -15px et agrandi de +30px (15px de chaque côté)
+    const outerStyle: React.CSSProperties = {
+      position: "absolute",
+      left: `${(field.x - 15) * zoomLevel}px`,
+      top: `${(field.y - 15) * zoomLevel}px`,
+      width: `${(field.width + 30) * zoomLevel}px`, // +30px pour les 15px de chaque côté
+      height: `${(field.height + 30) * zoomLevel}px`, // +30px pour les 15px de chaque côté
+      padding: `${15 * zoomLevel}px`,
+      touchAction: "none",
+    };
+
     return (
       <div
         key={index}
-        style={{ ...baseStyle, touchAction: "none" }}
-        className={`group p-1 flex flex-col justify-center items-center text-xs transition-shadow ${
+        style={outerStyle}
+        className={`group ${
           isSelected
-            ? "ring-2 ring-offset-2 ring-offset-white ring-primary shadow-lg"
-            : ""
-        }`}
-        onMouseDown={(e) => handleFieldMouseDown(e, index, "move")}
-        onTouchStart={(e) => {
-          // Ne démarrer le drag que si on ne clique pas sur une poignée de resize
+            ? "border-2 border-red-500"
+            : "border-2 border-transparent hover:border-red-500"
+        } transition-all`}
+        onMouseDown={(e) => {
+          // Ne démarrer le drag que si on ne clique pas sur une poignée de resize ou le bouton X
           const target = e.target as HTMLElement;
-          if (!target.closest('.resize-handle')) {
+          if (!target.closest('.resize-handle') && !target.closest('.delete-button')) {
+            handleFieldMouseDown(e, index, "move");
+          }
+        }}
+        onTouchStart={(e) => {
+          // Ne démarrer le drag que si on ne clique pas sur une poignée de resize ou le bouton X
+          const target = e.target as HTMLElement;
+          if (!target.closest('.resize-handle') && !target.closest('.delete-button')) {
             handleFieldMouseDown(e, index, "move");
           }
         }}
@@ -1599,47 +1616,56 @@ Cordialement.`
           setSelectedFieldIndex(index);
         }}
       >
+        {/* Conteneur interne avec le contenu */}
+        <div
+          style={innerStyle}
+          className="w-full h-full flex flex-col justify-center items-center text-xs p-1"
+        >
+          {hasSignature ? (
+            <img
+              src={field.value as string}
+              alt="signature"
+              className="w-full h-full object-contain"
+              style={{ maxWidth: '100%', maxHeight: '100%' }}
+            />
+          ) : (
+            <>
+              <Icon
+                style={{
+                  color: color,
+                  width: `${14 * zoomLevel}px`,
+                  height: `${14 * zoomLevel}px`,
+                }}
+              />
+              <span
+                style={{ color: color, fontSize: `${10 * zoomLevel}px` }}
+                className="font-bold truncate mt-0.5"
+              >
+                {displayLabel}
+              </span>
+            </>
+          )}
+          <span
+            style={{ color: color, fontSize: `${9 * zoomLevel}px` }}
+            className="font-medium truncate opacity-80"
+          >
+            {recipient?.name || "Non assigné"}
+          </span>
+        </div>
+
+        {/* Bouton de suppression - en haut à droite de la bordure rouge, dans un cercle */}
         <button
           onClick={(e) => {
             e.stopPropagation();
             removeField(index);
           }}
-          className="absolute -top-2 -right-2 bg-error text-onError rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+          className="delete-button absolute -top-3 -right-3 w-6 h-6 bg-error text-onError rounded-full flex items-center justify-center shadow-lg border-2 border-white z-50 opacity-0 group-hover:opacity-100 transition-opacity"
+          style={{ touchAction: "none", pointerEvents: "auto" }}
         >
-          <X size={12} />
+          <X size={14} />
         </button>
-        {hasSignature ? (
-          <img
-            src={field.value as string}
-            alt="signature"
-            className="w-full h-full object-contain"
-            style={{ maxWidth: '100%', maxHeight: '100%' }}
-          />
-        ) : (
-          <>
-            <Icon
-              style={{
-                color: color,
-                width: `${14 * zoomLevel}px`,
-                height: `${14 * zoomLevel}px`,
-              }}
-            />
-            <span
-              style={{ color: color, fontSize: `${10 * zoomLevel}px` }}
-              className="font-bold truncate mt-0.5"
-            >
-              {displayLabel}
-            </span>
-          </>
-        )}
-        <span
-          style={{ color: color, fontSize: `${9 * zoomLevel}px` }}
-          className="font-medium truncate opacity-80"
-        >
-          {recipient?.name || "Non assigné"}
-        </span>
         
-        {/* Poignées de redimensionnement - visibles seulement si sélectionné */}
+        {/* Poignées de redimensionnement - sur la bordure rouge, visibles seulement si sélectionné */}
         {isSelected && (
           <>
             <div
@@ -2396,6 +2422,7 @@ Cordialement.`
           onCancel={handleCancelSignature}
           signerName={recipients.find((r) => r.id === fieldToSign.tempRecipientId)?.name || "Utilisateur"}
           initialTab="draw"
+          isParaphe={fieldToSign.signatureSubType === 'initial'}
         />
       )}
     </>
