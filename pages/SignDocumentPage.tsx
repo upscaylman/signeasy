@@ -12,8 +12,6 @@ import {
   Loader2,
   Settings,
   Signature,
-  Type as TypeIcon,
-  Upload,
   X,
   XCircle,
   ZoomIn,
@@ -153,8 +151,8 @@ const SignDocumentPage: React.FC = () => {
   // ✅ triggerRefresh n'est plus nécessaire - le dashboard utilise maintenant un listener en temps réel
 
   // Récupérer le token depuis l'URL ou sessionStorage (pour les documents envoyés)
-  const token = tokenFromParams || sessionStorage.getItem('signToken') || null;
-  const readOnlyFromStorage = sessionStorage.getItem('signReadOnly') === 'true';
+  const token = tokenFromParams || sessionStorage.getItem("signToken") || null;
+  const readOnlyFromStorage = sessionStorage.getItem("signReadOnly") === "true";
 
   // State
   const [envelope, setEnvelope] = useState<
@@ -248,21 +246,32 @@ const SignDocumentPage: React.FC = () => {
   // Vérifier si au moins une signature/paraphe a été appliquée (pour activer le bouton de téléchargement)
   const hasSignature = useMemo(() => {
     if (!envelope) return false;
-    
+
     // Vérifier si au moins un champ de signature/paraphe a une valeur
     const signatureFields = envelope.fields.filter(
       (f) => f.type === FieldType.SIGNATURE || f.type === FieldType.INITIAL
     );
-    
+
     return signatureFields.some((field) => {
       const value = fieldValues[field.id];
-      return value != null && value !== "" && (typeof value === "string" && value.length > 0);
+      return (
+        value != null &&
+        value !== "" &&
+        typeof value === "string" &&
+        value.length > 0
+      );
     });
   }, [envelope, fieldValues]);
 
   // Afficher un toast si le formulaire n'est pas valide (sur desktop uniquement)
   useEffect(() => {
-    if (!readOnly && envelope && !isSubmitting && !isFormValid && !toastShownRef.current) {
+    if (
+      !readOnly &&
+      envelope &&
+      !isSubmitting &&
+      !isFormValid &&
+      !toastShownRef.current
+    ) {
       // Vérifier si on est sur desktop (largeur d'écran >= 1024px)
       if (window.innerWidth >= 1024) {
         const message = !signerName.trim()
@@ -460,8 +469,8 @@ const SignDocumentPage: React.FC = () => {
     // Nettoyer sessionStorage au démontage
     return () => {
       if (readOnlyFromStorage) {
-        sessionStorage.removeItem('signToken');
-        sessionStorage.removeItem('signReadOnly');
+        sessionStorage.removeItem("signToken");
+        sessionStorage.removeItem("signReadOnly");
       }
     };
   }, [token, readOnlyFromStorage]);
@@ -473,7 +482,7 @@ const SignDocumentPage: React.FC = () => {
   // Recalculer la taille des champs texte quand les options changent
   useEffect(() => {
     if (!envelope) return;
-    
+
     envelope.fields
       .filter((f) => f.type === FieldType.TEXT && fieldValues[f.id])
       .forEach((field) => {
@@ -483,41 +492,45 @@ const SignDocumentPage: React.FC = () => {
           lineHeight: field.textOptions?.lineHeight || 1.3,
           wordWrap: field.textOptions?.wordWrap !== false,
         };
-        
+
         setTimeout(() => {
           const measureEl = document.createElement("div");
           measureEl.style.position = "absolute";
           measureEl.style.visibility = "hidden";
-          measureEl.style.whiteSpace = textOptions.wordWrap ? "pre-wrap" : "nowrap";
+          measureEl.style.whiteSpace = textOptions.wordWrap
+            ? "pre-wrap"
+            : "nowrap";
           measureEl.style.fontSize = `${textOptions.fontSize}px`;
-          measureEl.style.fontFamily = getComputedStyle(document.body).fontFamily;
+          measureEl.style.fontFamily = getComputedStyle(
+            document.body
+          ).fontFamily;
           measureEl.style.lineHeight = `${textOptions.lineHeight}`;
           measureEl.style.padding = "8px";
-          measureEl.style.width = textOptions.wordWrap 
-            ? `${fieldDimensions[field.id]?.width || field.width || 200}px` 
+          measureEl.style.width = textOptions.wordWrap
+            ? `${fieldDimensions[field.id]?.width || field.width || 200}px`
             : "auto";
           measureEl.style.maxWidth = "500px";
           measureEl.textContent = textValue;
           document.body.appendChild(measureEl);
-          
+
           const measuredWidth = measureEl.scrollWidth;
           const measuredHeight = measureEl.scrollHeight;
           document.body.removeChild(measureEl);
-          
+
           const currentDims = fieldDimensions[field.id];
           const baseWidth = currentDims?.width || field.width || 200;
           const baseHeight = currentDims?.height || field.height || 50;
-          
+
           let newWidth = baseWidth;
           let newHeight = baseHeight;
-          
+
           if (textOptions.wordWrap) {
             newHeight = Math.max(50, measuredHeight + 16);
           } else {
             newWidth = Math.max(200, Math.min(measuredWidth + 16, 500));
             newHeight = Math.max(50, measuredHeight + 16);
           }
-          
+
           setFieldDimensions((prev) => ({
             ...prev,
             [field.id]: {
@@ -537,9 +550,10 @@ const SignDocumentPage: React.FC = () => {
     const handleResize = () => {
       const width = window.innerWidth;
       const newZoom = width < 640 ? 0.5 : width < 1024 ? 0.75 : 1;
-      
+
       // Uniquement si on est au zoom par défaut, on ajuste
-      const currentIsDefaultZoom = zoomLevel === 0.5 || zoomLevel === 0.75 || zoomLevel === 1;
+      const currentIsDefaultZoom =
+        zoomLevel === 0.5 || zoomLevel === 0.75 || zoomLevel === 1;
       if (currentIsDefaultZoom && zoomLevel !== newZoom) {
         setZoomLevel(newZoom);
       }
@@ -710,7 +724,7 @@ const SignDocumentPage: React.FC = () => {
 
   const handleFieldChange = (fieldId: string, value: string | boolean) => {
     setFieldValues((prev) => ({ ...prev, [fieldId]: value }));
-    
+
     // Auto-ajuster la taille pour les champs texte
     const field = envelope?.fields.find((f) => f.id === fieldId);
     if (field && field.type === FieldType.TEXT && typeof value === "string") {
@@ -719,36 +733,38 @@ const SignDocumentPage: React.FC = () => {
         lineHeight: field.textOptions?.lineHeight || 1.3,
         wordWrap: field.textOptions?.wordWrap !== false,
       };
-      
+
       // Auto-ajuster la taille basée sur le contenu
       setTimeout(() => {
         const measureEl = document.createElement("div");
         measureEl.style.position = "absolute";
         measureEl.style.visibility = "hidden";
-        measureEl.style.whiteSpace = textOptions.wordWrap ? "pre-wrap" : "nowrap";
+        measureEl.style.whiteSpace = textOptions.wordWrap
+          ? "pre-wrap"
+          : "nowrap";
         measureEl.style.fontSize = `${textOptions.fontSize}px`;
         measureEl.style.fontFamily = getComputedStyle(document.body).fontFamily;
         measureEl.style.lineHeight = `${textOptions.lineHeight}`;
         measureEl.style.padding = "8px";
-        measureEl.style.width = textOptions.wordWrap 
-          ? `${fieldDimensions[fieldId]?.width || field.width || 200}px` 
+        measureEl.style.width = textOptions.wordWrap
+          ? `${fieldDimensions[fieldId]?.width || field.width || 200}px`
           : "auto";
         measureEl.style.maxWidth = "500px";
         measureEl.textContent = value;
         document.body.appendChild(measureEl);
-        
+
         const measuredWidth = measureEl.scrollWidth;
         const measuredHeight = measureEl.scrollHeight;
         document.body.removeChild(measureEl);
-        
+
         const currentDims = fieldDimensions[fieldId];
         const baseWidth = currentDims?.width || field.width || 200;
         const baseHeight = currentDims?.height || field.height || 50;
-        
+
         // Calculer les nouvelles dimensions
         let newWidth = baseWidth;
         let newHeight = baseHeight;
-        
+
         if (textOptions.wordWrap) {
           // Avec retour à la ligne : garder la largeur, ajuster la hauteur
           newHeight = Math.max(50, measuredHeight + 16);
@@ -757,7 +773,7 @@ const SignDocumentPage: React.FC = () => {
           newWidth = Math.max(200, Math.min(measuredWidth + 16, 500));
           newHeight = Math.max(50, measuredHeight + 16);
         }
-        
+
         setFieldDimensions((prev) => ({
           ...prev,
           [fieldId]: {
@@ -779,16 +795,18 @@ const SignDocumentPage: React.FC = () => {
         applyToAllInitials &&
         (activeField.type === FieldType.INITIAL ||
           (activeField.type === FieldType.SIGNATURE &&
-            activeField.signatureSubType === 'initial'))
+            activeField.signatureSubType === "initial"))
       ) {
-        const initialFields = envelope?.fields.filter(
-          (f) =>
-            f.recipientId === currentSignerId &&
-            (f.type === FieldType.INITIAL ||
-              (f.type === FieldType.SIGNATURE && f.signatureSubType === 'initial')) &&
-            !fieldValues[f.id]
-        ) || [];
-        
+        const initialFields =
+          envelope?.fields.filter(
+            (f) =>
+              f.recipientId === currentSignerId &&
+              (f.type === FieldType.INITIAL ||
+                (f.type === FieldType.SIGNATURE &&
+                  f.signatureSubType === "initial")) &&
+              !fieldValues[f.id]
+          ) || [];
+
         // Appliquer la signature à tous les champs INITIAL vides
         const newFieldValues = { ...fieldValues };
         initialFields.forEach((field) => {
@@ -1420,9 +1438,11 @@ const SignDocumentPage: React.FC = () => {
     recipientName,
   }) => {
     // Déterminer le label selon le type et sous-type
-    const isParaphe = field.type === FieldType.SIGNATURE && field.signatureSubType === 'initial';
-    const displayLabel = isParaphe ? 'Paraphe' : field.type;
-    
+    const isParaphe =
+      field.type === FieldType.SIGNATURE &&
+      field.signatureSubType === "initial";
+    const displayLabel = isParaphe ? "Paraphe" : field.type;
+
     return (
       <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs bg-inverseSurface text-inverseOnSurface text-xs rounded-lg shadow-lg p-2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-10 scale-95 group-hover:scale-100 origin-bottom">
         <strong>{displayLabel}</strong>
@@ -1437,14 +1457,30 @@ const SignDocumentPage: React.FC = () => {
     children: React.ReactNode;
     isCurrentSignerField: boolean;
     onFieldClick?: () => void;
-  }> = ({ field, children, isCurrentSignerField, onFieldClick }) => {
+    hasValue?: boolean; // Indique si le champ a une valeur (pour désactiver le drag si vide)
+  }> = ({
+    field,
+    children,
+    isCurrentSignerField,
+    onFieldClick,
+    hasValue = false,
+  }) => {
     const fieldRef = useRef<HTMLDivElement>(null);
 
     if (readOnly || !isCurrentSignerField) {
       return <div onClick={onFieldClick}>{children}</div>;
     }
 
-    // 🖐️ Hook useDrag pour déplacer le champ (souris + tactile)
+    // Si le champ n'a pas de valeur, ne pas permettre le drag
+    if (!hasValue) {
+      return (
+        <div onClick={onFieldClick} style={{ touchAction: "none" }}>
+          {children}
+        </div>
+      );
+    }
+
+    // 🖐️ Hook useDrag pour déplacer le champ (souris + tactile) - seulement si le champ a une valeur
     const bindDrag = useDrag(
       ({ active, movement: [mx, my], first, last, event }) => {
         event?.stopPropagation();
@@ -1595,6 +1631,7 @@ const SignDocumentPage: React.FC = () => {
       if (tempTransform.height !== undefined) height = tempTransform.height;
     }
 
+    // Style de base pour les champs non-signature (DATE, TEXT, CHECKBOX)
     const baseStyle: React.CSSProperties = {
       position: "absolute",
       left: `${x * zoomLevel}px`,
@@ -1616,6 +1653,50 @@ const SignDocumentPage: React.FC = () => {
     );
     const recipientName = recipient?.name || "Utilisateur assigné";
     const isCurrentSignerField = field.recipientId === currentSignerId;
+
+    // Couleurs pour les destinataires (même que PrepareDocumentPage)
+    const recipientColors = [
+      "#3B82F6",
+      "#10B981",
+      "#F59E0B",
+      "#EF4444",
+      "#8B5CF6",
+    ];
+    const color = recipient
+      ? recipientColors[recipient.id.charCodeAt(0) % recipientColors.length]
+      : "#71717A";
+
+    // Fonction helper pour convertir une couleur hex en rgba avec opacité
+    const hexToRgba = (hex: string, opacity: number): string => {
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+    };
+
+    // Style pour le conteneur externe (avec bordure colorée en hover/sélection avec 50% opacité)
+    // Les coordonnées représentent le contenu interne
+    // Le conteneur externe est décalé de -15px et agrandi de +30px (15px de chaque côté)
+    const outerStyle: React.CSSProperties = {
+      position: "absolute",
+      left: `${(x - 15) * zoomLevel}px`,
+      top: `${(y - 15) * zoomLevel}px`,
+      width: `${(width + 30) * zoomLevel}px`, // +30px pour les 15px de chaque côté
+      height: `${(height + 30) * zoomLevel}px`, // +30px pour les 15px de chaque côté
+      padding: `${15 * zoomLevel}px`,
+      touchAction: "none",
+    };
+
+    // Style pour le conteneur interne (contenu avec bordure colorée)
+    const innerStyle: React.CSSProperties = {
+      width: "100%",
+      height: "100%",
+      border: `2px solid ${color}`,
+      backgroundColor: `${color}20`,
+      cursor: value ? "move" : "pointer",
+      position: "relative",
+    };
+
     const fieldIndexInSignable = signableFields.findIndex(
       (sf) => sf.id === field.id
     );
@@ -1639,7 +1720,12 @@ const SignDocumentPage: React.FC = () => {
             >
               <img
                 src={String(value)}
-                alt={field.type === FieldType.SIGNATURE && field.signatureSubType === 'initial' ? "paraphe" : "signature"}
+                alt={
+                  field.type === FieldType.SIGNATURE &&
+                  field.signatureSubType === "initial"
+                    ? "paraphe"
+                    : "signature"
+                }
                 className="object-contain w-full h-full"
               />
             </div>
@@ -1681,9 +1767,11 @@ const SignDocumentPage: React.FC = () => {
       }
       // Si pas de valeur, afficher le placeholder
       // Déterminer le label selon le type et sous-type
-      const isParaphe = field.type === FieldType.SIGNATURE && field.signatureSubType === 'initial';
-      const displayLabel = isParaphe ? 'Paraphe' : field.type;
-      
+      const isParaphe =
+        field.type === FieldType.SIGNATURE &&
+        field.signatureSubType === "initial";
+      const displayLabel = isParaphe ? "Paraphe" : field.type;
+
       return (
         <div
           style={baseStyle}
@@ -1767,34 +1855,68 @@ const SignDocumentPage: React.FC = () => {
             maxHeight={pageDimensions[field.page - 1]?.height || 800}
           />
         ) : (
-          <div style={baseStyle} className="group">
+          <div
+            style={{
+              ...outerStyle,
+              borderColor: "transparent",
+            }}
+            className="group border-2 transition-all"
+            onMouseEnter={(e) => {
+              const borderColorWithOpacity = hexToRgba(color, 0.5);
+              e.currentTarget.style.borderColor = borderColorWithOpacity;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = "transparent";
+            }}
+          >
             <FieldTooltip field={field} recipientName={recipientName} />
             <DraggableField
               field={field}
               isCurrentSignerField={isCurrentSignerField}
               onFieldClick={handleSignatureClick}
+              hasValue={!!value}
             >
+              {/* Conteneur interne avec le contenu */}
               <div
-                style={{ ...fieldWrapperStyle, width: "100%", height: "100%" }}
-                className={`${interactiveClasses} flex items-center justify-center p-1`}
+                style={innerStyle}
+                className="w-full h-full flex flex-col justify-center items-center text-xs p-1"
               >
                 {value ? (
                   <img
                     src={String(value)}
-                    alt={field.type === FieldType.SIGNATURE && field.signatureSubType === 'initial' ? "paraphe" : "signature"}
+                    alt={
+                      field.type === FieldType.SIGNATURE &&
+                      field.signatureSubType === "initial"
+                        ? "paraphe"
+                        : "signature"
+                    }
                     className="object-contain w-full h-full pointer-events-none"
                   />
                 ) : (
                   <div className="text-center pointer-events-none">
-                    <span className="text-sm font-semibold text-primary">
-                      <Signature className="inline-block h-4 w-4 mr-1" />
-                      {field.type === FieldType.SIGNATURE && field.signatureSubType === 'initial'
+                    <span
+                      style={{ color: color, fontSize: `${12 * zoomLevel}px` }}
+                      className="font-semibold block"
+                    >
+                      <Signature
+                        style={{
+                          color: color,
+                          width: `${14 * zoomLevel}px`,
+                          height: `${14 * zoomLevel}px`,
+                        }}
+                        className="inline-block mr-1"
+                      />
+                      {field.type === FieldType.SIGNATURE &&
+                      field.signatureSubType === "initial"
                         ? "Cliquez pour parapher"
                         : "Cliquez pour signer"}
                     </span>
-                    <p className="text-xs text-onSurfaceVariant truncate mt-1">
+                    <span
+                      style={{ color: color, fontSize: `${9 * zoomLevel}px` }}
+                      className="font-medium truncate opacity-80 mt-1"
+                    >
                       {signerName}
-                    </p>
+                    </span>
                   </div>
                 )}
               </div>
@@ -1855,12 +1977,12 @@ const SignDocumentPage: React.FC = () => {
           lineHeight: field.textOptions?.lineHeight || 1.3,
           wordWrap: field.textOptions?.wordWrap !== false,
         };
-        
+
         // Utiliser les dimensions personnalisées ou les dimensions par défaut
         const customDims = fieldDimensions[field.id];
         const finalWidth = customDims?.width ?? width;
         const finalHeight = customDims?.height ?? height;
-        
+
         return (
           <DraggableFieldUnified
             id={field.id}
@@ -1892,19 +2014,21 @@ const SignDocumentPage: React.FC = () => {
           >
             <div className="w-full h-full bg-surface rounded-md border border-outlineVariant flex flex-col relative">
               {/* Bouton options - visible seulement si sélectionné */}
-              {isCurrentSignerField && !readOnly && selectedFieldId === field.id && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowTextOptions(true);
-                  }}
-                  className="absolute -top-2 -right-2 bg-primary text-onPrimary rounded-full p-1.5 z-10 shadow-lg"
-                  title="Options de mise en page"
-                >
-                  <Settings className="h-3.5 w-3.5" />
-                </button>
-              )}
-              
+              {isCurrentSignerField &&
+                !readOnly &&
+                selectedFieldId === field.id && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowTextOptions(true);
+                    }}
+                    className="absolute -top-2 -right-2 bg-primary text-onPrimary rounded-full p-1.5 z-10 shadow-lg"
+                    title="Options de mise en page"
+                  >
+                    <Settings className="h-3.5 w-3.5" />
+                  </button>
+                )}
+
               <textarea
                 value={textValue}
                 onChange={(e) => {
@@ -1999,22 +2123,27 @@ const SignDocumentPage: React.FC = () => {
   };
 
   // Calculer si on doit afficher la checkbox "Appliquer à toutes les initiales"
-  const shouldShowApplyToAllInitials = activeField && 
+  const shouldShowApplyToAllInitials =
+    activeField &&
     (activeField.type === FieldType.INITIAL ||
-      (activeField.type === FieldType.SIGNATURE && activeField.signatureSubType === 'initial')) &&
+      (activeField.type === FieldType.SIGNATURE &&
+        activeField.signatureSubType === "initial")) &&
     envelope &&
     currentSignerId &&
     envelope.fields.filter(
       (f) =>
         f.recipientId === currentSignerId &&
         (f.type === FieldType.INITIAL ||
-          (f.type === FieldType.SIGNATURE && f.signatureSubType === 'initial')) &&
+          (f.type === FieldType.SIGNATURE &&
+            f.signatureSubType === "initial")) &&
         !fieldValues[f.id]
     ).length >= 2;
 
   // Obtenir le champ texte actuel pour les options
   const currentTextField = selectedFieldId
-    ? envelope?.fields.find((f) => f.id === selectedFieldId && f.type === FieldType.TEXT)
+    ? envelope?.fields.find(
+        (f) => f.id === selectedFieldId && f.type === FieldType.TEXT
+      )
     : null;
   const currentTextOptions = currentTextField
     ? textFieldOptions[currentTextField.id] || {
@@ -2035,24 +2164,29 @@ const SignDocumentPage: React.FC = () => {
           }}
           signerName={signerName}
           initialTab={
-            activeField.type === FieldType.SIGNATURE && activeField.signatureSubType === 'initial'
-              ? 'draw' // Paraphe = dessin, pas écriture
+            activeField.type === FieldType.SIGNATURE &&
+            activeField.signatureSubType === "initial"
+              ? "draw" // Paraphe = dessin, pas écriture
               : activeField.type === FieldType.INITIAL
-              ? 'type'
-              : 'draw'
+              ? "type"
+              : "draw"
           }
-          isParaphe={activeField.type === FieldType.SIGNATURE && activeField.signatureSubType === 'initial'}
+          isParaphe={
+            activeField.type === FieldType.SIGNATURE &&
+            activeField.signatureSubType === "initial"
+          }
           showApplyToAll={shouldShowApplyToAllInitials}
           applyToAll={applyToAllInitials}
           onApplyToAllChange={setApplyToAllInitials}
           applyToAllLabel={
-            activeField.type === FieldType.SIGNATURE && activeField.signatureSubType === 'initial'
+            activeField.type === FieldType.SIGNATURE &&
+            activeField.signatureSubType === "initial"
               ? "Appliquer ce paraphe à tous les champs de paraphes vides"
               : "Appliquer cette initiale à tous les champs d'initiales vides"
           }
         />
       )}
-      
+
       {/* Modal Options de mise en page pour le texte */}
       {showTextOptions && currentTextField && currentTextOptions && (
         <div
@@ -2094,7 +2228,8 @@ const SignDocumentPage: React.FC = () => {
                       [currentTextField.id]: {
                         ...prev[currentTextField.id],
                         fontSize: parseInt(e.target.value, 10),
-                        lineHeight: prev[currentTextField.id]?.lineHeight || 1.3,
+                        lineHeight:
+                          prev[currentTextField.id]?.lineHeight || 1.3,
                         wordWrap: prev[currentTextField.id]?.wordWrap !== false,
                       },
                     }));
@@ -2149,7 +2284,8 @@ const SignDocumentPage: React.FC = () => {
                         [currentTextField.id]: {
                           ...prev[currentTextField.id],
                           fontSize: prev[currentTextField.id]?.fontSize || 12,
-                          lineHeight: prev[currentTextField.id]?.lineHeight || 1.3,
+                          lineHeight:
+                            prev[currentTextField.id]?.lineHeight || 1.3,
                           wordWrap: e.target.checked,
                         },
                       }));
@@ -2164,17 +2300,14 @@ const SignDocumentPage: React.FC = () => {
             </div>
 
             <div className="flex justify-end gap-3 mt-6">
-              <Button
-                variant="text"
-                onClick={() => setShowTextOptions(false)}
-              >
+              <Button variant="text" onClick={() => setShowTextOptions(false)}>
                 Fermer
               </Button>
             </div>
           </div>
         </div>
       )}
-      
+
       {isRejectModalOpen && (
         <RejectModal
           onConfirm={handleReject}
@@ -2207,7 +2340,7 @@ const SignDocumentPage: React.FC = () => {
                     }}
                     className="hover:bg-onTertiaryContainer/10 rounded p-1 transition-colors flex-shrink-0 ml-0.5 flex items-center justify-center"
                     title="Copier le numéro de document"
-                    style={{ minWidth: '24px', minHeight: '24px' }}
+                    style={{ minWidth: "24px", minHeight: "24px" }}
                   >
                     <Copy className="h-3.5 w-3.5" />
                   </button>
@@ -2247,11 +2380,24 @@ const SignDocumentPage: React.FC = () => {
                   <span className="whitespace-nowrap">Mode lecture seule</span>
                   {(() => {
                     // Vérifier si le document est signé (par statut ou par vérification des champs)
-                    const status = envelope.document.status as DocumentStatus | string;
-                    const isSigned = status === DocumentStatus.SIGNED || 
-                                    (typeof status === 'string' && status === 'Signé') ||
-                                    (envelope.fields.some(f => f.type === FieldType.SIGNATURE || f.type === FieldType.INITIAL) &&
-                                     envelope.fields.filter(f => f.type === FieldType.SIGNATURE || f.type === FieldType.INITIAL).every(f => f.value));
+                    const status = envelope.document.status as
+                      | DocumentStatus
+                      | string;
+                    const isSigned =
+                      status === DocumentStatus.SIGNED ||
+                      (typeof status === "string" && status === "Signé") ||
+                      (envelope.fields.some(
+                        (f) =>
+                          f.type === FieldType.SIGNATURE ||
+                          f.type === FieldType.INITIAL
+                      ) &&
+                        envelope.fields
+                          .filter(
+                            (f) =>
+                              f.type === FieldType.SIGNATURE ||
+                              f.type === FieldType.INITIAL
+                          )
+                          .every((f) => f.value));
                     return isSigned;
                   })() && (
                     <>
@@ -2268,7 +2414,7 @@ const SignDocumentPage: React.FC = () => {
                         }}
                         className="hover:bg-onTertiaryContainer/10 rounded p-1 transition-colors flex-shrink-0 ml-0.5 flex items-center justify-center"
                         title="Copier le numéro de document"
-                        style={{ minWidth: '24px', minHeight: '24px' }}
+                        style={{ minWidth: "24px", minHeight: "24px" }}
                       >
                         <Copy className="h-3.5 w-3.5" />
                       </button>
@@ -2300,7 +2446,11 @@ const SignDocumentPage: React.FC = () => {
               icon={Download}
               onClick={handleDownload}
               disabled={!hasSignature}
-              title={hasSignature ? "Télécharger le PDF" : "Ajoutez au moins une signature pour télécharger"}
+              title={
+                hasSignature
+                  ? "Télécharger le PDF"
+                  : "Ajoutez au moins une signature pour télécharger"
+              }
             >
               <span className="hidden sm:inline">Télécharger</span>
             </Button>
