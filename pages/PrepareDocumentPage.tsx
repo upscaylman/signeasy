@@ -108,7 +108,7 @@ const SummaryModal: React.FC<{
 
   return (
     <div
-      className="fixed inset-0 bg-scrim/50 flex items-center justify-center z-50 p-4 modal-backdrop"
+      className="fixed inset-0 bg-scrim/50 flex items-center justify-center z-[100] p-4 modal-backdrop"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
