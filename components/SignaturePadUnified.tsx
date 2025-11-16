@@ -217,7 +217,7 @@ const SignaturePadUnified: React.FC<SignaturePadUnifiedProps> = ({
 
   return (
     <div
-      className="fixed inset-0 bg-scrim/50 flex items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto modal-backdrop"
+      className="fixed inset-0 bg-scrim/50 flex items-center justify-center z-[100] p-2 sm:p-4 overflow-y-auto modal-backdrop"
       onClick={onCancel}
     >
       <div

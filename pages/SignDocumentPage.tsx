@@ -71,7 +71,7 @@ const RejectModal: React.FC<{
   const [reason, setReason] = useState("");
   return (
     <div
-      className="fixed inset-0 bg-scrim/50 flex items-center justify-center z-50 p-4 modal-backdrop"
+      className="fixed inset-0 bg-scrim/50 flex items-center justify-center z-[100] p-4 modal-backdrop"
       onClick={onCancel}
     >
       <div
@@ -2190,7 +2190,7 @@ const SignDocumentPage: React.FC = () => {
       {/* Modal Options de mise en page pour le texte */}
       {showTextOptions && currentTextField && currentTextOptions && (
         <div
-          className="fixed inset-0 bg-scrim/50 flex items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto modal-backdrop"
+          className="fixed inset-0 bg-scrim/50 flex items-center justify-center z-[100] p-2 sm:p-4 overflow-y-auto modal-backdrop"
           onClick={() => setShowTextOptions(false)}
         >
           <div
