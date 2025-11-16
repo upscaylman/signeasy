@@ -951,11 +951,11 @@ const DashboardPage: React.FC = () => {
                   <h2 className="text-xl font-bold text-purple-900 mb-4">
                     Brouillons en cours ({drafts.length}/3)
                   </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="flex flex-nowrap overflow-x-auto gap-4 pb-4 -mx-4 px-4 md:grid md:grid-cols-2 lg:grid-cols-3 md:mx-0 md:px-0 md:overflow-visible">
                     {drafts.map((draft) => (
                       <div
                         key={draft.id}
-                        className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-2 border-purple-500/30 rounded-2xl p-4 shadow-lg"
+                        className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-2 border-purple-500/30 rounded-2xl p-4 shadow-lg min-w-[280px] flex-shrink-0 md:min-w-0"
                       >
                         <div className="flex flex-col h-full">
                           <div className="flex items-start gap-3 mb-3">
@@ -1138,11 +1138,11 @@ const DashboardPage: React.FC = () => {
                   <h2 className="text-xl font-bold text-purple-900 mb-4">
                     Brouillons en cours ({drafts.length}/3)
                   </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="flex flex-nowrap overflow-x-auto gap-4 pb-4 -mx-4 px-4 md:grid md:grid-cols-2 lg:grid-cols-3 md:mx-0 md:px-0 md:overflow-visible">
                     {drafts.map((draft) => (
                       <div
                         key={draft.id}
-                        className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-2 border-purple-500/30 rounded-2xl p-4 shadow-lg"
+                        className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-2 border-purple-500/30 rounded-2xl p-4 shadow-lg min-w-[280px] flex-shrink-0 md:min-w-0"
                       >
                         <div className="flex flex-col h-full">
                           <div className="flex items-start gap-3 mb-3">

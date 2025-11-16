@@ -365,105 +365,154 @@ const DraggableSignature: React.FC<DraggableSignatureProps> = ({
     document.addEventListener("touchend", handleMouseUp);
   };
 
+  // Fonction helper pour convertir une couleur hex en rgba avec opacité
+  const hexToRgba = (hex: string, opacity: number): string => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+  };
+
+  // Couleur par défaut (couleur primaire)
+  const color = "#6750A4"; // Couleur primaire Material Design 3
+  const borderColorWithOpacity = hexToRgba(color, 0.5);
+
+  // Style pour le conteneur interne (contenu avec bordure colorée)
+  const innerStyle: React.CSSProperties = {
+    width: "100%",
+    height: "100%",
+    border: `2px solid ${color}`,
+    backgroundColor: `${color}20`,
+    cursor: "move",
+    position: "relative",
+  };
+
+  // Style pour le conteneur externe (avec bordure colorée en hover/sélection avec 50% opacité)
+  // Les coordonnées représentent le contenu interne
+  // Le conteneur externe est décalé de -15px et agrandi de +30px (15px de chaque côté)
+  const outerStyle: React.CSSProperties = {
+    position: "absolute",
+    left: `${(displayX - 15) * zoomLevel}px`,
+    top: `${(displayY - 15) * zoomLevel}px`,
+    width: `${(displayWidth + 30) * zoomLevel}px`, // +30px pour les 15px de chaque côté
+    height: `${(displayHeight + 30) * zoomLevel}px`, // +30px pour les 15px de chaque côté
+    padding: `${15 * zoomLevel}px`,
+    touchAction: "none",
+    borderColor: isSelected ? borderColorWithOpacity : 'transparent',
+  };
+
   return (
     <div
       ref={containerRef}
       {...bindDrag()}
       {...bindPinch()}
       onClick={() => setIsSelected(true)}
-      className={`absolute border-2 ${
-        isSelected ? "border-primary" : "border-primary/30"
-      } bg-primary/10 group touch-none select-none ${
+      style={outerStyle}
+      className={`group border-2 ${
+        isSelected
+          ? ""
+          : "hover:border-opacity-100"
+      } transition-all touch-none select-none ${
         isManipulating ? "cursor-grabbing z-50" : "cursor-grab"
       }`}
-      style={{
-        left: `${displayX * zoomLevel}px`,
-        top: `${displayY * zoomLevel}px`,
-        width: `${displayWidth * zoomLevel}px`,
-        height: `${displayHeight * zoomLevel}px`,
-        outline: isManipulating
-          ? "3px solid var(--md-sys-color-primary)"
-          : "none",
-        outlineOffset: "2px",
-        transition: isManipulating ? "none" : "all 0.2s ease",
-        touchAction: "none",
+      onMouseEnter={(e) => {
+        if (!isSelected) {
+          e.currentTarget.style.borderColor = borderColorWithOpacity;
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!isSelected) {
+          e.currentTarget.style.borderColor = 'transparent';
+        }
+      }}
+      onMouseDown={(e) => {
+        // Ne démarrer le drag que si on ne clique pas sur une poignée de resize ou le bouton X
+        const target = e.target as HTMLElement;
+        if (!target.closest('.resize-handle') && !target.closest('.delete-button')) {
+          // Le drag est géré par bindDrag
+        }
       }}
     >
-      {/* Image de signature */}
-      <img
-        src={signatureData}
-        alt="Signature"
-        className="w-full h-full object-contain pointer-events-none"
-        draggable={false}
-      />
+      {/* Conteneur interne avec le contenu */}
+      <div
+        style={innerStyle}
+        className="w-full h-full flex flex-col justify-center items-center"
+      >
+        {/* Image de signature */}
+        <img
+          src={signatureData}
+          alt="Signature"
+          className="w-full h-full object-contain pointer-events-none"
+          draggable={false}
+        />
+        
+        {/* Poignées de redimensionnement - aux coins du rectangle principal, visibles seulement si sélectionné */}
+        {isSelected && (
+          <>
+            <div
+              className="resize-handle absolute -top-2 -left-2 w-4 h-4 rounded-full cursor-nw-resize shadow-lg border-2 border-white z-50"
+              style={{ touchAction: "none", pointerEvents: "auto", backgroundColor: color }}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                handleResizeStart(e, "nw");
+              }}
+              onTouchStart={(e) => {
+                e.stopPropagation();
+                handleResizeStart(e, "nw");
+              }}
+            />
+            <div
+              className="resize-handle absolute -top-2 -right-2 w-4 h-4 rounded-full cursor-ne-resize shadow-lg border-2 border-white z-50"
+              style={{ touchAction: "none", pointerEvents: "auto", backgroundColor: color }}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                handleResizeStart(e, "ne");
+              }}
+              onTouchStart={(e) => {
+                e.stopPropagation();
+                handleResizeStart(e, "ne");
+              }}
+            />
+            <div
+              className="resize-handle absolute -bottom-2 -left-2 w-4 h-4 rounded-full cursor-sw-resize shadow-lg border-2 border-white z-50"
+              style={{ touchAction: "none", pointerEvents: "auto", backgroundColor: color }}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                handleResizeStart(e, "sw");
+              }}
+              onTouchStart={(e) => {
+                e.stopPropagation();
+                handleResizeStart(e, "sw");
+              }}
+            />
+            <div
+              className="resize-handle absolute -bottom-2 -right-2 w-4 h-4 rounded-full cursor-se-resize shadow-lg border-2 border-white z-50"
+              style={{ touchAction: "none", pointerEvents: "auto", backgroundColor: color }}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                handleResizeStart(e, "se");
+              }}
+              onTouchStart={(e) => {
+                e.stopPropagation();
+                handleResizeStart(e, "se");
+              }}
+            />
+          </>
+        )}
+      </div>
 
-      {/* Bouton supprimer - visible seulement si sélectionné */}
-      {isSelected && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove(id);
-          }}
-          className="absolute -top-2 -right-2 bg-error text-onError rounded-full p-1 transition-opacity z-10"
-          title="Supprimer la signature"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      )}
-
-      {/* Poignées de redimensionnement (4 coins) - visibles seulement si sélectionné */}
-      {isSelected && (
-        <>
-          <div
-            onMouseDown={(e) => {
-              e.stopPropagation();
-              handleResizeStart(e, "nw");
-            }}
-            onTouchStart={(e) => {
-              e.stopPropagation();
-              handleResizeStart(e, "nw");
-            }}
-            className="absolute -top-2 -left-2 w-4 h-4 bg-primary rounded-full cursor-nw-resize shadow-lg border-2 border-white z-50"
-            style={{ touchAction: "none", pointerEvents: "auto" }}
-          />
-          <div
-            onMouseDown={(e) => {
-              e.stopPropagation();
-              handleResizeStart(e, "ne");
-            }}
-            onTouchStart={(e) => {
-              e.stopPropagation();
-              handleResizeStart(e, "ne");
-            }}
-            className="absolute -top-2 -right-2 w-4 h-4 bg-primary rounded-full cursor-ne-resize shadow-lg border-2 border-white z-50"
-            style={{ touchAction: "none", pointerEvents: "auto" }}
-          />
-          <div
-            onMouseDown={(e) => {
-              e.stopPropagation();
-              handleResizeStart(e, "sw");
-            }}
-            onTouchStart={(e) => {
-              e.stopPropagation();
-              handleResizeStart(e, "sw");
-            }}
-            className="absolute -bottom-2 -left-2 w-4 h-4 bg-primary rounded-full cursor-sw-resize shadow-lg border-2 border-white z-50"
-            style={{ touchAction: "none", pointerEvents: "auto" }}
-          />
-          <div
-            onMouseDown={(e) => {
-              e.stopPropagation();
-              handleResizeStart(e, "se");
-            }}
-            onTouchStart={(e) => {
-              e.stopPropagation();
-              handleResizeStart(e, "se");
-            }}
-            className="absolute -bottom-2 -right-2 w-4 h-4 bg-primary rounded-full cursor-se-resize shadow-lg border-2 border-white z-50"
-            style={{ touchAction: "none", pointerEvents: "auto" }}
-          />
-        </>
-      )}
+      {/* Bouton de suppression - en haut à droite de la bordure externe, dans un cercle légèrement plus gros que les poignées */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove(id);
+        }}
+        className="delete-button absolute -top-2.5 -right-2.5 w-5 h-5 rounded-full flex items-center justify-center shadow-lg border-2 border-white z-50 opacity-0 group-hover:opacity-100 transition-opacity"
+        style={{ touchAction: "none", pointerEvents: "auto", backgroundColor: color }}
+        title="Supprimer la signature"
+      >
+        <X size={12} style={{ color: '#ffffff' }} />
+      </button>
     </div>
   );
 };

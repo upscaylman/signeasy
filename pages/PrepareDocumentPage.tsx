@@ -814,8 +814,12 @@ const PrepareDocumentPage: React.FC = () => {
           console.error("Erreur lors du chargement du brouillon:", err);
           addToast("Erreur lors du chargement du brouillon.", "error");
         });
+    } else if (!pdfData && !draftId && drafts.length === 0 && !file) {
+      // Si aucun fichier, aucun draftId et aucun brouillon, rediriger vers le dashboard
+      addToast("Veuillez sélectionner un document depuis le tableau de bord", "info");
+      navigate("/dashboard", { replace: true });
     }
-  }, [drafts, file]);
+  }, [drafts, file, location.state, navigate, addToast, getDraft, loadPdfFile]);
 
   // --- Recipient Management ---
   const addRecipient = () => {
@@ -1549,6 +1553,14 @@ Cordialement.`
     [pdf]
   );
 
+  // Fonction helper pour convertir une couleur hex en rgba avec opacité
+  const hexToRgba = (hex: string, opacity: number): string => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+  };
+
   const renderField = (field: TempField, index: number) => {
     const isSelected = selectedFieldIndex === index;
     const recipient = recipients.find((r) => r.id === field.tempRecipientId);
@@ -1575,7 +1587,7 @@ Cordialement.`
       cursor: "move",
     };
 
-    // Style pour le conteneur externe (avec bordure rouge en hover/sélection)
+    // Style pour le conteneur externe (avec bordure colorée en hover/sélection avec 50% opacité)
     // Les coordonnées du champ représentent le contenu interne
     // Le conteneur externe est décalé de -15px et agrandi de +30px (15px de chaque côté)
     const outerStyle: React.CSSProperties = {
@@ -1588,15 +1600,31 @@ Cordialement.`
       touchAction: "none",
     };
 
+    // Couleur de la bordure externe avec 50% d'opacité
+    const borderColorWithOpacity = hexToRgba(color, 0.5);
+
     return (
       <div
         key={index}
-        style={outerStyle}
-        className={`group ${
+        style={{
+          ...outerStyle,
+          borderColor: isSelected ? borderColorWithOpacity : 'transparent',
+        }}
+        className={`group border-2 ${
           isSelected
-            ? "border-2 border-red-500"
-            : "border-2 border-transparent hover:border-red-500"
+            ? ""
+            : "hover:border-opacity-100"
         } transition-all`}
+        onMouseEnter={(e) => {
+          if (!isSelected) {
+            e.currentTarget.style.borderColor = borderColorWithOpacity;
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!isSelected) {
+            e.currentTarget.style.borderColor = 'transparent';
+          }
+        }}
         onMouseDown={(e) => {
           // Ne démarrer le drag que si on ne clique pas sur une poignée de resize ou le bouton X
           const target = e.target as HTMLElement;
@@ -1618,7 +1646,7 @@ Cordialement.`
       >
         {/* Conteneur interne avec le contenu */}
         <div
-          style={innerStyle}
+          style={{ ...innerStyle, position: 'relative' }}
           className="w-full h-full flex flex-col justify-center items-center text-xs p-1"
         >
           {hasSignature ? (
@@ -1651,73 +1679,73 @@ Cordialement.`
           >
             {recipient?.name || "Non assigné"}
           </span>
+          
+          {/* Poignées de redimensionnement - aux coins du rectangle principal, visibles seulement si sélectionné */}
+          {isSelected && (
+            <>
+              <div
+                className="resize-handle absolute -top-2 -left-2 w-4 h-4 rounded-full cursor-nw-resize shadow-lg border-2 border-white z-50"
+                style={{ touchAction: "none", pointerEvents: "auto", backgroundColor: color }}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  handleFieldMouseDown(e, index, "resize-nw");
+                }}
+                onTouchStart={(e) => {
+                  e.stopPropagation();
+                  handleFieldMouseDown(e, index, "resize-nw");
+                }}
+              />
+              <div
+                className="resize-handle absolute -top-2 -right-2 w-4 h-4 rounded-full cursor-ne-resize shadow-lg border-2 border-white z-50"
+                style={{ touchAction: "none", pointerEvents: "auto", backgroundColor: color }}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  handleFieldMouseDown(e, index, "resize-ne");
+                }}
+                onTouchStart={(e) => {
+                  e.stopPropagation();
+                  handleFieldMouseDown(e, index, "resize-ne");
+                }}
+              />
+              <div
+                className="resize-handle absolute -bottom-2 -left-2 w-4 h-4 rounded-full cursor-sw-resize shadow-lg border-2 border-white z-50"
+                style={{ touchAction: "none", pointerEvents: "auto", backgroundColor: color }}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  handleFieldMouseDown(e, index, "resize-sw");
+                }}
+                onTouchStart={(e) => {
+                  e.stopPropagation();
+                  handleFieldMouseDown(e, index, "resize-sw");
+                }}
+              />
+              <div
+                className="resize-handle absolute -bottom-2 -right-2 w-4 h-4 rounded-full cursor-se-resize shadow-lg border-2 border-white z-50"
+                style={{ touchAction: "none", pointerEvents: "auto", backgroundColor: color }}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  handleFieldMouseDown(e, index, "resize-se");
+                }}
+                onTouchStart={(e) => {
+                  e.stopPropagation();
+                  handleFieldMouseDown(e, index, "resize-se");
+                }}
+              />
+            </>
+          )}
         </div>
 
-        {/* Bouton de suppression - en haut à droite de la bordure rouge, dans un cercle */}
+        {/* Bouton de suppression - en haut à droite de la bordure externe, dans un cercle légèrement plus gros que les poignées */}
         <button
           onClick={(e) => {
             e.stopPropagation();
             removeField(index);
           }}
-          className="delete-button absolute -top-3 -right-3 w-6 h-6 bg-error text-onError rounded-full flex items-center justify-center shadow-lg border-2 border-white z-50 opacity-0 group-hover:opacity-100 transition-opacity"
-          style={{ touchAction: "none", pointerEvents: "auto" }}
+          className="delete-button absolute -top-2.5 -right-2.5 w-5 h-5 rounded-full flex items-center justify-center shadow-lg border-2 border-white z-50 opacity-0 group-hover:opacity-100 transition-opacity"
+          style={{ touchAction: "none", pointerEvents: "auto", backgroundColor: color }}
         >
-          <X size={14} />
+          <X size={12} style={{ color: '#ffffff' }} />
         </button>
-        
-        {/* Poignées de redimensionnement - sur la bordure rouge, visibles seulement si sélectionné */}
-        {isSelected && (
-          <>
-            <div
-              className="resize-handle absolute -top-2 -left-2 w-4 h-4 bg-primary rounded-full cursor-nw-resize shadow-lg border-2 border-white z-50"
-              style={{ touchAction: "none", pointerEvents: "auto" }}
-              onMouseDown={(e) => {
-                e.stopPropagation();
-                handleFieldMouseDown(e, index, "resize-nw");
-              }}
-              onTouchStart={(e) => {
-                e.stopPropagation();
-                handleFieldMouseDown(e, index, "resize-nw");
-              }}
-            />
-            <div
-              className="resize-handle absolute -top-2 -right-2 w-4 h-4 bg-primary rounded-full cursor-ne-resize shadow-lg border-2 border-white z-50"
-              style={{ touchAction: "none", pointerEvents: "auto" }}
-              onMouseDown={(e) => {
-                e.stopPropagation();
-                handleFieldMouseDown(e, index, "resize-ne");
-              }}
-              onTouchStart={(e) => {
-                e.stopPropagation();
-                handleFieldMouseDown(e, index, "resize-ne");
-              }}
-            />
-            <div
-              className="resize-handle absolute -bottom-2 -left-2 w-4 h-4 bg-primary rounded-full cursor-sw-resize shadow-lg border-2 border-white z-50"
-              style={{ touchAction: "none", pointerEvents: "auto" }}
-              onMouseDown={(e) => {
-                e.stopPropagation();
-                handleFieldMouseDown(e, index, "resize-sw");
-              }}
-              onTouchStart={(e) => {
-                e.stopPropagation();
-                handleFieldMouseDown(e, index, "resize-sw");
-              }}
-            />
-            <div
-              className="resize-handle absolute -bottom-2 -right-2 w-4 h-4 bg-primary rounded-full cursor-se-resize shadow-lg border-2 border-white z-50"
-              style={{ touchAction: "none", pointerEvents: "auto" }}
-              onMouseDown={(e) => {
-                e.stopPropagation();
-                handleFieldMouseDown(e, index, "resize-se");
-              }}
-              onTouchStart={(e) => {
-                e.stopPropagation();
-                handleFieldMouseDown(e, index, "resize-se");
-              }}
-            />
-          </>
-        )}
       </div>
     );
   };
