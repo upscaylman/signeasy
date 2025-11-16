@@ -20,6 +20,7 @@ interface DraggableFieldUnifiedProps {
   isSelected?: boolean;
   onSelect?: () => void;
   showRemoveButton?: boolean;
+  color?: string; // Couleur du destinataire pour les poignées et le bouton de suppression
 }
 
 const DraggableFieldUnified: React.FC<DraggableFieldUnifiedProps> = ({
@@ -37,6 +38,7 @@ const DraggableFieldUnified: React.FC<DraggableFieldUnifiedProps> = ({
   isSelected = false,
   onSelect,
   showRemoveButton = false,
+  color = "#6750A4", // Couleur par défaut (primary Material Design 3)
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -279,21 +281,14 @@ const DraggableFieldUnified: React.FC<DraggableFieldUnifiedProps> = ({
         e.stopPropagation();
         if (onSelect) onSelect();
       }}
-      className={`absolute border-2 ${
-        isSelected ? "border-primary" : "border-primary/30"
-      } bg-primary/10 group touch-none select-none ${
-        isManipulating ? "cursor-grabbing z-50" : "cursor-grab"
-      }`}
+      className="absolute group touch-none select-none"
       style={{
         left: `${displayX * zoomLevel}px`,
         top: `${displayY * zoomLevel}px`,
         width: `${displayWidth * zoomLevel}px`,
         height: `${displayHeight * zoomLevel}px`,
-        outline: isManipulating
-          ? "3px solid var(--md-sys-color-primary)"
-          : "none",
-        outlineOffset: "2px",
-        transition: isManipulating ? "none" : "all 0.2s ease",
+        cursor: isManipulating ? "grabbing" : "grab",
+        zIndex: isManipulating ? 50 : "auto",
         touchAction: "none",
       }}
     >
@@ -307,10 +302,11 @@ const DraggableFieldUnified: React.FC<DraggableFieldUnifiedProps> = ({
             e.stopPropagation();
             onRemove(id);
           }}
-          className="absolute -top-2 -right-2 bg-error text-onError rounded-full p-1 transition-opacity z-10"
+          className="delete-button absolute -top-2.5 -right-2.5 w-5 h-5 rounded-full flex items-center justify-center shadow-lg border-2 border-white z-50 opacity-0 group-hover:opacity-100 transition-opacity"
+          style={{ touchAction: "none", pointerEvents: "auto", backgroundColor: color }}
           title="Supprimer le champ"
         >
-          <X className="h-4 w-4" />
+          <X size={12} style={{ color: '#ffffff' }} />
         </button>
       )}
 
@@ -320,26 +316,26 @@ const DraggableFieldUnified: React.FC<DraggableFieldUnifiedProps> = ({
           <div
             onMouseDown={(e) => handleResizeStart(e, "nw")}
             onTouchStart={(e) => handleResizeStart(e, "nw")}
-             className="absolute -top-2 -left-2 w-4 h-4 bg-primary rounded-full cursor-nw-resize shadow-lg border-2 border-white z-50"
-            style={{ touchAction: "none", pointerEvents: "auto" }}
+            className="resize-handle absolute -top-2 -left-2 w-4 h-4 rounded-full cursor-nw-resize shadow-lg border-2 border-white z-50"
+            style={{ touchAction: "none", pointerEvents: "auto", backgroundColor: color }}
           />
           <div
             onMouseDown={(e) => handleResizeStart(e, "ne")}
             onTouchStart={(e) => handleResizeStart(e, "ne")}
-             className="absolute -top-2 -right-2 w-4 h-4 bg-primary rounded-full cursor-ne-resize shadow-lg border-2 border-white z-50"
-            style={{ touchAction: "none", pointerEvents: "auto" }}
+            className="resize-handle absolute -top-2 -right-2 w-4 h-4 rounded-full cursor-ne-resize shadow-lg border-2 border-white z-50"
+            style={{ touchAction: "none", pointerEvents: "auto", backgroundColor: color }}
           />
           <div
             onMouseDown={(e) => handleResizeStart(e, "sw")}
             onTouchStart={(e) => handleResizeStart(e, "sw")}
-             className="absolute -bottom-2 -left-2 w-4 h-4 bg-primary rounded-full cursor-sw-resize shadow-lg border-2 border-white z-50"
-            style={{ touchAction: "none", pointerEvents: "auto" }}
+            className="resize-handle absolute -bottom-2 -left-2 w-4 h-4 rounded-full cursor-sw-resize shadow-lg border-2 border-white z-50"
+            style={{ touchAction: "none", pointerEvents: "auto", backgroundColor: color }}
           />
           <div
             onMouseDown={(e) => handleResizeStart(e, "se")}
             onTouchStart={(e) => handleResizeStart(e, "se")}
-             className="absolute -bottom-2 -right-2 w-4 h-4 bg-primary rounded-full cursor-se-resize shadow-lg border-2 border-white z-50"
-            style={{ touchAction: "none", pointerEvents: "auto" }}
+            className="resize-handle absolute -bottom-2 -right-2 w-4 h-4 rounded-full cursor-se-resize shadow-lg border-2 border-white z-50"
+            style={{ touchAction: "none", pointerEvents: "auto", backgroundColor: color }}
           />
         </>
       )}
