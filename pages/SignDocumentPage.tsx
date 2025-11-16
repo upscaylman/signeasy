@@ -2206,11 +2206,39 @@ const SignDocumentPage: React.FC = () => {
                   })()}
                 </p>
               </div>
-            ) : readOnly ? (
+            ) : readOnly && envelope?.document?.id ? (
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 mt-1">
                 <div className="bg-tertiaryContainer text-onTertiaryContainer px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 h-7">
                   <CheckCircle className="h-3.5 w-3.5 flex-shrink-0" />
                   <span className="whitespace-nowrap">Mode lecture seule</span>
+                  {(() => {
+                    // Vérifier si le document est signé (par statut ou par vérification des champs)
+                    const isSigned = envelope.document.status === DocumentStatus.SIGNED || 
+                                    envelope.document.status === 'Signé' ||
+                                    (envelope.fields.some(f => f.type === FieldType.SIGNATURE || f.type === FieldType.INITIAL) &&
+                                     envelope.fields.filter(f => f.type === FieldType.SIGNATURE || f.type === FieldType.INITIAL).every(f => f.value));
+                    return isSigned;
+                  })() && (
+                    <>
+                      <span className="mx-0.5">•</span>
+                      <span className="font-mono text-[10px]">
+                        {envelope.document.id}
+                      </span>
+                      <button
+                        onClick={() => {
+                          if (envelope?.document?.id) {
+                            navigator.clipboard.writeText(envelope.document.id);
+                            addToast("Numéro de document copié", "success");
+                          }
+                        }}
+                        className="hover:bg-onTertiaryContainer/10 rounded p-1 transition-colors flex-shrink-0 ml-0.5 flex items-center justify-center"
+                        title="Copier le numéro de document"
+                        style={{ minWidth: '24px', minHeight: '24px' }}
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             ) : alreadySigned ? (
