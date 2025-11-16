@@ -583,6 +583,7 @@ const PrepareDocumentPage: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fieldToSign, setFieldToSign] = useState<TempField | null>(null);
+  const [hasCheckedInitialLoad, setHasCheckedInitialLoad] = useState(false);
 
   const viewerRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -814,12 +815,39 @@ const PrepareDocumentPage: React.FC = () => {
           console.error("Erreur lors du chargement du brouillon:", err);
           addToast("Erreur lors du chargement du brouillon.", "error");
         });
-    } else if (!pdfData && !draftId && drafts.length === 0 && !file) {
-      // Si aucun fichier, aucun draftId et aucun brouillon, rediriger vers le dashboard
-      addToast("Veuillez sélectionner un document depuis le tableau de bord", "info");
-      navigate("/dashboard", { replace: true });
     }
   }, [drafts, file, location.state, navigate, addToast, getDraft, loadPdfFile]);
+
+  // Redirection vers le dashboard uniquement après le chargement initial et si vraiment vide
+  useEffect(() => {
+    // Attendre un peu pour laisser le temps aux autres useEffect de s'exécuter
+    const timer = setTimeout(() => {
+      const pdfData = (location.state as any)?.pdfData;
+      const draftId = (location.state as any)?.draftId;
+      
+      // Vérifier si vraiment aucun document n'est disponible
+      // Ne rediriger que si :
+      // 1. Pas de pdfData dans location.state
+      // 2. Pas de draftId dans location.state
+      // 3. Aucun brouillon disponible
+      // 4. Aucun fichier chargé
+      // 5. Pas en cours de traitement
+      // 6. On est toujours sur la page /prepare (pas déjà redirigé)
+      if (
+        !pdfData &&
+        !draftId &&
+        drafts.length === 0 &&
+        !file &&
+        !isProcessing &&
+        window.location.pathname === '/prepare'
+      ) {
+        addToast("Veuillez sélectionner un document depuis le tableau de bord", "info");
+        navigate("/dashboard", { replace: true });
+      }
+    }, 1000); // Délai de 1 seconde pour laisser le temps aux autres opérations
+    
+    return () => clearTimeout(timer);
+  }, [drafts.length, file, isProcessing, location.state, navigate, addToast]);
 
   // --- Recipient Management ---
   const addRecipient = () => {
