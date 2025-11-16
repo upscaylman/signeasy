@@ -141,7 +141,7 @@ const SignaturePad = SignaturePadUnified;
 
 // Main Page Component
 const SignDocumentPage: React.FC = () => {
-  const { token } = useParams<{ token: string }>();
+  const { token: tokenFromParams } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const { addToast } = useToast();
@@ -151,6 +151,10 @@ const SignDocumentPage: React.FC = () => {
     isLoading: userIsLoading,
   } = useUser();
   // ✅ triggerRefresh n'est plus nécessaire - le dashboard utilise maintenant un listener en temps réel
+
+  // Récupérer le token depuis l'URL ou sessionStorage (pour les documents envoyés)
+  const token = tokenFromParams || sessionStorage.getItem('signToken') || null;
+  const readOnlyFromStorage = sessionStorage.getItem('signReadOnly') === 'true';
 
   // State
   const [envelope, setEnvelope] = useState<
@@ -169,7 +173,9 @@ const SignDocumentPage: React.FC = () => {
   const [activeField, setActiveField] = useState<Field | null>(null);
   const [signerName, setSignerName] = useState("");
   const [alreadySigned, setAlreadySigned] = useState(false);
-  const [readOnly, setReadOnly] = useState(location.state?.readOnly === true);
+  const [readOnly, setReadOnly] = useState(
+    location.state?.readOnly === true || readOnlyFromStorage
+  );
   const [applyToAllInitials, setApplyToAllInitials] = useState(false);
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [showTextOptions, setShowTextOptions] = useState(false);
@@ -416,7 +422,15 @@ const SignDocumentPage: React.FC = () => {
     if (token && !autoAuthAttempted) {
       loadData();
     }
-  }, [token]);
+
+    // Nettoyer sessionStorage au démontage
+    return () => {
+      if (readOnlyFromStorage) {
+        sessionStorage.removeItem('signToken');
+        sessionStorage.removeItem('signReadOnly');
+      }
+    };
+  }, [token, readOnlyFromStorage]);
 
   useEffect(() => {
     pageRefs.current = pageRefs.current.slice(0, pdf?.numPages || 0);
@@ -2143,7 +2157,7 @@ const SignDocumentPage: React.FC = () => {
             >
               {envelope.document.name}
             </h1>
-            {envelope.document.status === DocumentStatus.SIGNED ? (
+            {envelope.document.status === DocumentStatus.SIGNED && readOnly ? (
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 mt-1">
                 <div className="bg-tertiaryContainer text-onTertiaryContainer px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 h-7">
                   <CheckCircle className="h-3.5 w-3.5 flex-shrink-0" />
@@ -2157,11 +2171,29 @@ const SignDocumentPage: React.FC = () => {
                       navigator.clipboard.writeText(envelope.document.id);
                       addToast("Numéro de document copié", "success");
                     }}
-                    className="hover:bg-onTertiaryContainer/10 rounded p-0.5 transition-colors flex-shrink-0"
+                    className="hover:bg-onTertiaryContainer/10 rounded p-1 transition-colors flex-shrink-0 ml-0.5 flex items-center justify-center"
                     title="Copier le numéro de document"
+                    style={{ minWidth: '24px', minHeight: '24px' }}
                   >
-                    <Copy className="h-3 w-3" />
+                    <Copy className="h-3.5 w-3.5" />
                   </button>
+                </div>
+                <p className="text-sm text-onSurfaceVariant">
+                  {(() => {
+                    const signer = envelope.recipients.find(
+                      (r) => r.id === envelope.currentSignerId
+                    );
+                    return signer
+                      ? `${signer.name} (${signer.email}) a signé ce document • Mode lecture seule`
+                      : "Mode lecture seule";
+                  })()}
+                </p>
+              </div>
+            ) : envelope.document.status === DocumentStatus.SIGNED ? (
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 mt-1">
+                <div className="bg-tertiaryContainer text-onTertiaryContainer px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 h-7">
+                  <CheckCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                  <span className="whitespace-nowrap">Document signé</span>
                 </div>
                 <p className="text-sm text-onSurfaceVariant">
                   {(() => {

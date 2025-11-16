@@ -517,11 +517,13 @@ const InboxPage: React.FC = () => {
       const count = unifiedItems.filter(
         (item) => item.folder === folder.id || folder.id === "all"
       ).length;
+      // Calculer les badges "unread" : uniquement pour les emails non lus
+      // Les documents envoyés (expéditeur) sont toujours considérés comme "lus" car en lecture seule
       const unread = unifiedItems.filter(
         (item) =>
           (item.folder === folder.id || folder.id === "all") &&
           !item.read &&
-          item.type === "email"
+          item.type === "email" // Seuls les emails peuvent être "non lus"
       ).length;
       return {
         ...folder,
@@ -529,7 +531,7 @@ const InboxPage: React.FC = () => {
         unread,
       };
     });
-  }, [unifiedItems]);
+  }, [unifiedItems, userRole]);
 
   const handleSelectItem = (item: UnifiedItem) => {
     setSelectedItem(item);
@@ -623,7 +625,11 @@ const InboxPage: React.FC = () => {
         navigate(`/sign/${token}`);
       } else if (selectedItem.type === "document") {
         // Pour les documents (expéditeur) - lecture seule
-        navigate(`/sign/${token}`, { state: { readOnly: true } });
+        // Stocker le token dans sessionStorage pour le récupérer sans l'afficher dans l'URL
+        sessionStorage.setItem('signToken', token);
+        sessionStorage.setItem('signReadOnly', 'true');
+        // Naviguer vers une route propre sans token visible
+        navigate('/sign/view', { replace: true, state: { readOnly: true } });
       }
     }
   };

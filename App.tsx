@@ -62,6 +62,8 @@ const AppContent: React.FC = () => {
           <Route path="/quick-sign" element={<QuickSignPage />} />
           {/* Route /sign/:token accessible SANS authentification - SignDocumentPage fera l'auto-login */}
           <Route path="/sign/:token" element={<SignDocumentPage />} />
+          {/* Route /sign/view pour les documents envoyés (token dans sessionStorage, pas dans l'URL) */}
+          <Route path="/sign/view" element={<SignDocumentPage />} />
           <Route path="/inbox" element={<InboxPage />} />
           <Route path="/verify" element={<VerifyPage />} />
           <Route path="*" element={<Navigate to="/dashboard" />} />

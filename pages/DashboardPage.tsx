@@ -431,7 +431,14 @@ const DashboardPage: React.FC = () => {
       // Pour les documents envoyés, utiliser la méthode classique
       const token = await getTokenForDocumentSigner(id);
       if (token) {
-        navigate(`/sign/${token}`, { state: { readOnly: true } });
+        // Stocker le token dans sessionStorage pour le récupérer sans l'afficher dans l'URL
+        sessionStorage.setItem("signToken", token);
+        sessionStorage.setItem("signReadOnly", "true");
+        // Naviguer vers une route propre sans token visible
+        navigate("/sign/view", {
+          replace: true,
+          state: { readOnly: true, documentId: id },
+        });
       } else {
         addToast(
           "Impossible de trouver les informations de ce document.",
