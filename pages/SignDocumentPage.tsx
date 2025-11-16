@@ -199,6 +199,7 @@ const SignDocumentPage: React.FC = () => {
   const textFieldRefs = useRef<{ [key: string]: HTMLTextAreaElement | null }>(
     {}
   );
+  const toastShownRef = useRef(false);
 
   const currentSignerId = envelope?.currentSignerId;
   const signableFields =
@@ -243,6 +244,39 @@ const SignDocumentPage: React.FC = () => {
 
     return allRequiredFieldsFilled;
   }, [envelope, signerName, signableFields, fieldValues, readOnly]);
+
+  // Vérifier si au moins une signature/paraphe a été appliquée (pour activer le bouton de téléchargement)
+  const hasSignature = useMemo(() => {
+    if (!envelope) return false;
+    
+    // Vérifier si au moins un champ de signature/paraphe a une valeur
+    const signatureFields = envelope.fields.filter(
+      (f) => f.type === FieldType.SIGNATURE || f.type === FieldType.INITIAL
+    );
+    
+    return signatureFields.some((field) => {
+      const value = fieldValues[field.id];
+      return value != null && value !== "" && (typeof value === "string" && value.length > 0);
+    });
+  }, [envelope, fieldValues]);
+
+  // Afficher un toast si le formulaire n'est pas valide (sur desktop uniquement)
+  useEffect(() => {
+    if (!readOnly && envelope && !isSubmitting && !isFormValid && !toastShownRef.current) {
+      // Vérifier si on est sur desktop (largeur d'écran >= 1024px)
+      if (window.innerWidth >= 1024) {
+        const message = !signerName.trim()
+          ? "Veuillez confirmer votre nom"
+          : "Complétez tous les champs obligatoires (signature/paraphe, texte, cases à cocher)";
+        addToast(message, "warning");
+        toastShownRef.current = true;
+      }
+    }
+    // Réinitialiser le ref quand le formulaire devient valide
+    if (isFormValid) {
+      toastShownRef.current = false;
+    }
+  }, [isFormValid, isSubmitting, readOnly, envelope, signerName, addToast]);
 
   // State pour les positions et tailles personnalisées des champs
   const [fieldDimensions, setFieldDimensions] = useState<{
@@ -2259,12 +2293,13 @@ const SignDocumentPage: React.FC = () => {
                 Rejeter le document
               </Button>
             )}
-            {/* Bouton Télécharger - Toujours visible */}
+            {/* Bouton Télécharger - Actif uniquement si au moins une signature a été appliquée */}
             <Button
               variant="outlined"
               icon={Download}
               onClick={handleDownload}
-              title="Télécharger le PDF"
+              disabled={!hasSignature}
+              title={hasSignature ? "Télécharger le PDF" : "Ajoutez au moins une signature pour télécharger"}
             >
               <span className="hidden sm:inline">Télécharger</span>
             </Button>
@@ -2332,13 +2367,6 @@ const SignDocumentPage: React.FC = () => {
                     <span>Terminer la signature</span>
                   )}
                 </button>
-                {!isFormValid && !isSubmitting && (
-                  <p className="text-xs text-onSurfaceVariant text-center">
-                    {!signerName.trim()
-                      ? "⚠️ Veuillez confirmer votre nom"
-                      : "⚠️ Complétez tous les champs obligatoires (signature/paraphe, texte, cases à cocher)"}
-                  </p>
-                )}
               </div>
             )}
           </div>

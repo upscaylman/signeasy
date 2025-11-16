@@ -1,8 +1,8 @@
 
 import React, { useState, useCallback, createContext, useContext, ReactNode } from 'react';
-import { X, CheckCircle, XCircle, Info } from 'lucide-react';
+import { X, CheckCircle, XCircle, Info, AlertTriangle } from 'lucide-react';
 
-type ToastType = 'success' | 'error' | 'info';
+type ToastType = 'success' | 'error' | 'info' | 'warning';
 
 interface ToastMessage {
   id: number;
@@ -65,12 +65,14 @@ const Toast: React.FC<ToastProps> = ({ toast, onDismiss }) => {
     success: <CheckCircle className="h-6 w-6 text-onTertiaryContainer" />,
     error: <XCircle className="h-6 w-6 text-onErrorContainer" />,
     info: <Info className="h-6 w-6 text-onSecondaryContainer" />,
+    warning: <AlertTriangle className="h-6 w-6 text-onTertiaryContainer" />,
   };
   
   const bgColors = {
       success: 'bg-tertiaryContainer text-onTertiaryContainer',
       error: 'bg-errorContainer text-onErrorContainer',
       info: 'bg-secondaryContainer text-onSecondaryContainer',
+      warning: 'bg-tertiaryContainer text-onTertiaryContainer',
   }
 
   return (
