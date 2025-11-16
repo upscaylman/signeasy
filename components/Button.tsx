@@ -66,7 +66,7 @@ const Button: React.FC<ButtonProps> = ({
     inline-flex items-center justify-center
     font-bold rounded-full
     focus:outline-none focus-ring focus:ring-2 focus:ring-offset-2 focus:ring-offset-background
-    disabled:disabled-enhanced
+    disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:active:scale-100
     whitespace-nowrap
     relative overflow-hidden press-effect
     ${sizeClasses[size]}
@@ -75,10 +75,11 @@ const Button: React.FC<ButtonProps> = ({
   const variantClasses = {
     filled: `
       bg-primary text-onPrimary
-      shadow-sm hover:shadow-md
+      shadow-sm hover:shadow-md disabled:hover:shadow-sm
       focus:ring-primary
       state-layer state-layer-primary
       hover:scale-[1.02] active:scale-[0.98]
+      disabled:hover:bg-primary disabled:active:bg-primary
     `,
     elevated: `
       bg-primaryContainer text-onPrimaryContainer

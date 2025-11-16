@@ -1338,24 +1338,40 @@ const InboxPage: React.FC = () => {
             </div>
 
             {/* Boutons d'action */}
-            <div className="p-4 border-t border-outlineVariant flex justify-end">
-              <button
-                onClick={handleSignClick}
-                className="inline-flex items-center justify-center gap-2 min-h-[44px] btn-premium-shine btn-premium-extended text-sm"
-              >
-                {selectedItem.type === "email" ? (
-                  <>
-                    <FileText className="h-5 w-5" />
-                    Examiner & Signer
-                  </>
-                ) : (
-                  <>
-                    <Eye className="h-5 w-5" />
-                    Consulter
-                  </>
-                )}
-              </button>
-            </div>
+            {(() => {
+              // Ne pas afficher le bouton pour les emails de rejet (sans signatureLink ou avec sujet contenant "rejeté")
+              const isRejectionEmail = selectedItem.type === "email" && 
+                (!selectedItem.signatureLink || 
+                 selectedItem.title?.includes("rejeté") || 
+                 selectedItem.title?.includes("❌") ||
+                 (selectedItem.rawData as MockEmail)?.subject?.includes("rejeté") ||
+                 (selectedItem.rawData as MockEmail)?.subject?.includes("❌"));
+              
+              if (isRejectionEmail) {
+                return null; // Pas de bouton pour les emails de rejet
+              }
+              
+              return (
+                <div className="p-4 border-t border-outlineVariant flex justify-end">
+                  <button
+                    onClick={handleSignClick}
+                    className="inline-flex items-center justify-center gap-2 min-h-[44px] btn-premium-shine btn-premium-extended text-sm"
+                  >
+                    {selectedItem.type === "email" ? (
+                      <>
+                        <FileText className="h-5 w-5" />
+                        Examiner & Signer
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="h-5 w-5" />
+                        Consulter
+                      </>
+                    )}
+                  </button>
+                </div>
+              );
+            })()}
           </>
         ) : (
           <div className="flex items-center justify-center h-full text-center text-onSurfaceVariant">

@@ -100,6 +100,9 @@ const DraggableFieldUnified: React.FC<DraggableFieldUnifiedProps> = ({
     {
       from: () => [0, 0],
       pointer: { touch: true },
+      filterTaps: true,
+      threshold: 3, // Seuil de mouvement en pixels avant de démarrer le drag (évite les clics accidentels)
+      preventScrollAxis: 'xy', // Empêcher le scroll pendant le drag
     }
   );
 
@@ -171,9 +174,9 @@ const DraggableFieldUnified: React.FC<DraggableFieldUnifiedProps> = ({
 
   const isManipulating = isDragging || isPinching || isResizing;
 
-  // Gestion du redimensionnement par les coins (souris uniquement)
+  // Gestion du redimensionnement par les coins (souris + tactile)
   const handleResizeStart = (
-    e: React.MouseEvent,
+    e: React.MouseEvent | React.TouchEvent,
     corner: "nw" | "ne" | "sw" | "se"
   ) => {
     e.preventDefault();
@@ -181,16 +184,24 @@ const DraggableFieldUnified: React.FC<DraggableFieldUnifiedProps> = ({
 
     setIsResizing(true);
 
-    const startX = e.clientX;
-    const startY = e.clientY;
+    // 🔧 FIX MOBILE : Gérer les événements touch
+    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+
+    const startX = clientX;
+    const startY = clientY;
     const startWidth = displayWidth;
     const startHeight = displayHeight;
     const startPosX = displayX;
     const startPosY = displayY;
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      const deltaX = (moveEvent.clientX - startX) / zoomLevel;
-      const deltaY = (moveEvent.clientY - startY) / zoomLevel;
+    const handleMouseMove = (moveEvent: MouseEvent | TouchEvent) => {
+      // 🔧 FIX MOBILE : Gérer les événements touch
+      const moveClientX = "touches" in moveEvent ? moveEvent.touches[0].clientX : moveEvent.clientX;
+      const moveClientY = "touches" in moveEvent ? moveEvent.touches[0].clientY : moveEvent.clientY;
+      
+      const deltaX = (moveClientX - startX) / zoomLevel;
+      const deltaY = (moveClientY - startY) / zoomLevel;
 
       let newWidth = startWidth;
       let newHeight = startHeight;
@@ -249,10 +260,14 @@ const DraggableFieldUnified: React.FC<DraggableFieldUnifiedProps> = ({
       }
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
+      document.removeEventListener("touchmove", handleMouseMove);
+      document.removeEventListener("touchend", handleMouseUp);
     };
 
     document.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mouseup", handleMouseUp);
+    document.addEventListener("touchmove", handleMouseMove, { passive: false });
+    document.addEventListener("touchend", handleMouseUp);
   };
 
   return (
@@ -304,23 +319,27 @@ const DraggableFieldUnified: React.FC<DraggableFieldUnifiedProps> = ({
         <>
           <div
             onMouseDown={(e) => handleResizeStart(e, "nw")}
-            className="absolute -top-2 -left-2 w-6 h-6 bg-primary rounded-full cursor-nw-resize shadow-lg border-2 border-white"
-            style={{ touchAction: "none" }}
+            onTouchStart={(e) => handleResizeStart(e, "nw")}
+             className="absolute -top-2 -left-2 w-4 h-4 bg-primary rounded-full cursor-nw-resize shadow-lg border-2 border-white z-50"
+            style={{ touchAction: "none", pointerEvents: "auto" }}
           />
           <div
             onMouseDown={(e) => handleResizeStart(e, "ne")}
-            className="absolute -top-2 -right-2 w-6 h-6 bg-primary rounded-full cursor-ne-resize shadow-lg border-2 border-white"
-            style={{ touchAction: "none" }}
+            onTouchStart={(e) => handleResizeStart(e, "ne")}
+             className="absolute -top-2 -right-2 w-4 h-4 bg-primary rounded-full cursor-ne-resize shadow-lg border-2 border-white z-50"
+            style={{ touchAction: "none", pointerEvents: "auto" }}
           />
           <div
             onMouseDown={(e) => handleResizeStart(e, "sw")}
-            className="absolute -bottom-2 -left-2 w-6 h-6 bg-primary rounded-full cursor-sw-resize shadow-lg border-2 border-white"
-            style={{ touchAction: "none" }}
+            onTouchStart={(e) => handleResizeStart(e, "sw")}
+             className="absolute -bottom-2 -left-2 w-4 h-4 bg-primary rounded-full cursor-sw-resize shadow-lg border-2 border-white z-50"
+            style={{ touchAction: "none", pointerEvents: "auto" }}
           />
           <div
             onMouseDown={(e) => handleResizeStart(e, "se")}
-            className="absolute -bottom-2 -right-2 w-6 h-6 bg-primary rounded-full cursor-se-resize shadow-lg border-2 border-white"
-            style={{ touchAction: "none" }}
+            onTouchStart={(e) => handleResizeStart(e, "se")}
+             className="absolute -bottom-2 -right-2 w-4 h-4 bg-primary rounded-full cursor-se-resize shadow-lg border-2 border-white z-50"
+            style={{ touchAction: "none", pointerEvents: "auto" }}
           />
         </>
       )}

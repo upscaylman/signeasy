@@ -177,9 +177,12 @@ const SignDocumentPage: React.FC = () => {
     [key: string]: { fontSize: number; lineHeight: number; wordWrap: boolean };
   }>({});
   const [autoAuthAttempted, setAutoAuthAttempted] = useState(false);
-  // 📱 Zoom adaptatif : 50% sur mobile, 100% sur desktop
+  // 📱 Zoom adaptatif : 0.5 sur mobile, 0.75 sur tablette, 1 sur desktop (cohérent avec PrepareDocumentPage)
   const getInitialZoom = () => {
-    return window.innerWidth < 768 ? 0.5 : 1;
+    const width = window.innerWidth;
+    if (width < 640) return 0.5; // mobile
+    if (width < 1024) return 0.75; // tablette
+    return 1; // desktop
   };
   const [zoomLevel, setZoomLevel] = useState(getInitialZoom());
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
@@ -484,15 +487,13 @@ const SignDocumentPage: React.FC = () => {
   // 📱 Ajuster le zoom lors du redimensionnement de la fenêtre (changement d'orientation sur mobile)
   useEffect(() => {
     const handleResize = () => {
-      const isMobile = window.innerWidth < 768;
-      const currentIsMobileZoom = zoomLevel === 0.5;
-      const currentIsDesktopZoom = zoomLevel === 1;
-
+      const width = window.innerWidth;
+      const newZoom = width < 640 ? 0.5 : width < 1024 ? 0.75 : 1;
+      
       // Uniquement si on est au zoom par défaut, on ajuste
-      if (isMobile && currentIsDesktopZoom) {
-        setZoomLevel(0.5);
-      } else if (!isMobile && currentIsMobileZoom) {
-        setZoomLevel(1);
+      const currentIsDefaultZoom = zoomLevel === 0.5 || zoomLevel === 0.75 || zoomLevel === 1;
+      if (currentIsDefaultZoom && zoomLevel !== newZoom) {
+        setZoomLevel(newZoom);
       }
     };
 
@@ -1369,12 +1370,18 @@ const SignDocumentPage: React.FC = () => {
   const FieldTooltip: React.FC<{ field: Field; recipientName: string }> = ({
     field,
     recipientName,
-  }) => (
-    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs bg-inverseSurface text-inverseOnSurface text-xs rounded-lg shadow-lg p-2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-10 scale-95 group-hover:scale-100 origin-bottom">
-      <strong>{field.type}</strong>
-      <span className="text-inverseOnSurface/80"> pour {recipientName}</span>
-    </div>
-  );
+  }) => {
+    // Déterminer le label selon le type et sous-type
+    const isParaphe = field.type === FieldType.SIGNATURE && field.signatureSubType === 'initial';
+    const displayLabel = isParaphe ? 'Paraphe' : field.type;
+    
+    return (
+      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs bg-inverseSurface text-inverseOnSurface text-xs rounded-lg shadow-lg p-2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-10 scale-95 group-hover:scale-100 origin-bottom">
+        <strong>{displayLabel}</strong>
+        <span className="text-inverseOnSurface/80"> pour {recipientName}</span>
+      </div>
+    );
+  };
 
   // 🎯 Composant wrapper avec @use-gesture/react pour gestes tactiles optimisés
   const DraggableField: React.FC<{
@@ -1526,11 +1533,10 @@ const SignDocumentPage: React.FC = () => {
     let x = customDims?.x ?? field.x;
     let y = customDims?.y ?? field.y;
 
-    // Appliquer les tailles par défaut pour le destinataire
-    const { width: defaultWidth, height: defaultHeight } =
-      getDefaultFieldDimensions(field.type, field.width, field.height);
-    let width = customDims?.width ?? defaultWidth;
-    let height = customDims?.height ?? defaultHeight;
+    // Utiliser les dimensions exactes du champ depuis PrepareDocumentPage
+    // Ne pas utiliser getDefaultFieldDimensions qui peut changer les dimensions
+    let width = customDims?.width ?? field.width;
+    let height = customDims?.height ?? field.height;
 
     // Appliquer la transformation temporaire si le champ est en cours de déplacement/redimensionnement
     const isBeingManipulated = tempTransform?.fieldId === field.id;
@@ -1626,6 +1632,10 @@ const SignDocumentPage: React.FC = () => {
         }
       }
       // Si pas de valeur, afficher le placeholder
+      // Déterminer le label selon le type et sous-type
+      const isParaphe = field.type === FieldType.SIGNATURE && field.signatureSubType === 'initial';
+      const displayLabel = isParaphe ? 'Paraphe' : field.type;
+      
       return (
         <div
           style={baseStyle}
@@ -1633,9 +1643,9 @@ const SignDocumentPage: React.FC = () => {
         >
           <span
             className="text-xs text-onSurfaceVariant font-semibold truncate px-1"
-            title={`${field.type} pour ${recipientName}`}
+            title={`${displayLabel} pour ${recipientName}`}
           >
-            {field.type} pour {recipientName}
+            {displayLabel} pour {recipientName}
           </span>
         </div>
       );

@@ -4,7 +4,6 @@ import {
   ArrowRight,
   Calendar,
   CheckSquare,
-  GripVertical,
   Info,
   Loader2,
   Mail,
@@ -17,6 +16,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
+import { useDrag } from "@use-gesture/react";
 import * as pdfjsLib from "pdfjs-dist";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -584,7 +584,7 @@ const PrepareDocumentPage: React.FC = () => {
 
   const [editingField, setEditingField] = useState<{
     index: number;
-    action: "move" | "resize-br";
+    action: "move" | "resize-nw" | "resize-ne" | "resize-sw" | "resize-se";
   } | null>(null);
   const [initialDragPosition, setInitialDragPosition] = useState<{
     mouseX: number;
@@ -1043,15 +1043,20 @@ const PrepareDocumentPage: React.FC = () => {
 
   // --- Field Drag & Resize ---
   const handleFieldMouseDown = (
-    e: React.MouseEvent,
+    e: React.MouseEvent | React.TouchEvent,
     index: number,
-    action: "move" | "resize-br"
+    action: "move" | "resize-nw" | "resize-ne" | "resize-sw" | "resize-se"
   ) => {
     e.stopPropagation();
     e.preventDefault();
     setSelectedFieldIndex(index);
     setEditingField({ index, action });
     const field = fields[index];
+    
+    // 🔧 FIX MOBILE : Gérer les événements touch
+    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+    
     // Stocker aussi les positions et dimensions initiales de tous les paraphes du groupe pour la synchronisation
     const groupId = field.parapheGroupId;
     const groupFields = groupId && field.signatureSubType === 'initial'
@@ -1060,8 +1065,8 @@ const PrepareDocumentPage: React.FC = () => {
     
     // Utiliser page comme identifiant unique au lieu de l'index (plus fiable)
     setInitialDragPosition({
-      mouseX: e.clientX,
-      mouseY: e.clientY,
+      mouseX: clientX,
+      mouseY: clientY,
       fieldX: field.x,
       fieldY: field.y,
       fieldW: field.width,
@@ -1076,11 +1081,15 @@ const PrepareDocumentPage: React.FC = () => {
     });
   };
 
-  const handleMouseMove = (e: MouseEvent) => {
+  const handleMouseMove = (e: MouseEvent | TouchEvent) => {
     if (!editingField || !initialDragPosition) return;
 
-    const dx = (e.clientX - initialDragPosition.mouseX) / zoomLevel;
-    const dy = (e.clientY - initialDragPosition.mouseY) / zoomLevel;
+    // 🔧 FIX MOBILE : Gérer les événements touch
+    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+
+    const dx = (clientX - initialDragPosition.mouseX) / zoomLevel;
+    const dy = (clientY - initialDragPosition.mouseY) / zoomLevel;
 
     setFields((currentFields) => {
       // Vérifier que l'index est toujours valide
@@ -1139,15 +1148,43 @@ const PrepareDocumentPage: React.FC = () => {
           }
           return field;
         });
-      } else if (editingField.action === "resize-br") {
-        const newWidth = Math.max(20, initialDragPosition.fieldW + dx);
-        const newHeight = Math.max(20, initialDragPosition.fieldH + dy);
+      } else if (editingField.action.startsWith("resize-")) {
+        let newWidth = initialDragPosition.fieldW;
+        let newHeight = initialDragPosition.fieldH;
+        let newX = initialDragPosition.fieldX;
+        let newY = initialDragPosition.fieldY;
+
+        // Calculer les nouvelles dimensions selon la direction
+        switch (editingField.action) {
+          case "resize-se": // Bas-droite
+            newWidth = Math.max(20, initialDragPosition.fieldW + dx);
+            newHeight = Math.max(20, initialDragPosition.fieldH + dy);
+            break;
+          case "resize-sw": // Bas-gauche
+            newWidth = Math.max(20, initialDragPosition.fieldW - dx);
+            newHeight = Math.max(20, initialDragPosition.fieldH + dy);
+            newX = initialDragPosition.fieldX + (initialDragPosition.fieldW - newWidth);
+            break;
+          case "resize-ne": // Haut-droite
+            newWidth = Math.max(20, initialDragPosition.fieldW + dx);
+            newHeight = Math.max(20, initialDragPosition.fieldH - dy);
+            newY = initialDragPosition.fieldY + (initialDragPosition.fieldH - newHeight);
+            break;
+          case "resize-nw": // Haut-gauche
+            newWidth = Math.max(20, initialDragPosition.fieldW - dx);
+            newHeight = Math.max(20, initialDragPosition.fieldH - dy);
+            newX = initialDragPosition.fieldX + (initialDragPosition.fieldW - newWidth);
+            newY = initialDragPosition.fieldY + (initialDragPosition.fieldH - newHeight);
+            break;
+        }
         
         // Si c'est un paraphe avec un groupe, synchroniser le redimensionnement de tous les paraphes du groupe
         if (groupId && movedField.signatureSubType === 'initial' && initialDragPosition.groupFieldsInitialPositions) {
           // Calculer le facteur de redimensionnement
           const scaleX = newWidth / initialDragPosition.fieldW;
           const scaleY = newHeight / initialDragPosition.fieldH;
+          const offsetX = newX - initialDragPosition.fieldX;
+          const offsetY = newY - initialDragPosition.fieldY;
           
           // Appliquer le redimensionnement à tous les paraphes du même groupe
           return currentFields.map((field, index) => {
@@ -1156,6 +1193,8 @@ const PrepareDocumentPage: React.FC = () => {
                 ...field,
                 width: newWidth,
                 height: newHeight,
+                x: newX,
+                y: newY,
               };
             } else {
               // Trouver les dimensions initiales de ce champ dans le groupe par sa page
@@ -1167,6 +1206,8 @@ const PrepareDocumentPage: React.FC = () => {
                   ...field,
                   width: Math.max(20, initialPos.width * scaleX),
                   height: Math.max(20, initialPos.height * scaleY),
+                  x: initialPos.x + offsetX,
+                  y: initialPos.y + offsetY,
                 };
               }
             }
@@ -1181,6 +1222,8 @@ const PrepareDocumentPage: React.FC = () => {
               ...field,
               width: newWidth,
               height: newHeight,
+              x: newX,
+              y: newY,
             };
           }
           return field;
@@ -1191,18 +1234,26 @@ const PrepareDocumentPage: React.FC = () => {
     });
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = (e?: MouseEvent | TouchEvent) => {
     setEditingField(null);
     setInitialDragPosition(null);
   };
 
   useEffect(() => {
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
-    };
+    if (editingField) {
+      // Ajouter les événements pour souris et tactile
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+      window.addEventListener("touchmove", handleMouseMove, { passive: false });
+      window.addEventListener("touchend", handleMouseUp);
+      
+      return () => {
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("mouseup", handleMouseUp);
+        window.removeEventListener("touchmove", handleMouseMove);
+        window.removeEventListener("touchend", handleMouseUp);
+      };
+    }
   }, [editingField, initialDragPosition, zoomLevel]);
 
   // --- Submission ---
@@ -1529,13 +1580,20 @@ Cordialement.`
     return (
       <div
         key={index}
-        style={baseStyle}
-        className={`rounded-md group p-1 flex flex-col justify-center items-center text-xs transition-shadow ${
+        style={{ ...baseStyle, touchAction: "none" }}
+        className={`group p-1 flex flex-col justify-center items-center text-xs transition-shadow ${
           isSelected
             ? "ring-2 ring-offset-2 ring-offset-white ring-primary shadow-lg"
             : ""
         }`}
         onMouseDown={(e) => handleFieldMouseDown(e, index, "move")}
+        onTouchStart={(e) => {
+          // Ne démarrer le drag que si on ne clique pas sur une poignée de resize
+          const target = e.target as HTMLElement;
+          if (!target.closest('.resize-handle')) {
+            handleFieldMouseDown(e, index, "move");
+          }
+        }}
         onClick={(e) => {
           e.stopPropagation();
           setSelectedFieldIndex(index);
@@ -1580,14 +1638,60 @@ Cordialement.`
         >
           {recipient?.name || "Non assigné"}
         </span>
-        <div
-          className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize"
-          onMouseDown={(e) => handleFieldMouseDown(e, index, "resize-br")}
-        >
-          <div className="w-full h-full p-1">
-            <GripVertical size={12} className="text-white/50 rotate-45" />
-          </div>
-        </div>
+        
+        {/* Poignées de redimensionnement - visibles seulement si sélectionné */}
+        {isSelected && (
+          <>
+            <div
+              className="resize-handle absolute -top-2 -left-2 w-4 h-4 bg-primary rounded-full cursor-nw-resize shadow-lg border-2 border-white z-50"
+              style={{ touchAction: "none", pointerEvents: "auto" }}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                handleFieldMouseDown(e, index, "resize-nw");
+              }}
+              onTouchStart={(e) => {
+                e.stopPropagation();
+                handleFieldMouseDown(e, index, "resize-nw");
+              }}
+            />
+            <div
+              className="resize-handle absolute -top-2 -right-2 w-4 h-4 bg-primary rounded-full cursor-ne-resize shadow-lg border-2 border-white z-50"
+              style={{ touchAction: "none", pointerEvents: "auto" }}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                handleFieldMouseDown(e, index, "resize-ne");
+              }}
+              onTouchStart={(e) => {
+                e.stopPropagation();
+                handleFieldMouseDown(e, index, "resize-ne");
+              }}
+            />
+            <div
+              className="resize-handle absolute -bottom-2 -left-2 w-4 h-4 bg-primary rounded-full cursor-sw-resize shadow-lg border-2 border-white z-50"
+              style={{ touchAction: "none", pointerEvents: "auto" }}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                handleFieldMouseDown(e, index, "resize-sw");
+              }}
+              onTouchStart={(e) => {
+                e.stopPropagation();
+                handleFieldMouseDown(e, index, "resize-sw");
+              }}
+            />
+            <div
+              className="resize-handle absolute -bottom-2 -right-2 w-4 h-4 bg-primary rounded-full cursor-se-resize shadow-lg border-2 border-white z-50"
+              style={{ touchAction: "none", pointerEvents: "auto" }}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                handleFieldMouseDown(e, index, "resize-se");
+              }}
+              onTouchStart={(e) => {
+                e.stopPropagation();
+                handleFieldMouseDown(e, index, "resize-se");
+              }}
+            />
+          </>
+        )}
       </div>
     );
   };
@@ -2195,6 +2299,12 @@ Cordialement.`
                       : editingField
                       ? editingField.action === "move"
                         ? "grabbing"
+                        : editingField.action === "resize-nw"
+                        ? "nw-resize"
+                        : editingField.action === "resize-ne"
+                        ? "ne-resize"
+                        : editingField.action === "resize-sw"
+                        ? "sw-resize"
                         : "se-resize"
                       : "default",
                     maxWidth: "100%",

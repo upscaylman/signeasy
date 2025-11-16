@@ -190,6 +190,9 @@ const DraggableSignature: React.FC<DraggableSignatureProps> = ({
     {
       from: () => [0, 0],
       pointer: { touch: true },
+      filterTaps: true,
+      threshold: 3, // Seuil de mouvement en pixels avant de démarrer le drag (évite les clics accidentels)
+      preventScrollAxis: 'xy', // Empêcher le scroll pendant le drag
     }
   );
 
@@ -261,9 +264,9 @@ const DraggableSignature: React.FC<DraggableSignatureProps> = ({
 
   const isManipulating = isDragging || isPinching || isResizing;
 
-  // Gestion du redimensionnement par les coins (souris uniquement)
+  // Gestion du redimensionnement par les coins (souris + tactile) - Inspiré de PrepareDocumentPage
   const handleResizeStart = (
-    e: React.MouseEvent,
+    e: React.MouseEvent | React.TouchEvent,
     corner: "nw" | "ne" | "sw" | "se"
   ) => {
     e.preventDefault();
@@ -271,41 +274,51 @@ const DraggableSignature: React.FC<DraggableSignatureProps> = ({
 
     setIsResizing(true);
 
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const startWidth = displayWidth;
-    const startHeight = displayHeight;
-    const startPosX = displayX;
-    const startPosY = displayY;
+    // 🔧 FIX MOBILE : Gérer les événements touch
+    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      const deltaX = (moveEvent.clientX - startX) / zoomLevel;
-      const deltaY = (moveEvent.clientY - startY) / zoomLevel;
+    // Utiliser les valeurs initiales (props) au lieu des valeurs affichées (tempTransform)
+    // Cela évite les problèmes de calcul si le champ est en cours de manipulation
+    const startX = clientX;
+    const startY = clientY;
+    const startWidth = width; // Utiliser width (prop) au lieu de displayWidth
+    const startHeight = height; // Utiliser height (prop) au lieu de displayHeight
+    const startPosX = x; // Utiliser x (prop) au lieu de displayX
+    const startPosY = y; // Utiliser y (prop) au lieu de displayY
+
+    const handleMouseMove = (moveEvent: MouseEvent | TouchEvent) => {
+      // 🔧 FIX MOBILE : Gérer les événements touch
+      const moveClientX = "touches" in moveEvent ? moveEvent.touches[0].clientX : moveEvent.clientX;
+      const moveClientY = "touches" in moveEvent ? moveEvent.touches[0].clientY : moveEvent.clientY;
+      
+      const dx = (moveClientX - startX) / zoomLevel;
+      const dy = (moveClientY - startY) / zoomLevel;
 
       let newWidth = startWidth;
       let newHeight = startHeight;
       let newX = startPosX;
       let newY = startPosY;
 
-      // Redimensionnement libre (sans ratio d'aspect)
+      // Calculer les nouvelles dimensions selon la direction (même logique que PrepareDocumentPage)
       switch (corner) {
         case "se": // Bas-droite
-          newWidth = Math.max(50, startWidth + deltaX);
-          newHeight = Math.max(30, startHeight + deltaY);
+          newWidth = Math.max(20, startWidth + dx);
+          newHeight = Math.max(20, startHeight + dy);
           break;
         case "sw": // Bas-gauche
-          newWidth = Math.max(50, startWidth - deltaX);
-          newHeight = Math.max(30, startHeight + deltaY);
+          newWidth = Math.max(20, startWidth - dx);
+          newHeight = Math.max(20, startHeight + dy);
           newX = startPosX + (startWidth - newWidth);
           break;
         case "ne": // Haut-droite
-          newWidth = Math.max(50, startWidth + deltaX);
-          newHeight = Math.max(30, startHeight - deltaY);
+          newWidth = Math.max(20, startWidth + dx);
+          newHeight = Math.max(20, startHeight - dy);
           newY = startPosY + (startHeight - newHeight);
           break;
         case "nw": // Haut-gauche
-          newWidth = Math.max(50, startWidth - deltaX);
-          newHeight = Math.max(30, startHeight - deltaY);
+          newWidth = Math.max(20, startWidth - dx);
+          newHeight = Math.max(20, startHeight - dy);
           newX = startPosX + (startWidth - newWidth);
           newY = startPosY + (startHeight - newHeight);
           break;
@@ -325,7 +338,7 @@ const DraggableSignature: React.FC<DraggableSignatureProps> = ({
       });
     };
 
-    const handleMouseUp = () => {
+    const handleMouseUp = (e?: MouseEvent | TouchEvent) => {
       setIsResizing(false);
       if (tempTransform) {
         setCurrentSize({
@@ -342,10 +355,14 @@ const DraggableSignature: React.FC<DraggableSignatureProps> = ({
       }
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
+      document.removeEventListener("touchmove", handleMouseMove);
+      document.removeEventListener("touchend", handleMouseUp);
     };
 
     document.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mouseup", handleMouseUp);
+    document.addEventListener("touchmove", handleMouseMove, { passive: false });
+    document.addEventListener("touchend", handleMouseUp);
   };
 
   return (
@@ -404,15 +421,9 @@ const DraggableSignature: React.FC<DraggableSignatureProps> = ({
             }}
             onTouchStart={(e) => {
               e.stopPropagation();
-              const touch = e.touches[0];
-              const mouseEvent = new MouseEvent("mousedown", {
-                clientX: touch.clientX,
-                clientY: touch.clientY,
-                bubbles: true,
-              });
-              handleResizeStart(mouseEvent as any, "nw");
+              handleResizeStart(e, "nw");
             }}
-            className="absolute -top-2 -left-2 w-6 h-6 bg-primary rounded-full cursor-nw-resize shadow-lg border-2 border-white z-50"
+            className="absolute -top-2 -left-2 w-4 h-4 bg-primary rounded-full cursor-nw-resize shadow-lg border-2 border-white z-50"
             style={{ touchAction: "none", pointerEvents: "auto" }}
           />
           <div
@@ -422,15 +433,9 @@ const DraggableSignature: React.FC<DraggableSignatureProps> = ({
             }}
             onTouchStart={(e) => {
               e.stopPropagation();
-              const touch = e.touches[0];
-              const mouseEvent = new MouseEvent("mousedown", {
-                clientX: touch.clientX,
-                clientY: touch.clientY,
-                bubbles: true,
-              });
-              handleResizeStart(mouseEvent as any, "ne");
+              handleResizeStart(e, "ne");
             }}
-            className="absolute -top-2 -right-2 w-6 h-6 bg-primary rounded-full cursor-ne-resize shadow-lg border-2 border-white z-50"
+            className="absolute -top-2 -right-2 w-4 h-4 bg-primary rounded-full cursor-ne-resize shadow-lg border-2 border-white z-50"
             style={{ touchAction: "none", pointerEvents: "auto" }}
           />
           <div
@@ -440,15 +445,9 @@ const DraggableSignature: React.FC<DraggableSignatureProps> = ({
             }}
             onTouchStart={(e) => {
               e.stopPropagation();
-              const touch = e.touches[0];
-              const mouseEvent = new MouseEvent("mousedown", {
-                clientX: touch.clientX,
-                clientY: touch.clientY,
-                bubbles: true,
-              });
-              handleResizeStart(mouseEvent as any, "sw");
+              handleResizeStart(e, "sw");
             }}
-            className="absolute -bottom-2 -left-2 w-6 h-6 bg-primary rounded-full cursor-sw-resize shadow-lg border-2 border-white z-50"
+            className="absolute -bottom-2 -left-2 w-4 h-4 bg-primary rounded-full cursor-sw-resize shadow-lg border-2 border-white z-50"
             style={{ touchAction: "none", pointerEvents: "auto" }}
           />
           <div
@@ -458,15 +457,9 @@ const DraggableSignature: React.FC<DraggableSignatureProps> = ({
             }}
             onTouchStart={(e) => {
               e.stopPropagation();
-              const touch = e.touches[0];
-              const mouseEvent = new MouseEvent("mousedown", {
-                clientX: touch.clientX,
-                clientY: touch.clientY,
-                bubbles: true,
-              });
-              handleResizeStart(mouseEvent as any, "se");
+              handleResizeStart(e, "se");
             }}
-            className="absolute -bottom-2 -right-2 w-6 h-6 bg-primary rounded-full cursor-se-resize shadow-lg border-2 border-white z-50"
+            className="absolute -bottom-2 -right-2 w-4 h-4 bg-primary rounded-full cursor-se-resize shadow-lg border-2 border-white z-50"
             style={{ touchAction: "none", pointerEvents: "auto" }}
           />
         </>
