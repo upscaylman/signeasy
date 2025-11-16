@@ -2247,8 +2247,9 @@ const SignDocumentPage: React.FC = () => {
                   <span className="whitespace-nowrap">Mode lecture seule</span>
                   {(() => {
                     // Vérifier si le document est signé (par statut ou par vérification des champs)
-                    const isSigned = envelope.document.status === DocumentStatus.SIGNED || 
-                                    envelope.document.status === 'Signé' ||
+                    const status = envelope.document.status as DocumentStatus | string;
+                    const isSigned = status === DocumentStatus.SIGNED || 
+                                    (typeof status === 'string' && status === 'Signé') ||
                                     (envelope.fields.some(f => f.type === FieldType.SIGNATURE || f.type === FieldType.INITIAL) &&
                                      envelope.fields.filter(f => f.type === FieldType.SIGNATURE || f.type === FieldType.INITIAL).every(f => f.value));
                     return isSigned;
