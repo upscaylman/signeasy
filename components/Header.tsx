@@ -106,6 +106,12 @@ const Header: React.FC = () => {
 
     // Listen for custom event when storage is updated
     window.addEventListener("storage_updated", fetchUnreadCount);
+    
+    // Écouter les événements de mise à jour de l'inbox
+    const handleInboxUpdated = () => {
+      fetchUnreadCount();
+    };
+    window.addEventListener("inboxUpdated", handleInboxUpdated);
 
     // 🔄 Polling de secours toutes les 10 secondes
     const interval = setInterval(fetchUnreadCount, 10000);
@@ -113,6 +119,7 @@ const Header: React.FC = () => {
     return () => {
       unsubscribe();
       window.removeEventListener("storage_updated", fetchUnreadCount);
+      window.removeEventListener("inboxUpdated", handleInboxUpdated);
       clearInterval(interval);
     };
   }, [currentUser?.email]);

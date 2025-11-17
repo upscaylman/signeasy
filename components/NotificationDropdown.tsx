@@ -288,11 +288,18 @@ const NotificationDropdown: React.FC = () => {
       fetchNotifications();
     });
 
+    // Écouter les événements de mise à jour de l'inbox
+    const handleInboxUpdated = () => {
+      fetchNotifications();
+    };
+    window.addEventListener("inboxUpdated", handleInboxUpdated);
+
     // 🔄 Polling de secours toutes les 10 secondes (au cas où le listener manque un changement)
     const interval = setInterval(fetchNotifications, 10000);
 
     return () => {
       unsubscribe();
+      window.removeEventListener("inboxUpdated", handleInboxUpdated);
       clearInterval(interval);
     };
   }, [currentUser?.email, fetchNotifications]);

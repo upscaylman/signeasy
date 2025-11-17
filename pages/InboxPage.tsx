@@ -33,6 +33,7 @@ import React, {
   useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
+import Tooltip from "../components/Tooltip";
 import { useToast } from "../components/Toast";
 import { useUser } from "../components/UserContext";
 import { db } from "../config/firebase";
@@ -506,16 +507,34 @@ const InboxPage: React.FC = () => {
         folder: assignFolder(item, role),
       }));
 
+      // Filtrer les éléments supprimés localement
+      const deletedItems = getDeletedItems();
+      const filteredMerged = merged.filter((item) => {
+        // Vérifier si l'item lui-même est supprimé
+        if (deletedItems.has(item.id)) return false;
+        
+        // Pour les documents, vérifier directement l'ID
+        if (item.type === "document") {
+          const docData = item.rawData as Document;
+          if (docData.id && deletedItems.has(docData.id)) return false;
+        }
+        
+        // Pour les emails, on vérifie déjà via item.id (email.id)
+        // Le document associé sera vérifié via documentIdsToHide dans handleConfirmDelete
+        
+        return true;
+      });
+
       // Trier par date décroissante
-      merged.sort(
+      filteredMerged.sort(
         (a, b) =>
           new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
       );
 
-      setUnifiedItems(merged);
+      setUnifiedItems(filteredMerged);
       setSelectedFolder("all");
 
-      if (merged.length > 0) {
+      if (filteredMerged.length > 0) {
         setSelectedItem(null);
         setShowContent(false);
       }
@@ -700,106 +719,111 @@ const InboxPage: React.FC = () => {
     setShowDeleteSnackbar(true);
   };
 
+  // Fonction helper pour gérer les éléments supprimés dans localStorage
+  const getDeletedItems = (): Set<string> => {
+    if (!currentUser?.email) return new Set();
+    const key = `deletedItems_${currentUser.email}`;
+    const stored = localStorage.getItem(key);
+    return stored ? new Set(JSON.parse(stored)) : new Set();
+  };
+
+  const addDeletedItems = (itemIds: string[]) => {
+    if (!currentUser?.email) return;
+    const key = `deletedItems_${currentUser.email}`;
+    const deletedSet = getDeletedItems();
+    itemIds.forEach((id) => deletedSet.add(id));
+    localStorage.setItem(key, JSON.stringify(Array.from(deletedSet)));
+    // Déclencher un événement pour synchroniser avec Dashboard
+    window.dispatchEvent(new CustomEvent('itemsDeleted', { detail: itemIds }));
+  };
+
   const handleConfirmDelete = async () => {
     if (selectedItems.length === 0) return;
 
     try {
-      // 📧 SUPPRESSION CONDITIONNELLE selon le statut du document
       const itemsToDelete = selectedItems
         .map((id) => unifiedItems.find((item) => item.id === id))
         .filter((item): item is UnifiedItem => item !== undefined);
 
-      let emailsLocallyDeleted = 0;
-      let documentsGloballyDeleted = 0;
-      let documentsPendingDeleted = 0;
-      const documentsToDelete: string[] = [];
-
+      // Pour les emails, récupérer aussi l'ID du document associé si disponible
+      const documentIdsToHide: string[] = [];
+      const emailIdsToDelete: string[] = [];
+      
       for (const item of itemsToDelete) {
         if (item.type === "email") {
-          // Récupérer le statut du document depuis l'item
-          const docData = item.rawData as MockEmail;
-          let docStatus: string | undefined;
-
-          // Déterminer le statut selon le contenu de l'email
-          if (
-            docData.subject.includes("✅") ||
-            docData.body?.includes("signé")
-          ) {
-            docStatus = DocumentStatus.SIGNED;
-          } else if (
-            docData.subject.includes("❌") ||
-            docData.body?.includes("rejeté")
-          ) {
-            docStatus = DocumentStatus.REJECTED;
-          } else {
-            docStatus = DocumentStatus.SENT; // En attente
-          }
-
-          // LOGIQUE CONDITIONNELLE
-          if (
-            docStatus === DocumentStatus.SIGNED ||
-            docStatus === DocumentStatus.REJECTED
-          ) {
-            // ✅ Document finalisé (signé/rejeté) → SUPPRESSION BILATÉRALE
-            // Récupérer l'ID du document pour suppression globale
-            try {
+          emailIdsToDelete.push(item.id);
+          // Récupérer l'ID du document associé pour le masquer aussi dans Dashboard
+          try {
+            const docData = item.rawData as MockEmail;
+            if (docData.signatureLink) {
               const token = docData.signatureLink.split("/").pop();
               if (token) {
                 const documentId = await getDocumentIdFromToken(token);
                 if (documentId) {
-                  documentsToDelete.push(documentId);
-                  documentsGloballyDeleted++;
+                  documentIdsToHide.push(documentId);
                 }
               }
-            } catch (err) {
-              console.error("Erreur récupération documentId:", err);
-              // Fallback: suppression locale uniquement
-              await deleteEmails([item.id]);
-              emailsLocallyDeleted++;
             }
-          } else {
-            // 📧 Document en attente → SUPPRESSION LOCALE uniquement
-            await deleteEmails([item.id]);
-            documentsPendingDeleted++;
+          } catch (err) {
+            console.error("Erreur récupération documentId:", err);
           }
         } else if (item.type === "document") {
-          // Documents envoyés visibles dans Inbox (masquage local)
-          // Ne rien faire, juste retirer de la vue
+          // Pour les documents, utiliser directement l'ID
+          const docData = item.rawData as Document;
+          if (docData.id) {
+            documentIdsToHide.push(docData.id);
+          }
         }
       }
 
-      // Supprimer globalement les documents finalisés
-      if (documentsToDelete.length > 0) {
-        await deleteDocuments(documentsToDelete);
-      }
-
-      // Mettre à jour l'UI
-      setUnifiedItems((prev) =>
-        prev.filter((item) => !selectedItems.includes(item.id))
-      );
-
-      setSelectedItems([]);
-      setShowDeleteSnackbar(false);
-
-      // Messages clairs et différenciés
-      const messages: string[] = [];
-
-      if (documentsGloballyDeleted > 0) {
-        messages.push(
-          `${documentsGloballyDeleted} document(s) signé(s)/rejeté(s) supprimé(s) définitivement (vous ET l'expéditeur)`
+      // 🔒 SUPPRESSION CONDITIONNELLE : Admins peuvent supprimer de la base de données
+      if (currentUser?.isAdmin) {
+        // Supprimer de la base de données pour les admins
+        if (emailIdsToDelete.length > 0) {
+          await deleteEmails(emailIdsToDelete);
+        }
+        if (documentIdsToHide.length > 0) {
+          await deleteDocuments(documentIdsToHide);
+        }
+        
+        // Mettre à jour l'UI
+        setUnifiedItems((prev) =>
+          prev.filter((item) => !selectedItems.includes(item.id))
         );
-      }
 
-      if (documentsPendingDeleted > 0) {
-        messages.push(
-          `${documentsPendingDeleted} email(s) en attente supprimé(s) (le document reste disponible pour l'expéditeur)`
-        );
-      }
+        setSelectedItems([]);
+        setShowDeleteSnackbar(false);
 
-      if (messages.length > 0) {
+        // Déclencher les événements pour synchroniser avec Dashboard et badge de notification
+        // Les listeners Firestore (subscribeToDocuments/subscribeToEmails) détecteront aussi les changements
+        // mais on déclenche ces événements pour forcer une mise à jour immédiate
+        window.dispatchEvent(new CustomEvent('inboxUpdated'));
+        window.dispatchEvent(new CustomEvent('itemsDeleted', { detail: [...selectedItems, ...documentIdsToHide] }));
+        window.dispatchEvent(new Event('storage_updated'));
+
         addToast(
-          messages.join(" • "),
-          documentsGloballyDeleted > 0 ? "success" : "info"
+          `${selectedItems.length} élément(s) supprimé(s) définitivement de la base de données.`,
+          "success"
+        );
+      } else {
+        // 📧 SUPPRESSION LOCALE UNIQUEMENT pour les utilisateurs normaux
+        const allIdsToHide = [...selectedItems, ...documentIdsToHide];
+        addDeletedItems(allIdsToHide);
+
+        // Mettre à jour l'UI localement
+        setUnifiedItems((prev) =>
+          prev.filter((item) => !selectedItems.includes(item.id))
+        );
+
+        setSelectedItems([]);
+        setShowDeleteSnackbar(false);
+
+        // Déclencher un événement pour mettre à jour le badge de notification
+        window.dispatchEvent(new CustomEvent('inboxUpdated'));
+
+        addToast(
+          `${selectedItems.length} élément(s) supprimé(s) de votre vue. Les données restent dans la base de données.`,
+          "success"
         );
       }
     } catch (error) {
@@ -1042,72 +1066,98 @@ const InboxPage: React.FC = () => {
                 )}
               </div>
             </div>
-            {/* Boutons d'action visibles si sélection */}
-            {selectedItems.length > 0 && (
-              <div className="flex items-center gap-2">
-                {/* Bouton Marquer comme lu/non lu (uniquement pour les emails) */}
-                {selectedItems.some((id) => {
+            {/* Boutons d'action toujours visibles (icônes avec tooltips) */}
+            <div className="flex items-center gap-2">
+              {/* Bouton Marquer comme lu/non lu (uniquement pour les emails) */}
+              {(() => {
+                const hasEmailSelected = selectedItems.length > 0 && selectedItems.some((id) => {
                   const item = unifiedItems.find((i) => i.id === id);
                   return item?.type === "email";
-                }) && (
-                  <button
-                    onClick={() => {
-                      // Basculer l'état de tous les emails sélectionnés
-                      const emailItems = selectedItems
-                        .map((id) => unifiedItems.find((i) => i.id === id))
-                        .filter(
-                          (item): item is UnifiedItem => item?.type === "email"
-                        );
-
-                      if (emailItems.length === 0) return;
-
-                      // Déterminer si on marque comme lu ou non lu (selon le premier)
-                      const firstItem = emailItems[0];
-                      const newReadStatus = !firstItem.read;
-
-                      // Appliquer à tous les emails sélectionnés
-                      Promise.all(
-                        emailItems.map((item) =>
-                          toggleEmailReadStatus(item.id, item.read)
-                        )
-                      ).then(() => {
-                        // Mettre à jour l'UI
-                        setUnifiedItems((prev) =>
-                          prev.map((i) => {
-                            if (emailItems.some((ei) => ei.id === i.id)) {
-                              return { ...i, read: newReadStatus };
-                            }
-                            return i;
-                          })
-                        );
-                        addToast(
-                          newReadStatus
-                            ? `${emailItems.length} email(s) marqué(s) comme lu`
-                            : `${emailItems.length} email(s) marqué(s) comme non lu`,
-                          "success"
-                        );
-                        window.dispatchEvent(new Event("storage_updated"));
-                      });
-                    }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary border border-primary rounded-lg hover:bg-primary/10 transition-colors flex-shrink-0"
-                    title="Marquer comme lu/non lu"
+                });
+                const hasEmails = filteredItems.some((item) => item.type === "email");
+                
+                if (!hasEmails) return null;
+                
+                return (
+                  <Tooltip
+                    content={
+                      selectedItems.length > 0 && hasEmailSelected
+                        ? "Marquer comme lu/non lu"
+                        : "Sélectionnez des emails pour les marquer comme lu/non lu"
+                    }
+                    position="bottom"
                   >
-                    <MailOpen className="h-4 w-4" />
-                    <span className="hidden sm:inline">Lu/Non lu</span>
-                  </button>
-                )}
+                    <button
+                      onClick={() => {
+                        if (selectedItems.length === 0) return;
+                        
+                        // Basculer l'état de tous les emails sélectionnés
+                        const emailItems = selectedItems
+                          .map((id) => unifiedItems.find((i) => i.id === id))
+                          .filter(
+                            (item): item is UnifiedItem =>
+                              item !== undefined && item.type === "email"
+                          );
 
-                {/* Bouton Supprimer */}
+                        if (emailItems.length === 0) return;
+
+                        // Déterminer si on marque comme lu ou non lu (selon le premier)
+                        const firstItem = emailItems[0];
+                        const newReadStatus = !firstItem.read;
+
+                        // Appliquer à tous les emails sélectionnés
+                        Promise.all(
+                          emailItems.map((item) =>
+                            toggleEmailReadStatus(item.id, item.read)
+                          )
+                        ).then(() => {
+                          // Mettre à jour l'UI
+                          setUnifiedItems((prev) =>
+                            prev.map((i) => {
+                              if (emailItems.some((ei) => ei.id === i.id)) {
+                                return { ...i, read: newReadStatus };
+                              }
+                              return i;
+                            })
+                          );
+                          addToast(
+                            newReadStatus
+                              ? `${emailItems.length} email(s) marqué(s) comme lu`
+                              : `${emailItems.length} email(s) marqué(s) comme non lu`,
+                            "success"
+                          );
+                          window.dispatchEvent(new Event("storage_updated"));
+                        });
+                      }}
+                      disabled={selectedItems.length === 0 || !hasEmailSelected}
+                      className="flex items-center justify-center min-h-[44px] min-w-[44px] w-10 h-10 rounded-full text-primary state-layer state-layer-primary hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent press-effect"
+                      aria-label="Marquer comme lu/non lu"
+                    >
+                      <MailOpen className="h-5 w-5" />
+                    </button>
+                  </Tooltip>
+                );
+              })()}
+
+              {/* Bouton Supprimer */}
+              <Tooltip
+                content={
+                  selectedItems.length > 0
+                    ? `Supprimer ${selectedItems.length} élément(s)`
+                    : "Sélectionnez des éléments pour les supprimer"
+                }
+                position="bottom"
+              >
                 <button
                   onClick={handleRequestDelete}
-                  className="inline-flex rounded-full items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-error border border-error hover:bg-error/10 transition-colors flex-shrink-0"
-                  title={`Supprimer ${selectedItems.length} élément(s)`}
+                  disabled={selectedItems.length === 0}
+                  className="flex items-center justify-center min-h-[44px] min-w-[44px] w-10 h-10 rounded-full text-error state-layer state-layer-error hover:bg-error/10 focus:outline-none focus:ring-2 focus:ring-error focus:ring-offset-2 focus:ring-offset-background transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent press-effect"
+                  aria-label="Supprimer"
                 >
-                  <Trash2 className="h-4 w-4" />
-                  <span className="hidden sm:inline">Supprimer</span>
+                  <Trash2 className="h-5 w-5" />
                 </button>
-              </div>
-            )}
+              </Tooltip>
+            </div>
           </div>
         </div>
 

@@ -51,9 +51,16 @@ const MobileMenu: React.FC = () => {
     
     // Listen for custom event when storage is updated
     window.addEventListener('storage_updated', fetchUnreadCount);
+    
+    // Écouter les événements de mise à jour de l'inbox
+    const handleInboxUpdated = () => {
+      fetchUnreadCount();
+    };
+    window.addEventListener('inboxUpdated', handleInboxUpdated);
 
     return () => {
       window.removeEventListener('storage_updated', fetchUnreadCount);
+      window.removeEventListener('inboxUpdated', handleInboxUpdated);
     };
   }, [currentUser?.email]);
 

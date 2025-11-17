@@ -1245,7 +1245,19 @@ export const getUnreadEmailCount = async (
       where("read", "==", false)
     );
     const snapshot = await getDocs(emailsQuery);
-    return snapshot.size;
+    
+    // Filtrer les emails supprimés localement
+    const key = `deletedItems_${userEmail}`;
+    const stored = localStorage.getItem(key);
+    const deletedItems = stored ? new Set(JSON.parse(stored)) : new Set();
+    
+    // Compter uniquement les emails non lus qui ne sont pas supprimés localement
+    const unreadEmails = snapshot.docs.filter((doc) => {
+      const emailId = doc.id;
+      return !deletedItems.has(emailId);
+    });
+    
+    return unreadEmails.length;
   } catch (error) {
     console.error("❌ Erreur getUnreadEmailCount Firebase:", error);
     return 0;
