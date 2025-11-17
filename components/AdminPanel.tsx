@@ -5,8 +5,10 @@ import {
   Plus,
   Shield,
   Trash2,
+  Database,
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   addAuthorizedUser,
   getAuthorizedUsers,
@@ -25,6 +27,7 @@ const AdminPanel: React.FC = () => {
   const [error, setError] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const { addToast } = useToast();
+  const navigate = useNavigate();
 
   // Charger la liste des utilisateurs
   useEffect(() => {
@@ -215,6 +218,29 @@ const AdminPanel: React.FC = () => {
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Lien vers la page de suppression des données */}
+          <div className="mt-6 pt-6 border-t border-outlineVariant">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-onSurface mb-1">
+                  Suppression des données utilisateur
+                </h3>
+                <p className="text-xs text-onSurfaceVariant">
+                  Supprimer toutes les données d'un utilisateur (documents, emails, tokens, etc.)
+                </p>
+              </div>
+              <Button
+                variant="outlined"
+                icon={Database}
+                onClick={() => navigate("/admin/delete-user-data")}
+                className="flex-shrink-0"
+                size="small"
+              >
+                Accéder
+              </Button>
+            </div>
           </div>
 
           <div className="mt-6 pt-6 border-t border-outlineVariant">

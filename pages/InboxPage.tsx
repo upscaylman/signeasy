@@ -223,6 +223,7 @@ interface UnifiedItem {
   folder: string; // Dossier auquel appartient l'item
   recipientName?: string; // Nom complet du destinataire
   recipientEmail?: string; // Email du destinataire
+  archived?: boolean; // Document archivé
 }
 
 // Type pour un dossier
@@ -364,28 +365,57 @@ const InboxPage: React.FC = () => {
       setUserRole(role);
 
       // Convertir emails en UnifiedItem (DESTINATAIRE uniquement)
-      const emailItems: UnifiedItem[] = emails.map((email) => {
-        console.log(`📧 Email ${email.id}:`, {
-          subject: email.subject,
-          read: email.read,
-          readType: typeof email.read,
-          sentAt: email.sentAt,
-        });
-        return {
-          id: email.id,
-          type: "email",
-          title: email.subject,
-          documentName: email.documentName,
-          timestamp: email.sentAt,
-          read: email.read ?? false, // Fallback à false si undefined
-          source: "À signer",
-          signatureLink: email.signatureLink,
-          from: email.from,
-          body: email.body,
-          rawData: email,
-          folder: "all", // Le folder sera assigné par assignFolder() après
-        };
-      });
+      // Vérifier si le document associé à chaque email est archivé
+      const emailItems: UnifiedItem[] = await Promise.all(
+        emails.map(async (email) => {
+          console.log(`📧 Email ${email.id}:`, {
+            subject: email.subject,
+            read: email.read,
+            readType: typeof email.read,
+            sentAt: email.sentAt,
+          });
+
+          // Récupérer le statut archivé du document associé à cet email
+          let isArchived = false;
+          if (email.signatureLink) {
+            try {
+              const token = email.signatureLink.split("/").pop();
+              if (token) {
+                const documentId = await getDocumentIdFromToken(token);
+                if (documentId) {
+                  // Récupérer le document depuis Firestore pour vérifier son statut archivé
+                  const documentDoc = await getDoc(doc(db, "documents", documentId));
+                  if (documentDoc.exists()) {
+                    const documentData = documentDoc.data() as Document;
+                    isArchived = documentData.archived === true;
+                    if (isArchived) {
+                      console.log(`📦 Email ${email.id} associé au document archivé ${documentId}`);
+                    }
+                  }
+                }
+              }
+            } catch (err) {
+              console.error("Erreur lors de la récupération du statut archivé:", err);
+            }
+          }
+
+          return {
+            id: email.id,
+            type: "email",
+            title: email.subject,
+            documentName: email.documentName,
+            timestamp: email.sentAt,
+            read: email.read ?? false, // Fallback à false si undefined
+            source: "À signer",
+            signatureLink: email.signatureLink,
+            from: email.from,
+            body: email.body,
+            rawData: email,
+            folder: "all", // Le folder sera assigné par assignFolder() après
+            archived: isArchived, // Inclure le statut d'archivage
+          };
+        })
+      );
 
       // Convertir documents en UnifiedItem (EXPÉDITEUR uniquement)
       const documentItems: UnifiedItem[] = await Promise.all(
@@ -465,6 +495,7 @@ const InboxPage: React.FC = () => {
             recipientEmail,
             rawData: document,
             folder: "all", // Le folder sera assigné par assignFolder() après
+            archived: document.archived ?? false, // Inclure le statut d'archivage
           };
         })
       );
@@ -500,10 +531,21 @@ const InboxPage: React.FC = () => {
     fetchUnifiedData();
   }, [fetchUnifiedData]); // ✅ Suppression de refreshTrigger
 
-  // Filter items by selected folder
+  // Filter items by selected folder (exclure les documents archivés)
   const filteredItems = useMemo(() => {
-    if (selectedFolder === "all") return unifiedItems;
-    return unifiedItems.filter((item) => item.folder === selectedFolder);
+    // Exclure les documents archivés (archived === true)
+    const nonArchivedItems = unifiedItems.filter(
+      (item) => !(item.archived === true)
+    );
+    
+    // Log pour déboguer
+    const archivedCount = unifiedItems.filter((item) => item.archived === true).length;
+    if (archivedCount > 0) {
+      console.log(`📦 ${archivedCount} document(s) archivé(s) filtré(s) de l'affichage`);
+    }
+    
+    if (selectedFolder === "all") return nonArchivedItems;
+    return nonArchivedItems.filter((item) => item.folder === selectedFolder);
   }, [unifiedItems, selectedFolder]);
 
   // Calculate folder counts

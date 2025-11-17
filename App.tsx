@@ -18,6 +18,7 @@ import PrepareDocumentPage from "./pages/PrepareDocumentPage";
 import QuickSignPage from "./pages/QuickSignPage";
 import SignDocumentPage from "./pages/SignDocumentPage";
 import VerifyPage from "./pages/VerifyPage";
+import DeleteUserDataPage from "./pages/DeleteUserDataPage";
 // Vérification automatique de la configuration Firebase
 import "./utils/firebaseCheck";
 
@@ -66,6 +67,7 @@ const AppContent: React.FC = () => {
           <Route path="/sign/view" element={<SignDocumentPage />} />
           <Route path="/inbox" element={<InboxPage />} />
           <Route path="/verify" element={<VerifyPage />} />
+          <Route path="/admin/delete-user-data" element={<DeleteUserDataPage />} />
           <Route path="*" element={<Navigate to="/dashboard" />} />
         </Routes>
       </main>

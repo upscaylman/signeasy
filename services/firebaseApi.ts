@@ -1266,6 +1266,165 @@ export const deleteEmails = async (
   }
 };
 
+// 🗑️ SUPPRESSION COMPLÈTE : Supprimer toutes les données d'un utilisateur
+export const deleteAllUserData = async (
+  userEmail: string
+): Promise<{ success: boolean; deletedCounts: { [key: string]: number }; message?: string }> => {
+  try {
+    const emailLower = userEmail.toLowerCase();
+    
+    // 🔒 PROTECTION : Ne pas permettre la suppression des emails prédéfinis et admins
+    if (PREDEFINED_AUTHORIZED_EMAILS.includes(emailLower)) {
+      console.error(`❌ Impossible de supprimer les données d'un email prédéfini: ${emailLower}`);
+      return { 
+        success: false, 
+        deletedCounts: {},
+        message: "Impossible de supprimer les données d'un email prédéfini FO Metaux"
+      };
+    }
+    
+    if (ADMIN_EMAILS.includes(emailLower)) {
+      console.error(`❌ Impossible de supprimer les données d'un administrateur: ${emailLower}`);
+      return { 
+        success: false, 
+        deletedCounts: {},
+        message: "Impossible de supprimer les données d'un administrateur"
+      };
+    }
+    
+    console.log(`🗑️ Suppression de toutes les données pour: ${emailLower}`);
+    
+    const deletedCounts: { [key: string]: number } = {
+      documents: 0,
+      envelopes: 0,
+      tokens: 0,
+      emails: 0,
+      auditTrails: 0,
+      pdfs: 0,
+      authorizedUsers: 0,
+    };
+
+    // 1. Supprimer les documents créés par cet utilisateur
+    const documentsQuery = query(
+      collection(db, "documents"),
+      where("creatorEmail", "==", emailLower)
+    );
+    const documentsSnapshot = await getDocs(documentsQuery);
+    const documentIds: string[] = [];
+    
+    for (const docSnapshot of documentsSnapshot.docs) {
+      documentIds.push(docSnapshot.id);
+      await deleteDoc(docSnapshot.ref);
+      deletedCounts.documents++;
+    }
+    console.log(`   ✅ ${deletedCounts.documents} document(s) supprimé(s)`);
+
+    // 2. Pour chaque document, supprimer les enveloppes, tokens, emails, audit trails et PDFs
+    for (const docId of documentIds) {
+      // Supprimer le PDF depuis Storage
+      try {
+        const pdfRef = ref(storage, `pdfs/${docId}.pdf`);
+        await deleteObject(pdfRef);
+        deletedCounts.pdfs++;
+        console.log(`   ✅ PDF ${docId} supprimé du Storage`);
+      } catch (e) {
+        console.warn(`   ⚠️ PDF ${docId} déjà supprimé ou inexistant`);
+      }
+
+      // Trouver et supprimer l'enveloppe
+      const envelopesQuery = query(
+        collection(db, "envelopes"),
+        where("document.id", "==", docId)
+      );
+      const envelopesDocs = await getDocs(envelopesQuery);
+      for (const envDoc of envelopesDocs.docs) {
+        await deleteDoc(envDoc.ref);
+        deletedCounts.envelopes++;
+      }
+
+      // Trouver et supprimer les tokens associés
+      const envelopeId = `env${docId.substring(3)}`;
+      const tokensQuery = query(
+        collection(db, "tokens"),
+        where("envelopeId", "==", envelopeId)
+      );
+      const tokensDocs = await getDocs(tokensQuery);
+      const tokenIds: string[] = [];
+
+      for (const tokenDoc of tokensDocs.docs) {
+        tokenIds.push(tokenDoc.id);
+        await deleteDoc(tokenDoc.ref);
+        deletedCounts.tokens++;
+      }
+
+      // Supprimer les emails associés (via les tokens)
+      for (const token of tokenIds) {
+        const emailsQuery = query(
+          collection(db, "emails"),
+          where(
+            "signatureLink",
+            "==",
+            `${window.location.origin}/#/sign/${token}`
+          )
+        );
+        const emailsDocs = await getDocs(emailsQuery);
+
+        for (const emailDoc of emailsDocs.docs) {
+          await deleteDoc(emailDoc.ref);
+          deletedCounts.emails++;
+        }
+      }
+
+      // Supprimer l'audit trail
+      try {
+        await deleteDoc(doc(db, "auditTrails", docId));
+        deletedCounts.auditTrails++;
+      } catch (e) {
+        console.warn(`   ⚠️ Audit trail ${docId} déjà supprimé ou inexistant`);
+      }
+    }
+
+    // 3. Supprimer les emails où cet utilisateur est destinataire (toEmail)
+    const emailsToQuery = query(
+      collection(db, "emails"),
+      where("toEmail", "==", emailLower)
+    );
+    const emailsToSnapshot = await getDocs(emailsToQuery);
+    for (const emailDoc of emailsToSnapshot.docs) {
+      await deleteDoc(emailDoc.ref);
+      deletedCounts.emails++;
+    }
+
+    // 4. Supprimer les emails où cet utilisateur est expéditeur (from)
+    const emailsFromQuery = query(
+      collection(db, "emails"),
+      where("from", "==", emailLower)
+    );
+    const emailsFromSnapshot = await getDocs(emailsFromQuery);
+    for (const emailDoc of emailsFromSnapshot.docs) {
+      await deleteDoc(emailDoc.ref);
+      deletedCounts.emails++;
+    }
+
+    // 5. Supprimer les entrées dans authorizedUsers
+    const authorizedUsersQuery = query(
+      collection(db, "authorizedUsers"),
+      where("email", "==", emailLower)
+    );
+    const authorizedUsersSnapshot = await getDocs(authorizedUsersQuery);
+    for (const userDoc of authorizedUsersSnapshot.docs) {
+      await deleteDoc(userDoc.ref);
+      deletedCounts.authorizedUsers++;
+    }
+
+    console.log("✅ Suppression complète terminée:", deletedCounts);
+    return { success: true, deletedCounts };
+  } catch (error) {
+    console.error("❌ Erreur deleteAllUserData:", error);
+    return { success: false, deletedCounts: {} };
+  }
+};
+
 export const getAuditTrail = async (documentId: string): Promise<string> => {
   try {
     const auditDoc = await getDoc(doc(db, "auditTrails", documentId));
