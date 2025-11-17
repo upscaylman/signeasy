@@ -1928,7 +1928,10 @@ const SignDocumentPage: React.FC = () => {
           <div
             style={{
               ...outerStyle,
-              borderColor: selectedFieldId === field.id ? hexToRgba(color, 0.5) : "transparent",
+              borderColor:
+                selectedFieldId === field.id
+                  ? hexToRgba(color, 0.5)
+                  : "transparent",
             }}
             className="group border-2 transition-all"
             onMouseEnter={(e) => {
@@ -2021,11 +2024,15 @@ const SignDocumentPage: React.FC = () => {
         const finalWidth = customDims?.width ?? width;
         const finalHeight = customDims?.height ?? height;
 
+        // Pour le champ TEXT, on utilise une structure avec bordure externe et padding
         return (
           <div
             style={{
               ...outerStyle,
-              borderColor: selectedFieldId === field.id ? hexToRgba(color, 0.5) : "transparent",
+              borderColor:
+                selectedFieldId === field.id
+                  ? hexToRgba(color, 0.5)
+                  : "transparent",
             }}
             className="group border-2 transition-all"
             onMouseEnter={(e) => {
@@ -2040,93 +2047,125 @@ const SignDocumentPage: React.FC = () => {
               }
             }}
           >
-            <DraggableFieldUnified
-              id={field.id}
-              x={x}
-              y={y}
-              width={finalWidth}
-              height={finalHeight}
-              zoomLevel={zoomLevel}
-              color={color}
-              onUpdate={(id, updates) => {
-                setFieldDimensions((prev) => ({
-                  ...prev,
-                  [id]: {
-                    ...prev[id],
-                    x: updates.x ?? prev[id]?.x ?? field.x,
-                    y: updates.y ?? prev[id]?.y ?? field.y,
-                    width: updates.width ?? prev[id]?.width ?? finalWidth,
-                    height: updates.height ?? prev[id]?.height ?? finalHeight,
-                  },
-                }));
-              }}
-              maxWidth={pageDimensions[field.page - 1]?.width || 600}
-              maxHeight={pageDimensions[field.page - 1]?.height || 800}
-              isSelected={selectedFieldId === field.id}
-              onSelect={() => {
-                if (!readOnly && isCurrentSignerField) {
-                  setSelectedFieldId(field.id);
-                }
-              }}
-              showRemoveButton={!readOnly && isCurrentSignerField}
-              onRemove={() => handleFieldChange(field.id, "")}
-            >
-              {/* Conteneur interne avec le contenu */}
-              <div
-                style={innerStyle}
-                className="w-full h-full flex flex-col relative text-xs"
-              >
-                {/* Bouton options - visible seulement si sélectionné */}
-                {isCurrentSignerField &&
-                  !readOnly &&
-                  selectedFieldId === field.id && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowTextOptions(true);
-                      }}
-                      className="absolute -top-2 -right-2 bg-primary text-onPrimary rounded-full p-1.5 z-10 shadow-lg"
-                      title="Options de mise en page"
-                    >
-                      <Settings className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-
-                <textarea
-                  value={textValue}
-                  onChange={(e) => {
-                    const newValue = e.target.value;
-                    handleFieldChange(field.id, newValue);
+            {/* Bouton options - sur la bordure externe, à gauche du bouton de suppression */}
+            {isCurrentSignerField &&
+              !readOnly &&
+              selectedFieldId === field.id && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowTextOptions(true);
                   }}
-                  ref={(el) => {
-                    if (el) {
-                      textFieldRefs.current[field.id] = el;
-                    }
-                  }}
+                  className="absolute -top-2.5 -left-2.5 w-5 h-5 rounded-full flex items-center justify-center shadow-lg border-2 border-white z-50 opacity-0 group-hover:opacity-100 transition-opacity"
                   style={{
-                    width: "100%",
-                    height: "100%",
-                    border: "none",
-                    borderRadius: "0",
-                    padding: "8px",
-                    fontSize: `${textOptions.fontSize}px`,
-                    backgroundColor: "transparent",
-                    resize: "none",
-                    fontFamily: "inherit",
-                    lineHeight: textOptions.lineHeight,
-                    overflow: textOptions.wordWrap ? "auto" : "hidden",
-                    wordWrap: textOptions.wordWrap ? "break-word" : "normal",
-                    whiteSpace: textOptions.wordWrap ? "pre-wrap" : "nowrap",
-                    outline: "none",
-                    textOverflow: textOptions.wordWrap ? "clip" : "ellipsis",
-                    color: color,
+                    touchAction: "none",
+                    pointerEvents: "auto",
+                    backgroundColor: color,
                   }}
-                  placeholder="Écrivez ici..."
-                  readOnly={readOnly || !isCurrentSignerField}
-                  onFocus={() => setCurrentFieldIndex(fieldIndexInSignable)}
-                />
-              </div>
-            </DraggableFieldUnified>
+                  title="Options de mise en page"
+                >
+                  <Settings size={12} style={{ color: "#ffffff" }} />
+                </button>
+              )}
+            {/* Bouton de suppression - sur la bordure externe, en haut à droite */}
+            {isCurrentSignerField &&
+              !readOnly &&
+              selectedFieldId === field.id && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleFieldChange(field.id, "");
+                  }}
+                  className="delete-button absolute -top-2.5 -right-2.5 w-5 h-5 rounded-full flex items-center justify-center shadow-lg border-2 border-white z-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{
+                    touchAction: "none",
+                    pointerEvents: "auto",
+                    backgroundColor: color,
+                  }}
+                  title="Supprimer le champ"
+                >
+                  <X size={12} style={{ color: "#ffffff" }} />
+                </button>
+              )}
+            <div
+              style={{
+                position: "relative",
+                width: "100%",
+                height: "100%",
+              }}
+            >
+              <DraggableFieldUnified
+                id={field.id}
+                x={0}
+                y={0}
+                width={finalWidth}
+                height={finalHeight}
+                zoomLevel={zoomLevel}
+                color={color}
+                onUpdate={(id, updates) => {
+                  // Les coordonnées sont relatives au conteneur avec padding, on les convertit en absolues
+                  setFieldDimensions((prev) => ({
+                    ...prev,
+                    [id]: {
+                      ...prev[id],
+                      x: (updates.x ?? 0) + (x - 15), // Convertir en coordonnées absolues
+                      y: (updates.y ?? 0) + (y - 15), // Convertir en coordonnées absolues
+                      width: updates.width ?? prev[id]?.width ?? finalWidth,
+                      height: updates.height ?? prev[id]?.height ?? finalHeight,
+                    },
+                  }));
+                }}
+                maxWidth={finalWidth}
+                maxHeight={finalHeight}
+                isSelected={selectedFieldId === field.id}
+                onSelect={() => {
+                  if (!readOnly && isCurrentSignerField) {
+                    setSelectedFieldId(field.id);
+                  }
+                }}
+                showRemoveButton={false}
+              >
+                {/* Conteneur interne avec le contenu */}
+                <div
+                  style={innerStyle}
+                  className="w-full h-full flex flex-col relative text-xs"
+                >
+                  <textarea
+                    value={textValue}
+                    onChange={(e) => {
+                      const newValue = e.target.value;
+                      handleFieldChange(field.id, newValue);
+                    }}
+                    ref={(el) => {
+                      if (el) {
+                        textFieldRefs.current[field.id] = el;
+                      }
+                    }}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      border: "none",
+                      borderRadius: "0",
+                      padding: "8px",
+                      fontSize: `${textOptions.fontSize}px`,
+                      backgroundColor: "transparent",
+                      resize: "none",
+                      fontFamily: "inherit",
+                      lineHeight: textOptions.lineHeight,
+                      overflow: textOptions.wordWrap ? "auto" : "hidden",
+                      wordWrap: textOptions.wordWrap ? "break-word" : "normal",
+                      whiteSpace: textOptions.wordWrap ? "pre-wrap" : "nowrap",
+                      outline: "none",
+                      textOverflow: textOptions.wordWrap ? "clip" : "ellipsis",
+                      color: color,
+                    }}
+                    placeholder="Écrivez ici..."
+                    readOnly={readOnly || !isCurrentSignerField}
+                    onFocus={() => setCurrentFieldIndex(fieldIndexInSignable)}
+                  />
+                </div>
+              </DraggableFieldUnified>
+            </div>
           </div>
         );
       case FieldType.CHECKBOX:
@@ -2134,7 +2173,10 @@ const SignDocumentPage: React.FC = () => {
           <div
             style={{
               ...outerStyle,
-              borderColor: selectedFieldId === field.id ? hexToRgba(color, 0.5) : "transparent",
+              borderColor:
+                selectedFieldId === field.id
+                  ? hexToRgba(color, 0.5)
+                  : "transparent",
             }}
             className="group border-2 transition-all"
             onMouseEnter={(e) => {

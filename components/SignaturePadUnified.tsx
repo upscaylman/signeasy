@@ -164,10 +164,13 @@ const SignaturePadUnified: React.FC<SignaturePadUnifiedProps> = ({
         return;
       }
       const tempCanvas = document.createElement("canvas");
+      // Calculer la taille de police en fonction du scale
+      const fontSize = 48 * scale;
+      // Ajuster la taille du canvas en fonction de la taille du texte
       tempCanvas.width = 400;
-      tempCanvas.height = 100;
+      tempCanvas.height = Math.max(100, fontSize + 40);
       const ctx = tempCanvas.getContext("2d")!;
-      ctx.font = '48px "Caveat", cursive';
+      ctx.font = `${fontSize}px "Caveat", cursive`;
       ctx.fillStyle = strokeColor;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
@@ -305,7 +308,7 @@ const SignaturePadUnified: React.FC<SignaturePadUnifiedProps> = ({
             </div>
           )}
           {activeTab === "type" && (
-            <div className="h-[280px] flex flex-col items-center justify-center bg-white rounded-xl p-4 gap-2">
+            <div className="h-[280px] flex flex-col items-center justify-center bg-white rounded-xl p-4 gap-2 overflow-hidden">
               <label className="text-xs font-semibold text-onSurfaceVariant">
                 Taille:
               </label>
@@ -321,18 +324,20 @@ const SignaturePadUnified: React.FC<SignaturePadUnifiedProps> = ({
               <span className="text-xs text-onSurfaceVariant font-medium mb-2">
                 {Math.round(scale * 100)}%
               </span>
-              <input
-                type="text"
-                value={typedName}
-                onChange={(e) => setTypedName(e.target.value)}
-                className="text-6xl font-['Caveat',_cursive] text-center w-full bg-transparent outline-none border-b-2 border-solid border-outline focus:border-primary transition-colors"
-                style={{
-                  transform: `scale(${scale})`,
-                  transformOrigin: "center",
-                  fontSize: `${48 * scale}px`,
-                }}
-                placeholder="Tapez votre nom"
-              />
+              <div className="w-full flex items-center justify-center overflow-hidden">
+                <input
+                  type="text"
+                  value={typedName}
+                  onChange={(e) => setTypedName(e.target.value)}
+                  className="font-['Caveat',_cursive] text-center bg-transparent outline-none border-b-2 border-solid border-outline focus:border-primary transition-colors"
+                  style={{
+                    fontSize: `${48 * scale}px`,
+                    maxWidth: "100%",
+                    width: "100%",
+                  }}
+                  placeholder="Tapez votre nom"
+                />
+              </div>
             </div>
           )}
           {activeTab === "upload" && (

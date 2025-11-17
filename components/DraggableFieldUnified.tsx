@@ -293,7 +293,7 @@ const DraggableFieldUnified: React.FC<DraggableFieldUnifiedProps> = ({
       }}
     >
       {/* Contenu du champ */}
-      <div className="w-full h-full relative">{children}</div>
+      <div className="w-full h-full">{children}</div>
 
       {/* Bouton supprimer - visible seulement si sélectionné */}
       {showRemoveButton && isSelected && onRemove && (
