@@ -1,0 +1,118 @@
+/* Design Tokens - SignEase by FO Metaux */
+/* Extrait du système Material Design 3 existant */
+
+:root {
+  /* ============================================
+     COLORS - Material Design 3
+     ============================================ */
+  --color-primary: #b71c1c;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #ffdad4;
+  --color-on-primary-container: #410001;
+
+  --color-secondary: #775651;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #ffdad4;
+  --color-on-secondary-container: #2c1512;
+
+  --color-tertiary: #705c2e;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #fbdfa6;
+  --color-on-tertiary-container: #251a00;
+
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #410002;
+
+  --color-background: #fffbff;
+  --color-on-background: #201a19;
+
+  --color-surface: #fffbff;
+  --color-on-surface: #201a19;
+  --color-surface-variant: #f5ddda;
+  --color-on-surface-variant: #3e302f;
+
+  --color-outline: #6f5b58;
+  --color-outline-variant: #d8c2bf;
+
+  /* ============================================
+     SPACING SYSTEM
+     ============================================ */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+  --spacing-3xl: 64px;
+
+  /* ============================================
+     TYPOGRAPHY
+     ============================================ */
+  --font-family: "Manrope", sans-serif;
+  
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-md: 14px;
+  --font-size-base: 16px;
+  --font-size-lg: 18px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
+  --font-size-3xl: 28px;
+  --font-size-4xl: 32px;
+  --font-size-5xl: 36px;
+  --font-size-6xl: 45px;
+  --font-size-7xl: 57px;
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.6;
+
+  /* ============================================
+     BORDER RADIUS
+     ============================================ */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-full: 9999px;
+
+  /* ============================================
+     SHADOWS / ELEVATION
+     ============================================ */
+  --shadow-sm: 0px 1px 2px 0px rgba(0, 0, 0, 0.3),
+    0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+  --shadow-md: 0px 1px 2px 0px rgba(0, 0, 0, 0.3),
+    0px 2px 6px 2px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0px 4px 8px 3px rgba(0, 0, 0, 0.15),
+    0px 1px 3px 0px rgba(0, 0, 0, 0.3);
+  --shadow-xl: 0px 6px 10px 4px rgba(0, 0, 0, 0.15),
+    0px 2px 3px 0px rgba(0, 0, 0, 0.3);
+
+  /* ============================================
+     TRANSITIONS
+     ============================================ */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow: 350ms ease;
+
+  /* ============================================
+     Z-INDEX
+     ============================================ */
+  --z-base: 0;
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
+}
+

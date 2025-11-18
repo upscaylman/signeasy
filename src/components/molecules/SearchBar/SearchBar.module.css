@@ -1,0 +1,21 @@
+.searchBar {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: flex-start;
+  width: 100%;
+}
+
+.input {
+  flex: 1;
+}
+
+@media (max-width: 640px) {
+  .searchBar {
+    flex-direction: column;
+  }
+  
+  .input {
+    width: 100%;
+  }
+}
+

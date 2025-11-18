@@ -25,7 +25,7 @@ import React, {
 } from "react";
 import { useNavigate } from "react-router-dom";
 import AdminPanel from "../components/AdminPanel";
-import Button from "../components/Button";
+import { Button } from "../src/components/atoms";
 import DocumentCard from "../components/DocumentCard";
 import { useToast } from "../components/Toast";
 import { useUser } from "../components/UserContext";
@@ -95,12 +95,9 @@ const ConfirmationModal: React.FC<{
           <Button variant="text" onClick={onClose}>
             Annuler
           </Button>
-          <button
-            onClick={onConfirm}
-            className="btn-premium-shine btn-premium-extended h-11 text-sm focus:outline-none focus:ring-4 focus:ring-primary/30 inline-flex items-center justify-center"
-          >
+          <Button variant="primary" onClick={onConfirm} size="md">
             Confirmer la suppression
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -844,57 +841,39 @@ const DashboardPage: React.FC = () => {
               </div>
               <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto">
                 <Button
-                  variant="filled"
-                  icon={CheckSquare}
+                  variant="primary"
                   onClick={handleSelectAllClick}
                   disabled={filteredDocuments.length === 0}
-                  size="small"
-                  className="flex-1 sm:flex-initial min-w-[140px] max-w-[160px] rounded-full items-center gap-1.5 px-3 py-1.5 hover:bg-error/10 transition-colors flex-shrink-0"
+                  size="sm"
                 >
-                  <span className="truncate">
-                    {filteredDocuments.length > 0 &&
-                    selectedDocuments.length === filteredDocuments.length
-                      ? "Tout désélectionner"
-                      : "Tout sélectionner"}
-                  </span>
+                  {filteredDocuments.length > 0 &&
+                  selectedDocuments.length === filteredDocuments.length
+                    ? "Tout désélectionner"
+                    : "Tout sélectionner"}
                 </Button>
                 <Button
-                  variant="outlined"
-                  icon={Archive}
+                  variant="outline"
                   disabled={selectedDocuments.length === 0}
                   onClick={handleArchive}
-                  size="small"
-                  className={`flex-1 sm:flex-initial min-w-[110px] ${
-                    selectedDocuments.length > 0
-                      ? "rounded-full items-center gap-1.5 px-3 py-1.5 hover:bg-error/10 transition-colors flex-shrink-0"
-                      : ""
-                  }`}
+                  size="sm"
                 >
                   Archiver
                 </Button>
                 {/* Bouton Supprimer - Visible uniquement pour les administrateurs */}
                 {currentUser?.isAdmin && (
                   <Button
-                    variant="outlined"
-                    icon={Trash2}
+                    variant="danger"
                     disabled={selectedDocuments.length === 0}
                     onClick={() => setIsConfirmDeleteOpen(true)}
-                    size="small"
-                    className={`flex-1 sm:flex-initial min-w-[110px] ${
-                      selectedDocuments.length > 0
-                        ? "rounded-full items-center gap-1.5 px-3 py-1.5 text-error border border-error hover:bg-error/10 transition-colors flex-shrink-0"
-                        : "!text-error !border-error state-layer-error [&:hover]:!bg-transparent"
-                    }`}
+                    size="sm"
                   >
                     Supprimer
                   </Button>
                 )}
                 <Button
-                  variant="filled"
-                  icon={X}
+                  variant="secondary"
                   onClick={handleExitSelectionMode}
-                  size="small"
-                  className="flex-1 rounded-full sm:flex-initial min-w-[110px] !bg-surfaceVariant hover:!bg-surfaceVariant/80 !text-onSurfaceVariant"
+                  size="sm"
                 >
                   Annuler
                 </Button>
@@ -961,10 +940,9 @@ const DashboardPage: React.FC = () => {
 
                   {/* Bouton Sélectionner */}
                   <Button
-                    variant="outlined"
+                    variant="outline"
                     onClick={() => setIsSelectionMode(true)}
-                    icon={CheckSquare}
-                    size="medium"
+                    size="md"
                   >
                     Sélectionner
                   </Button>

@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { deleteAllUserData } from '../services/firebaseApi';
 import { useToast } from '../components/Toast';
 import { useUser } from '../components/UserContext';
-import Button from '../components/Button';
-import { Trash2, Loader2, Shield } from 'lucide-react';
+import { Button, Icon } from '../src/components/atoms';
+import { Shield } from 'lucide-react';
 
 const DeleteUserDataPage: React.FC = () => {
   const { currentUser, isLoading } = useUser();
@@ -106,13 +106,22 @@ const DeleteUserDataPage: React.FC = () => {
             </div>
 
             <Button
-              variant="filled"
-              icon={isDeleting ? Loader2 : Trash2}
+              variant="danger"
               onClick={handleDelete}
               disabled={isDeleting || !email.trim()}
-              className="w-full"
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
             >
-              {isDeleting ? 'Suppression en cours...' : 'Supprimer toutes les données'}
+              {isDeleting ? (
+                <>
+                  <Icon name="Loader2" size="sm" />
+                  Suppression en cours...
+                </>
+              ) : (
+                <>
+                  <Icon name="Trash2" size="sm" />
+                  Supprimer toutes les données
+                </>
+              )}
             </Button>
 
             {result && (

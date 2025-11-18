@@ -1,0 +1,21 @@
+.icon {
+  display: inline-block;
+  flex-shrink: 0;
+  transition: var(--transition-fast);
+}
+
+.sm {
+  width: 16px;
+  height: 16px;
+}
+
+.md {
+  width: 20px;
+  height: 20px;
+}
+
+.lg {
+  width: 24px;
+  height: 24px;
+}
+

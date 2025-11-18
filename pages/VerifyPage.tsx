@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import Button from "../components/Button";
+import { Button, Icon } from "../src/components/atoms";
 import {
   getAuditTrail,
   getPdfData,
@@ -228,14 +228,26 @@ const VerifyPage: React.FC = () => {
               />
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-onSurfaceVariant" />
             </div>
-            <Button
-              variant="glass"
-              type="submit"
-              isLoading={isLoading}
-              className="w-full sm:w-auto"
-            >
-              Vérifier
-            </Button>
+            <div className="w-full sm:w-auto">
+              <Button
+                variant="primary"
+                type="submit"
+                disabled={isLoading}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+              >
+                {isLoading ? (
+                  <>
+                    <Icon name="Loader2" size="sm" />
+                    Vérification...
+                  </>
+                ) : (
+                  <>
+                    <Icon name="Search" size="sm" />
+                    Vérifier
+                  </>
+                )}
+              </Button>
+            </div>
           </form>
 
           {error && <p className="mt-4 text-sm text-error">{error}</p>}

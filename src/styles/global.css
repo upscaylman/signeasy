@@ -1,0 +1,95 @@
+/* Global Styles - SignEase by FO Metaux */
+/* Import des tokens */
+@import './tokens.css';
+
+/* Reset et base */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--color-background);
+  color: var(--color-on-background);
+  line-height: var(--line-height-relaxed);
+  overflow-x: hidden;
+  min-height: 100vh;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Focus visible pour l'accessibilité */
+*:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Scrollbar personnalisée */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-surface-variant);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-outline);
+  border-radius: 10px;
+  border: 2px solid var(--color-surface-variant);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary);
+}
+
+/* Support Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-outline) var(--color-surface-variant);
+}
+
+/* Sélection de texte personnalisée */
+::selection {
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+::-moz-selection {
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+/* Respecter la préférence de réduction des animations */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Mode high contrast */
+@media (prefers-contrast: high) {
+  :root {
+    --color-on-surface-variant: #000000;
+    --color-outline: #000000;
+  }
+}
+
