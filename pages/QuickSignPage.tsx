@@ -55,6 +55,7 @@ const QuickSignPage: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [signatures, setSignatures] = useState<SignaturePosition[]>([]);
   const [showSignaturePad, setShowSignaturePad] = useState(false);
+  const [pendingSignature, setPendingSignature] = useState<string | null>(null); // Signature en attente de placement
 
   // Load file from location.state if provided
   useEffect(() => {
@@ -167,34 +168,51 @@ const QuickSignPage: React.FC = () => {
       return;
     }
 
-    // Détecter la dernière page
-    const lastPage = pdf.numPages;
-    const lastPageDimensions = pageDimensions[lastPage - 1];
+    // Stocker la signature en attente de placement
+    setPendingSignature(signatureData);
+    setShowSignaturePad(false);
+    addToast(
+      "Cliquez sur le document pour placer la signature",
+      "info"
+    );
+  };
+
+  const handleCancelPlacement = () => {
+    setPendingSignature(null);
+    addToast("Placement annulé", "info");
+  };
+
+  const handlePageClick = (e: React.MouseEvent<HTMLDivElement>, pageNum: number) => {
+    if (!pendingSignature || !pdf || pageDimensions.length === 0) return;
     
+    // Ne pas placer si on clique sur une signature existante
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-signature-id]')) {
+      return;
+    }
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / zoomLevel;
+    const y = (e.clientY - rect.top) / zoomLevel;
+
     // Dimensions par défaut de la signature
     const signatureWidth = 200;
     const signatureHeight = 100;
-    
-    // Positionner en bas à droite de la dernière page
-    // x: largeur de la page - largeur signature - marge (20px)
-    // y: hauteur de la page - hauteur signature - marge (20px)
-    const x = lastPageDimensions.width - signatureWidth - 20;
-    const y = lastPageDimensions.height - signatureHeight - 20;
 
     const newSignature: SignaturePosition = {
       id: `sig-${Date.now()}`,
-      signatureData,
-      page: lastPage,
-      x: Math.max(0, x), // S'assurer que x n'est pas négatif
-      y: Math.max(0, y), // S'assurer que y n'est pas négatif
+      signatureData: pendingSignature,
+      page: pageNum,
+      x: Math.max(0, x - signatureWidth / 2), // Centrer sur le clic
+      y: Math.max(0, y - signatureHeight / 2), // Centrer sur le clic
       width: signatureWidth,
       height: signatureHeight,
     };
 
     setSignatures([...signatures, newSignature]);
-    setShowSignaturePad(false);
+    setPendingSignature(null);
     addToast(
-      "Signature ajoutée sur la dernière page - Déplacez-la avec votre doigt ou la souris",
+      "Signature placée - Déplacez-la avec votre doigt ou la souris",
       "success"
     );
   };
@@ -298,26 +316,22 @@ const QuickSignPage: React.FC = () => {
 
           {pdfData && (
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
+              <button
                 onClick={() => setShowSignaturePad(true)}
-                size="sm"
-                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                className="flex items-center justify-center gap-2 px-4 py-2 border-2 border-outline text-primary rounded-full hover:bg-surfaceVariant/50 transition-all focus:outline-none focus:ring-4 focus:ring-primary/30 text-sm font-semibold"
               >
                 <Icon name="Signature" size="sm" />
                 <span className="hidden sm:inline">Ajouter signature</span>
                 <span className="sm:hidden">Signature</span>
-              </Button>
-              <Button
-                variant="primary"
+              </button>
+              <button
                 onClick={handleDownload}
                 disabled={signatures.length === 0 || isProcessing}
-                size="sm"
-                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                className="flex items-center justify-center gap-2 px-4 py-2 btn-premium-shine btn-premium-extended text-sm font-semibold rounded-full focus:outline-none focus:ring-4 focus:ring-primary/30 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Icon name="Download" size="sm" />
                 {isProcessing ? "Traitement..." : "Télécharger"}
-              </Button>
+              </button>
             </div>
           )}
         </div>
@@ -354,42 +368,59 @@ const QuickSignPage: React.FC = () => {
                       <div
                         key={pageNum}
                         ref={(el) => (pageRefs.current[pageNum - 1] = el)}
-                        className="relative bg-white shadow-lg mx-auto"
+                        className={`relative bg-white shadow-lg mx-auto ${
+                          pendingSignature ? "cursor-crosshair" : ""
+                        }`}
                         style={{
                           width: `${
                             pageDimensions[pageNum - 1]?.width * zoomLevel
                           }px`,
                         }}
+                        onClick={(e) => handlePageClick(e, pageNum)}
                       >
                         <canvas id={`pdf-page-${pageNum}`} />
+                        {pendingSignature && (
+                          <div className="absolute inset-0 bg-primary/5 border-2 border-dashed border-primary pointer-events-none flex items-center justify-center">
+                            <div className="bg-primary text-onPrimary px-4 py-2 rounded-full text-sm font-semibold shadow-lg">
+                              Cliquez pour placer la signature
+                            </div>
+                          </div>
+                        )}
 
                         {/* Signatures on this page - Manipulables au doigt et à la souris */}
                         {signatures
                           .filter((sig) => sig.page === pageNum)
                           .map((sig) => (
-                            <DraggableSignature
+                            <div
                               key={sig.id}
-                              id={sig.id}
-                              signatureData={sig.signatureData}
-                              x={sig.x}
-                              y={sig.y}
-                              width={sig.width}
-                              height={sig.height}
-                              zoomLevel={zoomLevel}
-                              currentPage={sig.page}
-                              totalPages={pdf.numPages}
-                              pageDimensions={pageDimensions}
-                              pageRefs={pageRefs}
-                              viewerRef={viewerRef}
-                              onUpdate={handleSignatureUpdate}
-                              onRemove={handleRemoveSignature}
-                              maxWidth={
-                                pageDimensions[pageNum - 1]?.width || 600
-                              }
-                              maxHeight={
-                                pageDimensions[pageNum - 1]?.height || 800
-                              }
-                            />
+                              data-signature-id={sig.id}
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onTouchStart={(e) => e.stopPropagation()}
+                            >
+                              <DraggableSignature
+                                id={sig.id}
+                                signatureData={sig.signatureData}
+                                x={sig.x}
+                                y={sig.y}
+                                width={sig.width}
+                                height={sig.height}
+                                zoomLevel={zoomLevel}
+                                currentPage={sig.page}
+                                totalPages={pdf.numPages}
+                                pageDimensions={pageDimensions}
+                                pageRefs={pageRefs}
+                                viewerRef={viewerRef}
+                                onUpdate={handleSignatureUpdate}
+                                onRemove={handleRemoveSignature}
+                                maxWidth={
+                                  pageDimensions[pageNum - 1]?.width || 600
+                                }
+                                maxHeight={
+                                  pageDimensions[pageNum - 1]?.height || 800
+                                }
+                              />
+                            </div>
                           ))}
                       </div>
                     )
@@ -427,9 +458,29 @@ const QuickSignPage: React.FC = () => {
       {showSignaturePad && (
         <SignaturePadUnified
           onSave={handleSaveSignature}
-          onCancel={() => setShowSignaturePad(false)}
+          onCancel={() => {
+            setShowSignaturePad(false);
+            setPendingSignature(null);
+          }}
           signerName={currentUser?.email || "Utilisateur"}
         />
+      )}
+
+      {/* Indicateur de placement et bouton annuler */}
+      {pendingSignature && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50">
+          <div className="bg-surface/90 backdrop-blur-sm rounded-full shadow-lg border border-outlineVariant/50 flex items-center gap-3 px-4 py-2">
+            <span className="text-sm font-medium text-onSurface">
+              Cliquez sur le document pour placer la signature
+            </span>
+            <button
+              onClick={handleCancelPlacement}
+              className="px-3 py-1 text-sm font-semibold text-error hover:bg-error/10 rounded-full transition-colors"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -8,7 +8,6 @@ import {
   Signature,
   Trash2,
   Type as TypeIcon,
-  UploadCloud,
   UserPlus,
   X,
   ZoomIn,
@@ -18,7 +17,7 @@ import { useDrag } from "@use-gesture/react";
 import * as pdfjsLib from "pdfjs-dist";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Button, Icon } from "../src/components/atoms";
+import { Button, Icon, LoadingIndicator } from "../src/components/atoms";
 import SignaturePadUnified from "../components/SignaturePadUnified";
 import { useToast } from "../components/Toast";
 import { useUser } from "../components/UserContext";
@@ -320,7 +319,7 @@ const FieldPropertiesPanel: React.FC<{
           onClick={onBack}
           className="p-2 rounded-full hover:bg-surfaceVariant"
         >
-          <ArrowLeft size={20} />
+          <Icon name="ArrowLeft" size="md" />
         </button>
         <h3 className="font-bold text-lg text-onSurface">
           Propriétés du champ
@@ -483,14 +482,14 @@ const FieldPropertiesPanel: React.FC<{
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                if (onDrawSignature && fieldIndex !== undefined && fieldIndex !== null) {
+                if (onDrawSignature) {
                   onDrawSignature(field);
+                } else {
+                  console.error("onDrawSignature n'est pas défini");
                 }
               }}
-              disabled={fieldIndex === undefined || fieldIndex === null}
-              className={`w-full flex items-center justify-center gap-2 h-11 border-2 border-outline text-primary rounded-full hover:bg-surfaceVariant/50 transition-all focus:outline-none focus:ring-4 focus:ring-primary/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent ${
-                fieldIndex !== undefined && fieldIndex !== null ? '' : 'cursor-not-allowed'
-              }`}
+              disabled={!onDrawSignature}
+              className="w-full flex items-center justify-center gap-2 h-11 border-2 border-outline text-primary rounded-full hover:bg-surfaceVariant/50 transition-all focus:outline-none focus:ring-4 focus:ring-primary/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
             >
               <Signature className="h-5 w-5 flex-shrink-0" />
               <span>
@@ -730,12 +729,6 @@ const PrepareDocumentPage: React.FC = () => {
     }
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      loadPdfFile(selectedFile);
-    }
-  };
 
   // Charger automatiquement le fichier depuis le Dashboard ou depuis le brouillon
   useEffect(() => {
@@ -1758,53 +1751,14 @@ Cordialement.`
   };
 
   // --- UI Components ---
+  // Si aucun fichier n'est chargé, afficher un message de chargement
+  // La redirection vers le dashboard est gérée par le useEffect
   if (!file) {
     return (
-      <div className="container mx-auto max-w-3xl text-center">
-        <div className="bg-surface p-8 rounded-3xl shadow-sm border border-outlineVariant/30">
-          <div className="bg-primaryContainer inline-block p-4 rounded-full">
-            <UploadCloud className="h-12 w-12 text-onPrimaryContainer" />
-          </div>
-          <h1 className="text-3xl font-bold text-onSurface mt-4">
-            Préparez votre document
-          </h1>
-          <p className="mt-2 text-md text-onSurfaceVariant max-w-md mx-auto">
-            Téléversez un document PDF pour commencer à ajouter des
-            destinataires et des champs de signature.
-          </p>
-          <div className="mt-8">
-            <label htmlFor="file-upload" className="cursor-pointer">
-              <div className="relative border-2 border-dashed border-outlineVariant rounded-2xl p-12 hover:bg-surfaceVariant/50 transition-colors">
-                {isProcessing ? (
-                  <div className="flex flex-col items-center">
-                    <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                    <p className="mt-4 font-semibold text-onSurface">
-                      Traitement du PDF...
-                    </p>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center">
-                    <UploadCloud className="h-10 w-10 text-onSurfaceVariant" />
-                    <span className="mt-4 font-semibold text-primary">
-                      Cliquez pour téléverser
-                    </span>
-                    <p className="text-sm text-onSurfaceVariant mt-1">
-                      ou glissez-déposez un fichier PDF ou Word ici
-                    </p>
-                  </div>
-                )}
-              </div>
-              <input
-                id="file-upload"
-                name="file-upload"
-                type="file"
-                className="sr-only"
-                onChange={handleFileChange}
-                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                disabled={isProcessing}
-              />
-            </label>
-          </div>
+      <div className="container mx-auto max-w-3xl text-center py-16">
+        <div className="flex flex-col items-center justify-center gap-4">
+          <LoadingIndicator size="lg" variant="primary" />
+          <p className="text-onSurfaceVariant text-base">Chargement du document...</p>
         </div>
       </div>
     );

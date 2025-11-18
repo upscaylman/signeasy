@@ -45,12 +45,12 @@
 
 .outline {
   background: transparent;
-  border: 2px solid var(--color-primary);
+  border: 2px solid var(--color-outline);
   color: var(--color-primary);
 }
 
 .outline:hover:not(:disabled) {
-  background: var(--color-primary-container);
+  background-color: rgba(245, 221, 218, 0.5); /* surface-variant with 50% opacity */
 }
 
 .text {

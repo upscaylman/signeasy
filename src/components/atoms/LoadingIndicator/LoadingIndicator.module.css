@@ -1,0 +1,112 @@
+/* LoadingIndicator - Material Design 3 Circular Progress Indicator */
+/* Conforme aux spécifications Material Design 3 */
+
+.loadingIndicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+/* Sizes - Material Design 3 standard sizes */
+.sm {
+  width: 24px;
+  height: 24px;
+}
+
+.md {
+  width: 40px;
+  height: 40px;
+}
+
+.lg {
+  width: 56px;
+  height: 56px;
+}
+
+.spinner {
+  width: 100%;
+  height: 100%;
+  animation: rotate 1.4s linear infinite;
+  transform-origin: center;
+}
+
+/* Track circle - background circle (invisible in MD3) */
+.track {
+  stroke: transparent;
+  opacity: 0;
+}
+
+/* Active circle - animated progress */
+.active {
+  stroke-linecap: round;
+  transform-origin: center;
+  animation: dash 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  stroke-width: 4;
+  stroke: var(--color-primary, #b71c1c); /* Fallback color */
+}
+
+/* Variants - Material Design 3 color system */
+.primary .active {
+  stroke: var(--color-primary, #b71c1c);
+}
+
+.secondary .active {
+  stroke: var(--color-secondary, #775651);
+}
+
+.tertiary .active {
+  stroke: var(--color-tertiary, #705c2e);
+}
+
+/* Animations - Material Design 3 timing */
+@keyframes rotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Material Design 3 dash animation - correct implementation */
+/* Circumference = 2 * π * r = 2 * π * 20 ≈ 125.66 */
+@keyframes dash {
+  0% {
+    stroke-dasharray: 1, 125.66;
+    stroke-dashoffset: 0;
+  }
+  50% {
+    stroke-dasharray: 94.25, 125.66;
+    stroke-dashoffset: -31.42;
+  }
+  100% {
+    stroke-dasharray: 94.25, 125.66;
+    stroke-dashoffset: -125.66;
+  }
+}
+
+/* Stroke width adjustments per size */
+.sm .active {
+  stroke-width: 3;
+}
+
+.md .active {
+  stroke-width: 4;
+}
+
+.lg .active {
+  stroke-width: 4.5;
+}
+
+/* Accessibility: Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: rotate 2s linear infinite;
+  }
+  
+  .active {
+    animation: dash 2s ease-in-out infinite;
+  }
+}
+

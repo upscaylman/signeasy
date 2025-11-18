@@ -2600,13 +2600,13 @@ const SignDocumentPage: React.FC = () => {
             )}
             {readOnly ? (
               <div className="w-full sm:w-auto flex-shrink-0">
-                <Button
-                  variant="text"
-                  onClick={() => navigate("/dashboard")}
+              <Button
+                variant="text"
+                onClick={() => navigate("/dashboard")}
                   style={{ width: '100%' }}
-                >
-                  Fermer
-                </Button>
+              >
+                Fermer
+              </Button>
               </div>
             ) : (
               <div className="flex flex-col gap-2 w-full sm:w-auto flex-shrink-0">
