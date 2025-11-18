@@ -1,0 +1,267 @@
+---
+alwaysApply: true
+---
+
+Mission : Créer un Design System React avec Atomic Design
+Mettre en place un système de composants React réutilisables selon la méthodologie Atomic Design, en conservant le style existant de l'application.​
+
+Structure de dossiers React
+text
+src/
+├── components/
+│ ├── atoms/
+│ │ ├── Button/
+│ │ │ ├── Button.jsx
+│ │ │ ├── Button.module.css
+│ │ │ └── index.js
+│ │ ├── Input/
+│ │ ├── Icon/
+│ │ └── index.js
+│ ├── molecules/
+│ │ ├── SearchBar/
+│ │ ├── Card/
+│ │ └── index.js
+│ ├── organisms/
+│ │ ├── Header/
+│ │ ├── Navigation/
+│ │ └── index.js
+│ └── templates/
+│ ├── MainLayout/
+│ └── index.js
+├── pages/
+├── styles/
+│ ├── tokens.css
+│ └── global.css
+└── utils/
+
+1. Design Tokens (Première étape)
+   Créer /styles/tokens.css avec les CSS variables extraites du style existant :​
+
+css
+:root {
+/_ Colors _/
+--color-primary: #your-color;
+--color-secondary: #your-color;
+--color-text: #your-color;
+--color-background: #your-color;
+
+/_ Spacing _/
+--spacing-xs: 4px;
+--spacing-sm: 8px;
+--spacing-md: 16px;
+--spacing-lg: 24px;
+--spacing-xl: 32px;
+
+/_ Typography _/
+--font-size-sm: 14px;
+--font-size-md: 16px;
+--font-size-lg: 20px;
+--font-weight-normal: 400;
+--font-weight-bold: 700;
+
+/_ Border Radius _/
+--radius-sm: 4px;
+--radius-md: 8px;
+--radius-lg: 12px;
+
+/_ Shadows _/
+--shadow-sm: 0 2px 4px rgba(0,0,0,0.1);
+--shadow-md: 0 4px 8px rgba(0,0,0,0.15);
+
+/_ Transitions _/
+--transition-fast: 150ms ease;
+--transition-normal: 250ms ease;
+} 2. Atomes - Exemples de code
+Button.jsx - Composant flexible avec variants :​
+
+jsx
+import PropTypes from 'prop-types';
+import styles from './Button.module.css';
+
+const Button = ({
+children,
+variant = 'primary',
+size = 'md',
+disabled = false,
+onClick,
+...props
+}) => {
+return (
+<button
+className={`${styles.button} ${styles[variant]} ${styles[size]}`}
+disabled={disabled}
+onClick={onClick}
+{...props} >
+{children}
+</button>
+);
+};
+
+Button.propTypes = {
+children: PropTypes.node.isRequired,
+variant: PropTypes.oneOf(['primary', 'secondary', 'outline']),
+size: PropTypes.oneOf(['sm', 'md', 'lg']),
+disabled: PropTypes.bool,
+onClick: PropTypes.func
+};
+
+export default Button;
+Button.module.css - Utiliser les tokens :​
+
+css
+.button {
+padding: var(--spacing-sm) var(--spacing-md);
+border-radius: var(--radius-md);
+font-weight: var(--font-weight-bold);
+transition: var(--transition-fast);
+cursor: pointer;
+border: none;
+}
+
+.primary {
+background: var(--color-primary);
+color: white;
+}
+
+.secondary {
+background: var(--color-secondary);
+color: white;
+}
+
+.outline {
+background: transparent;
+border: 2px solid var(--color-primary);
+color: var(--color-primary);
+}
+
+.sm { font-size: var(--font-size-sm); }
+.md { font-size: var(--font-size-md); }
+.lg { font-size: var(--font-size-lg); } 3. Molécules - Composition d'atomes
+SearchBar.jsx - Combine Input + Button :​
+
+jsx
+import { useState } from 'react';
+import Input from '../atoms/Input';
+import Button from '../atoms/Button';
+import Icon from '../atoms/Icon';
+import styles from './SearchBar.module.css';
+
+const SearchBar = ({ onSearch, placeholder = "Rechercher..." }) => {
+const [value, setValue] = useState('');
+
+const handleSubmit = (e) => {
+e.preventDefault();
+onSearch(value);
+};
+
+return (
+<form className={styles.searchBar} onSubmit={handleSubmit}>
+<Input
+value={value}
+onChange={(e) => setValue(e.target.value)}
+placeholder={placeholder}
+/>
+<Button type="submit" variant="primary">
+<Icon name="search" />
+</Button>
+</form>
+);
+};
+
+export default SearchBar; 4. Organismes - Structures complexes
+Header.jsx - Combine plusieurs molécules :​
+
+jsx
+import Logo from '../atoms/Logo';
+import Navigation from '../molecules/Navigation';
+import SearchBar from '../molecules/SearchBar';
+import styles from './Header.module.css';
+
+const Header = ({ onSearch, navItems }) => {
+return (
+<header className={styles.header}>
+<Logo />
+<Navigation items={navItems} />
+<SearchBar onSearch={onSearch} />
+</header>
+);
+};
+
+export default Header; 5. Templates - Layout réutilisable
+MainLayout.jsx - Structure de page :​
+
+jsx
+import Header from '../organisms/Header';
+import Footer from '../organisms/Footer';
+import styles from './MainLayout.module.css';
+
+const MainLayout = ({ children, navItems }) => {
+return (
+<div className={styles.layout}>
+<Header navItems={navItems} />
+<main className={styles.content}>
+{children}
+</main>
+<Footer />
+</div>
+);
+};
+
+export default MainLayout; 6. Pages - Application finale
+HomePage.jsx - Utilise le template :​
+
+jsx
+import MainLayout from '../templates/MainLayout';
+import Card from '../molecules/Card';
+
+const HomePage = () => {
+return (
+<MainLayout navItems={[...]}>
+<h1>Accueil</h1>
+<Card title="..." description="..." />
+</MainLayout>
+);
+};
+
+export default HomePage;
+Bonnes pratiques React à suivre
+Props validation : Utiliser PropTypes ou TypeScript pour chaque composant​
+
+Export propre : Créer des index.js pour faciliter les imports :​
+
+jsx
+// components/atoms/index.js
+export { default as Button } from './Button';
+export { default as Input } from './Input';
+export { default as Icon } from './Icon';
+Composition over props : Favoriser children et composition plutôt que trop de props​
+
+CSS Modules ou styled-components : Éviter les conflits de noms CSS​
+
+Réutilisabilité maximale : Les atomes ne doivent avoir AUCUNE logique métier​
+
+Plan d'implémentation progressif
+Auditer l'existant : Lister tous les composants actuels et leurs styles
+
+Extraire les tokens : Créer tokens.css avec toutes les valeurs du design actuel
+
+Commencer par les atomes : Button, Input, Icon (composants les plus utilisés)
+
+Tester visuellement : Vérifier que le rendu est identique à l'ancien style
+
+Créer les molécules : Assembler les atomes en petits groupes fonctionnels
+
+Migrer progressivement : Remplacer page par page les anciens composants
+
+Documenter : Créer un fichier README par composant avec exemples d'usage​
+
+Structure d'un composant type
+Chaque dossier de composant contient :​
+
+ComponentName.jsx : Le composant React
+
+ComponentName.module.css : Les styles scopés
+
+index.js : Export par défaut
+
+README.md (optionnel) : Documentation et exemples
