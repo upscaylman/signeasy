@@ -17,7 +17,7 @@ import { useDrag } from "@use-gesture/react";
 import * as pdfjsLib from "pdfjs-dist";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Button, Icon, LoadingIndicator } from "../src/components/atoms";
+import { Icon, LoadingIndicator } from "../src/components/atoms";
 import SignaturePadUnified from "../components/SignaturePadUnified";
 import { useToast } from "../components/Toast";
 import { useUser } from "../components/UserContext";
@@ -244,16 +244,18 @@ const SummaryModal: React.FC<{
             )}
           </p>
           <div className="flex space-x-3">
-            <Button variant="text" onClick={onClose}>
+            <button
+              onClick={onClose}
+              className="inline-flex items-center justify-center font-bold rounded-full focus:outline-none focus-ring focus:ring-2 focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:active:scale-100 whitespace-nowrap relative overflow-hidden press-effect min-h-[44px] px-6 py-2.5 text-sm gap-2 bg-transparent text-primary hover:bg-primary/10 focus:ring-primary shadow-none state-layer state-layer-primary"
+            >
               Annuler
-            </Button>
-            <Button
-              variant="primary"
+            </button>
+            <button
               onClick={() => onConfirm(selectedRecipients)}
               disabled={
                 isSubmitting || selectedCount === 0 || !creatorEmail.trim()
               }
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+              className="btn-premium-shine btn-premium-extended h-11 text-sm focus:outline-none focus:ring-4 focus:ring-primary/30 inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? (
                 <>
@@ -263,7 +265,7 @@ const SummaryModal: React.FC<{
               ) : (
                 <span>Envoyer {selectedCount > 0 && `(${selectedCount})`}</span>
               )}
-            </Button>
+            </button>
           </div>
         </div>
       </div>

@@ -43,3 +43,6 @@ test-output/
 
 # Local Netlify folder
 .netlify
+
+# Rules IA
+.cursor/

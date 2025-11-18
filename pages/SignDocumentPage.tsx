@@ -8,7 +8,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Copy,
-  Download,
   Settings,
   Signature,
   X,
@@ -2570,9 +2569,7 @@ const SignDocumentPage: React.FC = () => {
               </Button>
             )}
             {/* Bouton Télécharger - Actif uniquement si au moins une signature a été appliquée */}
-            <Button
-              variant="outlined"
-              icon={Download}
+            <button
               onClick={handleDownload}
               disabled={!hasSignature}
               title={
@@ -2580,9 +2577,11 @@ const SignDocumentPage: React.FC = () => {
                   ? "Télécharger le PDF"
                   : "Ajoutez au moins une signature pour télécharger"
               }
+              className="inline-flex items-center justify-center font-bold rounded-full focus:outline-none focus-ring focus:ring-2 focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:active:scale-100 whitespace-nowrap relative overflow-hidden press-effect min-h-[44px] px-6 py-2.5 text-sm gap-2 bg-surface text-primary border-2 border-outline hover:bg-primary/5 focus:ring-primary state-layer state-layer-primary hover:scale-[1.02] active:scale-[0.98]"
             >
+              <Icon name="Download" size="sm" />
               <span className="hidden sm:inline">Télécharger</span>
-            </Button>
+            </button>
             {!readOnly && (
               <div className="flex-grow sm:flex-grow-0">
                 <label htmlFor="signerName" className="sr-only">
