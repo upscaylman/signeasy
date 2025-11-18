@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
-import Input from '../../atoms/Input';
-import Button from '../../atoms/Button';
-import Icon from '../../atoms/Icon';
+import { Input, Button, Icon } from '../../atoms';
 import styles from './SearchBar.module.css';
 
 interface SearchBarProps {

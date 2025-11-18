@@ -9,9 +9,7 @@ import {
 import {
   ArrowLeft,
   CheckCircle,
-  CheckSquare,
   Clock,
-  Eye,
   FileText,
   FolderOpen,
   Inbox as InboxIcon,
@@ -33,6 +31,7 @@ import React, {
   useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
+import { Button, Icon } from "../src/components/atoms";
 import Tooltip from "../components/Tooltip";
 import { useToast } from "../components/Toast";
 import { useUser } from "../components/UserContext";
@@ -1451,22 +1450,24 @@ const InboxPage: React.FC = () => {
               
               return (
                 <div className="p-4 border-t border-outlineVariant flex justify-end">
-                  <button
+                  <Button
+                    variant="primary"
                     onClick={handleSignClick}
-                    className="inline-flex items-center justify-center gap-2 min-h-[44px] btn-premium-shine btn-premium-extended text-sm"
+                    size="sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                   >
                     {selectedItem.type === "email" ? (
                       <>
-                        <FileText className="h-5 w-5" />
+                        <Icon name="FileText" size="sm" />
                         Examiner & Signer
                       </>
                     ) : (
                       <>
-                        <Eye className="h-5 w-5" />
+                        <Icon name="Eye" size="sm" />
                         Consulter
                       </>
                     )}
-                  </button>
+                  </Button>
                 </div>
               );
             })()}

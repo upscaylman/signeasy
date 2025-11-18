@@ -1,9 +1,9 @@
-import { ArrowLeft, Download, Signature, ZoomIn, ZoomOut } from "lucide-react";
+import { ZoomIn, ZoomOut } from "lucide-react";
 import { PDFDocument } from "pdf-lib";
 import * as pdfjsLib from "pdfjs-dist";
 import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import Button from "../components/Button";
+import { Button, Icon } from "../src/components/atoms";
 import DraggableSignature from "../components/DraggableSignature";
 import SignaturePadUnified from "../components/SignaturePadUnified";
 import { useToast } from "../components/Toast";
@@ -282,10 +282,10 @@ const QuickSignPage: React.FC = () => {
             <Button
               variant="text"
               onClick={() => navigate("/dashboard")}
-              icon={ArrowLeft}
-              size="small"
-              className="flex-shrink-0"
+              size="sm"
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}
             >
+              <Icon name="ArrowLeft" size="sm" />
               <span className="hidden sm:inline">Retour</span>
             </Button>
             <h1
@@ -299,21 +299,23 @@ const QuickSignPage: React.FC = () => {
           {pdfData && (
             <div className="flex items-center gap-2">
               <Button
-                variant="outlined"
-                icon={Signature}
+                variant="outline"
                 onClick={() => setShowSignaturePad(true)}
-                size="small"
+                size="sm"
+                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
               >
+                <Icon name="Signature" size="sm" />
                 <span className="hidden sm:inline">Ajouter signature</span>
                 <span className="sm:hidden">Signature</span>
               </Button>
               <Button
-                variant="filled"
-                icon={Download}
+                variant="primary"
                 onClick={handleDownload}
                 disabled={signatures.length === 0 || isProcessing}
-                size="small"
+                size="sm"
+                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
               >
+                <Icon name="Download" size="sm" />
                 {isProcessing ? "Traitement..." : "Télécharger"}
               </Button>
             </div>

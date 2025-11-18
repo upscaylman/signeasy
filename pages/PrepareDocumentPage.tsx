@@ -1,11 +1,9 @@
 import {
   AlertCircle,
-  ArrowLeft,
   ArrowRight,
   Calendar,
   CheckSquare,
   Info,
-  Loader2,
   Mail,
   Signature,
   Trash2,
@@ -20,7 +18,7 @@ import { useDrag } from "@use-gesture/react";
 import * as pdfjsLib from "pdfjs-dist";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import Button from "../components/Button";
+import { Button, Icon } from "../src/components/atoms";
 import SignaturePadUnified from "../components/SignaturePadUnified";
 import { useToast } from "../components/Toast";
 import { useUser } from "../components/UserContext";
@@ -250,42 +248,23 @@ const SummaryModal: React.FC<{
             <Button variant="text" onClick={onClose}>
               Annuler
             </Button>
-            <button
+            <Button
+              variant="primary"
               onClick={() => onConfirm(selectedRecipients)}
               disabled={
                 isSubmitting || selectedCount === 0 || !creatorEmail.trim()
               }
-              className="btn-premium-shine btn-premium-extended h-11 text-sm focus:outline-none focus:ring-4 focus:ring-primary/30 inline-flex items-center justify-center gap-2"
-              aria-busy={isSubmitting}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
             >
               {isSubmitting ? (
                 <>
-                  <svg
-                    className="animate-spin h-5 w-5"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
+                  <Icon name="Loader2" size="sm" />
                   <span>Envoi...</span>
                 </>
               ) : (
                 <span>Envoyer {selectedCount > 0 && `(${selectedCount})`}</span>
               )}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -1859,10 +1838,10 @@ Cordialement.`
               <Button
                 variant="text"
                 onClick={() => navigate("/dashboard")}
-                icon={ArrowLeft}
-                size="small"
-                className="flex-shrink-0"
+                size="sm"
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}
               >
+                <Icon name="ArrowLeft" size="sm" />
                 <span className="hidden sm:inline">Retour</span>
               </Button>
               <h1
