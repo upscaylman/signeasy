@@ -1,4 +1,4 @@
-import { ArrowLeft, Download, Signature, ZoomIn, ZoomOut } from "lucide-react";
+import { ArrowLeft, Download, Signature, ZoomIn, ZoomOut, X } from "lucide-react";
 import { PDFDocument } from "pdf-lib";
 import * as pdfjsLib from "pdfjs-dist";
 import React, { useEffect, useRef, useState } from "react";
@@ -55,6 +55,7 @@ const QuickSignPage: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [signatures, setSignatures] = useState<SignaturePosition[]>([]);
   const [showSignaturePad, setShowSignaturePad] = useState(false);
+  const [pendingSignature, setPendingSignature] = useState<string | null>(null);
 
   // Load file from location.state if provided
   useEffect(() => {
@@ -167,36 +168,59 @@ const QuickSignPage: React.FC = () => {
       return;
     }
 
-    // Détecter la dernière page
-    const lastPage = pdf.numPages;
-    const lastPageDimensions = pageDimensions[lastPage - 1];
-    
-    // Dimensions par défaut de la signature
-    const signatureWidth = 200;
-    const signatureHeight = 100;
-    
-    // Positionner en bas à droite de la dernière page
-    // x: largeur de la page - largeur signature - marge (20px)
-    // y: hauteur de la page - hauteur signature - marge (20px)
-    const x = lastPageDimensions.width - signatureWidth - 20;
-    const y = lastPageDimensions.height - signatureHeight - 20;
-
-    const newSignature: SignaturePosition = {
-      id: `sig-${Date.now()}`,
-      signatureData,
-      page: lastPage,
-      x: Math.max(0, x), // S'assurer que x n'est pas négatif
-      y: Math.max(0, y), // S'assurer que y n'est pas négatif
-      width: signatureWidth,
-      height: signatureHeight,
-    };
-
-    setSignatures([...signatures, newSignature]);
+    // Stocker la signature en attente de placement
+    setPendingSignature(signatureData);
     setShowSignaturePad(false);
     addToast(
-      "Signature ajoutée sur la dernière page - Déplacez-la avec votre doigt ou la souris",
-      "success"
+      "Cliquez sur la page où vous souhaitez placer la signature",
+      "info"
     );
+  };
+
+  const handlePageClick = (e: React.MouseEvent<HTMLDivElement>, pageNum: number) => {
+    // Si une signature est en attente, la placer à l'endroit du clic
+    if (pendingSignature && viewerRef.current && pageRefs.current[pageNum - 1]) {
+      // Ne pas placer si on clique sur une signature existante
+      const target = e.target as HTMLElement;
+      if (target.closest('.group')) {
+        return;
+      }
+      
+      e.stopPropagation();
+      
+      const pageRef = pageRefs.current[pageNum - 1];
+      const pageRect = pageRef.getBoundingClientRect();
+      
+      // Calculer la position relative dans la page (en pixels écran)
+      const clickX = e.clientX - pageRect.left;
+      const clickY = e.clientY - pageRect.top;
+      
+      // Convertir en coordonnées de page (sans zoom)
+      const x = clickX / zoomLevel;
+      const y = clickY / zoomLevel;
+      
+      // Dimensions par défaut de la signature
+      const signatureWidth = 200;
+      const signatureHeight = 100;
+      
+      // Ajuster pour centrer la signature sur le point de clic
+      const adjustedX = Math.max(0, Math.min(x - signatureWidth / 2, pageDimensions[pageNum - 1].width - signatureWidth));
+      const adjustedY = Math.max(0, Math.min(y - signatureHeight / 2, pageDimensions[pageNum - 1].height - signatureHeight));
+
+      const newSignature: SignaturePosition = {
+        id: `sig-${Date.now()}`,
+        signatureData: pendingSignature,
+        page: pageNum,
+        x: adjustedX,
+        y: adjustedY,
+        width: signatureWidth,
+        height: signatureHeight,
+      };
+
+      setSignatures([...signatures, newSignature]);
+      setPendingSignature(null);
+      addToast("Signature placée - Vous pouvez la déplacer si nécessaire", "success");
+    }
   };
 
   const handleRemoveSignature = (id: string) => {
@@ -298,15 +322,30 @@ const QuickSignPage: React.FC = () => {
 
           {pdfData && (
             <div className="flex items-center gap-2">
-              <Button
-                variant="outlined"
-                icon={Signature}
-                onClick={() => setShowSignaturePad(true)}
-                size="small"
-              >
-                <span className="hidden sm:inline">Ajouter signature</span>
-                <span className="sm:hidden">Signature</span>
-              </Button>
+              {pendingSignature ? (
+                <Button
+                  variant="outlined"
+                  icon={X}
+                  onClick={() => {
+                    setPendingSignature(null);
+                    addToast("Placement de signature annulé", "info");
+                  }}
+                  size="small"
+                >
+                  <span className="hidden sm:inline">Annuler</span>
+                  <span className="sm:hidden">Annuler</span>
+                </Button>
+              ) : (
+                <Button
+                  variant="outlined"
+                  icon={Signature}
+                  onClick={() => setShowSignaturePad(true)}
+                  size="small"
+                >
+                  <span className="hidden sm:inline">Ajouter signature</span>
+                  <span className="sm:hidden">Signature</span>
+                </Button>
+              )}
               <Button
                 variant="filled"
                 icon={Download}
@@ -342,7 +381,9 @@ const QuickSignPage: React.FC = () => {
           {/* PDF Viewer */}
           <div
             ref={viewerRef}
-            className="flex-grow bg-surfaceVariant/30 p-2 sm:p-4 overflow-auto"
+            className={`flex-grow bg-surfaceVariant/30 p-2 sm:p-4 overflow-auto ${
+              pendingSignature ? "cursor-crosshair" : ""
+            }`}
           >
             <div className="w-full max-w-full overflow-x-hidden">
               <div className="space-y-8">
@@ -352,12 +393,15 @@ const QuickSignPage: React.FC = () => {
                       <div
                         key={pageNum}
                         ref={(el) => (pageRefs.current[pageNum - 1] = el)}
-                        className="relative bg-white shadow-lg mx-auto"
+                        className={`relative bg-white shadow-lg mx-auto ${
+                          pendingSignature ? "cursor-crosshair" : ""
+                        }`}
                         style={{
                           width: `${
                             pageDimensions[pageNum - 1]?.width * zoomLevel
                           }px`,
                         }}
+                        onClick={(e) => handlePageClick(e, pageNum)}
                       >
                         <canvas id={`pdf-page-${pageNum}`} />
 

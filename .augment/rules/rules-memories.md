@@ -1,3 +1,0 @@
----
-type: "always_apply"
----

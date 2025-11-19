@@ -406,7 +406,10 @@ const DraggableSignature: React.FC<DraggableSignatureProps> = ({
       ref={containerRef}
       {...bindDrag()}
       {...bindPinch()}
-      onClick={() => setIsSelected(true)}
+      onClick={(e) => {
+        e.stopPropagation();
+        setIsSelected(true);
+      }}
       style={outerStyle}
       className={`group border-2 ${
         isSelected
