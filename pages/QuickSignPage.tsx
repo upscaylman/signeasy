@@ -57,6 +57,14 @@ const QuickSignPage: React.FC = () => {
   const [showSignaturePad, setShowSignaturePad] = useState(false);
   const [pendingSignature, setPendingSignature] = useState<string | null>(null);
 
+  // Désactiver le scroll de la page
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, []);
+
   // Load file from location.state if provided
   useEffect(() => {
     const state = location.state as { file?: File; fileName?: string } | null;
@@ -298,9 +306,9 @@ const QuickSignPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen bg-background flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="bg-surface/80 backdrop-blur-sm p-3 shadow-sm sticky top-16 z-30 border-b border-outlineVariant">
+      <div className="bg-surface/80 backdrop-blur-sm p-3 shadow-sm z-30 border-b border-outlineVariant flex-shrink-0">
         <div className="container mx-auto flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
           <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
             <Button
@@ -362,7 +370,7 @@ const QuickSignPage: React.FC = () => {
 
       {/* Main Content */}
       {!pdfData ? (
-        <div className="container mx-auto px-4 py-8">
+        <div className="flex-1 container mx-auto px-4 py-8 overflow-auto">
           <div className="max-w-2xl mx-auto">
             <input
               ref={fileInputRef}
@@ -377,11 +385,11 @@ const QuickSignPage: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className="flex-grow flex overflow-hidden relative h-[calc(100vh-8rem)]">
+        <div className="flex-1 flex relative overflow-hidden">
           {/* PDF Viewer */}
           <div
             ref={viewerRef}
-            className={`flex-grow bg-surfaceVariant/30 p-2 sm:p-4 overflow-auto ${
+            className={`flex-1 bg-surfaceVariant/30 p-2 sm:p-4 overflow-auto ${
               pendingSignature ? "cursor-crosshair" : ""
             }`}
           >

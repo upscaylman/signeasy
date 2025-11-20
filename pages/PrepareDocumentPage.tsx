@@ -16,7 +16,6 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import { useDrag } from "@use-gesture/react";
 import * as pdfjsLib from "pdfjs-dist";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -302,7 +301,16 @@ const FieldPropertiesPanel: React.FC<{
   onPlaceOnAllPages?: (field: TempField, fieldIndex: number) => void;
   fieldIndex?: number;
   onDrawSignature?: (field: TempField) => void;
-}> = ({ field, recipient, onUpdate, onBack, totalPages, onPlaceOnAllPages, fieldIndex, onDrawSignature }) => {
+}> = ({
+  field,
+  recipient,
+  onUpdate,
+  onBack,
+  totalPages,
+  onPlaceOnAllPages,
+  fieldIndex,
+  onDrawSignature,
+}) => {
   const recipientColors = [
     "#3B82F6",
     "#10B981",
@@ -354,12 +362,13 @@ const FieldPropertiesPanel: React.FC<{
             Type
           </label>
           <p className="font-semibold text-onSurface">
-            {field.type === FieldType.SIGNATURE && field.signatureSubType === 'initial'
-              ? 'Paraphe'
+            {field.type === FieldType.SIGNATURE &&
+            field.signatureSubType === "initial"
+              ? "Paraphe"
               : field.type}
           </p>
         </div>
-        
+
         {/* Dropdown pour sous-type Signature */}
         {field.type === FieldType.SIGNATURE && (
           <div className="space-y-3">
@@ -368,12 +377,12 @@ const FieldPropertiesPanel: React.FC<{
                 Mode de signature
               </label>
               <select
-                value={field.signatureSubType || 'signature'}
+                value={field.signatureSubType || "signature"}
                 onChange={(e) => {
-                  const newSubType = e.target.value as 'signature' | 'initial';
+                  const newSubType = e.target.value as "signature" | "initial";
                   // Ajuster la taille selon le sous-type
-                  const newWidth = newSubType === 'initial' ? 82 : 160;
-                  const newHeight = newSubType === 'initial' ? 60 : 88;
+                  const newWidth = newSubType === "initial" ? 82 : 160;
+                  const newHeight = newSubType === "initial" ? 60 : 88;
                   onUpdate({
                     ...field,
                     signatureSubType: newSubType,
@@ -387,22 +396,31 @@ const FieldPropertiesPanel: React.FC<{
                 <option value="initial">Paraphe (dessiner)</option>
               </select>
             </div>
-            
+
             {/* Option pour placer le paraphe sur toutes les pages */}
-            {field.signatureSubType === 'initial' && (
+            {field.signatureSubType === "initial" && (
               <div>
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={!!field.parapheGroupId}
                     onChange={(e) => {
-                      if (e.target.checked && onPlaceOnAllPages && fieldIndex !== undefined) {
+                      if (
+                        e.target.checked &&
+                        onPlaceOnAllPages &&
+                        fieldIndex !== undefined
+                      ) {
                         // Générer un ID de groupe unique
-                        const groupId = `paraphe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-                        onPlaceOnAllPages({
-                          ...field,
-                          parapheGroupId: groupId,
-                        }, fieldIndex);
+                        const groupId = `paraphe-${Date.now()}-${Math.random()
+                          .toString(36)
+                          .substr(2, 9)}`;
+                        onPlaceOnAllPages(
+                          {
+                            ...field,
+                            parapheGroupId: groupId,
+                          },
+                          fieldIndex
+                        );
                       } else {
                         onUpdate({
                           ...field,
@@ -418,7 +436,8 @@ const FieldPropertiesPanel: React.FC<{
                 </label>
                 {field.parapheGroupId && (
                   <p className="text-xs text-onSurfaceVariant mt-1 ml-8">
-                    Les paraphes de ce groupe seront synchronisés (jusqu'à l'avant-dernière page)
+                    Les paraphes de ce groupe seront synchronisés (jusqu'à
+                    l'avant-dernière page)
                   </p>
                 )}
               </div>
@@ -504,21 +523,30 @@ const FieldPropertiesPanel: React.FC<{
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                if (onDrawSignature && fieldIndex !== undefined && fieldIndex !== null) {
+                if (
+                  onDrawSignature &&
+                  fieldIndex !== undefined &&
+                  fieldIndex !== null
+                ) {
                   onDrawSignature(field);
                 }
               }}
               disabled={fieldIndex === undefined || fieldIndex === null}
               className={`w-full flex items-center justify-center gap-2 h-11 border-2 border-outline text-primary rounded-full hover:bg-surfaceVariant/50 transition-all focus:outline-none focus:ring-4 focus:ring-primary/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent ${
-                fieldIndex !== undefined && fieldIndex !== null ? '' : 'cursor-not-allowed'
+                fieldIndex !== undefined && fieldIndex !== null
+                  ? ""
+                  : "cursor-not-allowed"
               }`}
             >
               <Signature className="h-5 w-5 flex-shrink-0" />
               <span>
-                {field.value 
-                  ? (field.signatureSubType === 'initial' ? "Modifier le paraphe" : "Modifier la signature")
-                  : (field.signatureSubType === 'initial' ? "Dessiner le paraphe" : "Dessiner la signature")
-                }
+                {field.value
+                  ? field.signatureSubType === "initial"
+                    ? "Modifier le paraphe"
+                    : "Modifier la signature"
+                  : field.signatureSubType === "initial"
+                  ? "Dessiner le paraphe"
+                  : "Dessiner la signature"}
               </span>
             </button>
             {field.value && (
@@ -529,7 +557,9 @@ const FieldPropertiesPanel: React.FC<{
                 }}
                 className="mt-2 text-xs text-error hover:underline w-full text-center"
               >
-                {field.signatureSubType === 'initial' ? "Supprimer le paraphe" : "Supprimer la signature"}
+                {field.signatureSubType === "initial"
+                  ? "Supprimer le paraphe"
+                  : "Supprimer la signature"}
               </button>
             )}
           </div>
@@ -599,7 +629,13 @@ const PrepareDocumentPage: React.FC = () => {
     fieldY: number;
     fieldW: number;
     fieldH: number;
-    groupFieldsInitialPositions?: Array<{ page: number; x: number; y: number; width: number; height: number }>;
+    groupFieldsInitialPositions?: Array<{
+      page: number;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    }>;
   } | null>(null);
 
   // Modal and email content state
@@ -634,6 +670,14 @@ const PrepareDocumentPage: React.FC = () => {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  // Désactiver le scroll de la page
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, []);
 
   // --- Initialiser l'email du créateur avec l'utilisateur connecté ---
@@ -824,7 +868,7 @@ const PrepareDocumentPage: React.FC = () => {
     const timer = setTimeout(() => {
       const pdfData = (location.state as any)?.pdfData;
       const draftId = (location.state as any)?.draftId;
-      
+
       // Vérifier si vraiment aucun document n'est disponible
       // Ne rediriger que si :
       // 1. Pas de pdfData dans location.state
@@ -839,13 +883,16 @@ const PrepareDocumentPage: React.FC = () => {
         drafts.length === 0 &&
         !file &&
         !isProcessing &&
-        window.location.pathname === '/prepare'
+        window.location.pathname === "/prepare"
       ) {
-        addToast("Veuillez sélectionner un document depuis le tableau de bord", "info");
+        addToast(
+          "Veuillez sélectionner un document depuis le tableau de bord",
+          "info"
+        );
         navigate("/dashboard", { replace: true });
       }
     }, 1000); // Délai de 1 seconde pour laisser le temps aux autres opérations
-    
+
     return () => clearTimeout(timer);
   }, [drafts.length, file, isProcessing, location.state, navigate, addToast]);
 
@@ -964,7 +1011,7 @@ const PrepareDocumentPage: React.FC = () => {
       tempRecipientId: activeRecipientId,
       // Définir signatureSubType par défaut pour les champs SIGNATURE
       ...(selectedFieldType === FieldType.SIGNATURE && {
-        signatureSubType: 'signature' as const,
+        signatureSubType: "signature" as const,
       }),
     };
     const newFields = [...fields, newField];
@@ -988,17 +1035,22 @@ const PrepareDocumentPage: React.FC = () => {
   };
 
   // Fonction pour placer un paraphe sur toutes les pages (jusqu'à l'avant-dernière page)
-  const handlePlaceOnAllPages = (field: TempField, originalFieldIndex: number) => {
-    if (!field.parapheGroupId || field.signatureSubType !== 'initial') return;
-    
+  const handlePlaceOnAllPages = (
+    field: TempField,
+    originalFieldIndex: number
+  ) => {
+    if (!field.parapheGroupId || field.signatureSubType !== "initial") return;
+
     const groupId = field.parapheGroupId;
-    
+
     setFields((prevFields) => {
       // Supprimer le champ original par son index ET tous les autres champs du groupe pour éviter les doublons
       const otherFields = prevFields.filter(
-        (f, index) => index !== originalFieldIndex && !(f.parapheGroupId === groupId && f.signatureSubType === 'initial')
+        (f, index) =>
+          index !== originalFieldIndex &&
+          !(f.parapheGroupId === groupId && f.signatureSubType === "initial")
       );
-      
+
       // Créer les nouveaux champs jusqu'à l'avant-dernière page (pas la dernière)
       const newFields: TempField[] = [];
       const lastPage = totalPages - 1; // Jusqu'à l'avant-dernière page
@@ -1008,17 +1060,20 @@ const PrepareDocumentPage: React.FC = () => {
           page,
         });
       }
-      
+
       const updatedFields = [...otherFields, ...newFields];
-      
+
       // Sélectionner le premier champ du groupe (page 1) après la mise à jour
       const firstFieldIndex = updatedFields.findIndex(
-        (f) => f.parapheGroupId === groupId && f.signatureSubType === 'initial' && f.page === 1
+        (f) =>
+          f.parapheGroupId === groupId &&
+          f.signatureSubType === "initial" &&
+          f.page === 1
       );
       if (firstFieldIndex !== -1) {
         setTimeout(() => setSelectedFieldIndex(firstFieldIndex), 0);
       }
-      
+
       return updatedFields;
     });
   };
@@ -1033,7 +1088,7 @@ const PrepareDocumentPage: React.FC = () => {
       setFields((prevFields) => {
         // Utiliser selectedFieldIndex si disponible, sinon chercher le champ
         let fieldIndex = selectedFieldIndex;
-        
+
         if (fieldIndex === null || fieldIndex === undefined) {
           // Trouver l'index du champ à mettre à jour
           fieldIndex = prevFields.findIndex(
@@ -1045,13 +1100,16 @@ const PrepareDocumentPage: React.FC = () => {
               f.tempRecipientId === fieldToSign.tempRecipientId
           );
         }
-        
+
         if (fieldIndex !== -1 && fieldIndex < prevFields.length) {
           // Si c'est un paraphe avec un groupe, appliquer la signature à tous les paraphes du groupe
           const groupId = prevFields[fieldIndex].parapheGroupId;
-          if (groupId && prevFields[fieldIndex].signatureSubType === 'initial') {
+          if (
+            groupId &&
+            prevFields[fieldIndex].signatureSubType === "initial"
+          ) {
             return prevFields.map((f) =>
-              f.parapheGroupId === groupId && f.signatureSubType === 'initial'
+              f.parapheGroupId === groupId && f.signatureSubType === "initial"
                 ? { ...f, value: dataUrl }
                 : f
             );
@@ -1084,17 +1142,21 @@ const PrepareDocumentPage: React.FC = () => {
     setSelectedFieldIndex(index);
     setEditingField({ index, action });
     const field = fields[index];
-    
+
     // 🔧 FIX MOBILE : Gérer les événements touch
     const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
     const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
-    
+
     // Stocker aussi les positions et dimensions initiales de tous les paraphes du groupe pour la synchronisation
     const groupId = field.parapheGroupId;
-    const groupFields = groupId && field.signatureSubType === 'initial'
-      ? fields.filter((f) => f.parapheGroupId === groupId && f.signatureSubType === 'initial')
-      : [field];
-    
+    const groupFields =
+      groupId && field.signatureSubType === "initial"
+        ? fields.filter(
+            (f) =>
+              f.parapheGroupId === groupId && f.signatureSubType === "initial"
+          )
+        : [field];
+
     // Utiliser page comme identifiant unique au lieu de l'index (plus fiable)
     setInitialDragPosition({
       mouseX: clientX,
@@ -1128,22 +1190,26 @@ const PrepareDocumentPage: React.FC = () => {
       if (editingField.index >= currentFields.length) {
         return currentFields;
       }
-      
+
       const movedField = currentFields[editingField.index];
       if (!movedField) return currentFields;
-      
+
       const groupId = movedField?.parapheGroupId;
-      
+
       if (editingField.action === "move") {
         const newX = initialDragPosition.fieldX + dx;
         const newY = initialDragPosition.fieldY + dy;
-        
+
         // Si c'est un paraphe avec un groupe, synchroniser tous les paraphes du groupe
-        if (groupId && movedField.signatureSubType === 'initial' && initialDragPosition.groupFieldsInitialPositions) {
+        if (
+          groupId &&
+          movedField.signatureSubType === "initial" &&
+          initialDragPosition.groupFieldsInitialPositions
+        ) {
           // Calculer le déplacement relatif depuis la position initiale du champ déplacé
           const relativeDx = newX - initialDragPosition.fieldX;
           const relativeDy = newY - initialDragPosition.fieldY;
-          
+
           // Appliquer le déplacement à tous les paraphes du même groupe en utilisant leurs positions initiales
           return currentFields.map((field, index) => {
             if (index === editingField.index) {
@@ -1154,10 +1220,15 @@ const PrepareDocumentPage: React.FC = () => {
               };
             } else {
               // Trouver la position initiale de ce champ dans le groupe par sa page
-              const initialPos = initialDragPosition.groupFieldsInitialPositions?.find(
-                (p) => p.page === field.page
-              );
-              if (initialPos && field.parapheGroupId === groupId && field.signatureSubType === 'initial') {
+              const initialPos =
+                initialDragPosition.groupFieldsInitialPositions?.find(
+                  (p) => p.page === field.page
+                );
+              if (
+                initialPos &&
+                field.parapheGroupId === groupId &&
+                field.signatureSubType === "initial"
+              ) {
                 return {
                   ...field,
                   x: initialPos.x + relativeDx,
@@ -1168,7 +1239,7 @@ const PrepareDocumentPage: React.FC = () => {
             return field;
           });
         }
-        
+
         // Déplacement normal sans synchronisation
         return currentFields.map((field, index) => {
           if (index === editingField.index) {
@@ -1195,29 +1266,41 @@ const PrepareDocumentPage: React.FC = () => {
           case "resize-sw": // Bas-gauche
             newWidth = Math.max(20, initialDragPosition.fieldW - dx);
             newHeight = Math.max(20, initialDragPosition.fieldH + dy);
-            newX = initialDragPosition.fieldX + (initialDragPosition.fieldW - newWidth);
+            newX =
+              initialDragPosition.fieldX +
+              (initialDragPosition.fieldW - newWidth);
             break;
           case "resize-ne": // Haut-droite
             newWidth = Math.max(20, initialDragPosition.fieldW + dx);
             newHeight = Math.max(20, initialDragPosition.fieldH - dy);
-            newY = initialDragPosition.fieldY + (initialDragPosition.fieldH - newHeight);
+            newY =
+              initialDragPosition.fieldY +
+              (initialDragPosition.fieldH - newHeight);
             break;
           case "resize-nw": // Haut-gauche
             newWidth = Math.max(20, initialDragPosition.fieldW - dx);
             newHeight = Math.max(20, initialDragPosition.fieldH - dy);
-            newX = initialDragPosition.fieldX + (initialDragPosition.fieldW - newWidth);
-            newY = initialDragPosition.fieldY + (initialDragPosition.fieldH - newHeight);
+            newX =
+              initialDragPosition.fieldX +
+              (initialDragPosition.fieldW - newWidth);
+            newY =
+              initialDragPosition.fieldY +
+              (initialDragPosition.fieldH - newHeight);
             break;
         }
-        
+
         // Si c'est un paraphe avec un groupe, synchroniser le redimensionnement de tous les paraphes du groupe
-        if (groupId && movedField.signatureSubType === 'initial' && initialDragPosition.groupFieldsInitialPositions) {
+        if (
+          groupId &&
+          movedField.signatureSubType === "initial" &&
+          initialDragPosition.groupFieldsInitialPositions
+        ) {
           // Calculer le facteur de redimensionnement
           const scaleX = newWidth / initialDragPosition.fieldW;
           const scaleY = newHeight / initialDragPosition.fieldH;
           const offsetX = newX - initialDragPosition.fieldX;
           const offsetY = newY - initialDragPosition.fieldY;
-          
+
           // Appliquer le redimensionnement à tous les paraphes du même groupe
           return currentFields.map((field, index) => {
             if (index === editingField.index) {
@@ -1230,10 +1313,15 @@ const PrepareDocumentPage: React.FC = () => {
               };
             } else {
               // Trouver les dimensions initiales de ce champ dans le groupe par sa page
-              const initialPos = initialDragPosition.groupFieldsInitialPositions?.find(
-                (p) => p.page === field.page
-              );
-              if (initialPos && field.parapheGroupId === groupId && field.signatureSubType === 'initial') {
+              const initialPos =
+                initialDragPosition.groupFieldsInitialPositions?.find(
+                  (p) => p.page === field.page
+                );
+              if (
+                initialPos &&
+                field.parapheGroupId === groupId &&
+                field.signatureSubType === "initial"
+              ) {
                 return {
                   ...field,
                   width: Math.max(20, initialPos.width * scaleX),
@@ -1246,7 +1334,7 @@ const PrepareDocumentPage: React.FC = () => {
             return field;
           });
         }
-        
+
         // Redimensionnement normal sans synchronisation
         return currentFields.map((field, index) => {
           if (index === editingField.index) {
@@ -1261,7 +1349,7 @@ const PrepareDocumentPage: React.FC = () => {
           return field;
         });
       }
-      
+
       return currentFields;
     });
   };
@@ -1278,7 +1366,7 @@ const PrepareDocumentPage: React.FC = () => {
       window.addEventListener("mouseup", handleMouseUp);
       window.addEventListener("touchmove", handleMouseMove, { passive: false });
       window.addEventListener("touchend", handleMouseUp);
-      
+
       return () => {
         window.removeEventListener("mousemove", handleMouseMove);
         window.removeEventListener("mouseup", handleMouseUp);
@@ -1599,12 +1687,14 @@ Cordialement.`
         : "#71717A");
 
     // Déterminer le label et l'icône selon le type et sous-type
-    const isParaphe = field.type === FieldType.SIGNATURE && field.signatureSubType === 'initial';
-    const displayLabel = isParaphe ? 'Paraphe' : field.type;
+    const isParaphe =
+      field.type === FieldType.SIGNATURE &&
+      field.signatureSubType === "initial";
+    const displayLabel = isParaphe ? "Paraphe" : field.type;
     const Icon = Signature; // Utiliser Signature pour les deux cas
-    
+
     // Afficher la signature/paraphe si elle existe
-    const hasSignature = field.value && typeof field.value === 'string';
+    const hasSignature = field.value && typeof field.value === "string";
 
     // Style pour le conteneur interne (contenu avec bordure colorée)
     const innerStyle: React.CSSProperties = {
@@ -1636,12 +1726,10 @@ Cordialement.`
         key={index}
         style={{
           ...outerStyle,
-          borderColor: isSelected ? borderColorWithOpacity : 'transparent',
+          borderColor: isSelected ? borderColorWithOpacity : "transparent",
         }}
         className={`group border-2 ${
-          isSelected
-            ? ""
-            : "hover:border-opacity-100"
+          isSelected ? "" : "hover:border-opacity-100"
         } transition-all`}
         onMouseEnter={(e) => {
           if (!isSelected) {
@@ -1650,20 +1738,26 @@ Cordialement.`
         }}
         onMouseLeave={(e) => {
           if (!isSelected) {
-            e.currentTarget.style.borderColor = 'transparent';
+            e.currentTarget.style.borderColor = "transparent";
           }
         }}
         onMouseDown={(e) => {
           // Ne démarrer le drag que si on ne clique pas sur une poignée de resize ou le bouton X
           const target = e.target as HTMLElement;
-          if (!target.closest('.resize-handle') && !target.closest('.delete-button')) {
+          if (
+            !target.closest(".resize-handle") &&
+            !target.closest(".delete-button")
+          ) {
             handleFieldMouseDown(e, index, "move");
           }
         }}
         onTouchStart={(e) => {
           // Ne démarrer le drag que si on ne clique pas sur une poignée de resize ou le bouton X
           const target = e.target as HTMLElement;
-          if (!target.closest('.resize-handle') && !target.closest('.delete-button')) {
+          if (
+            !target.closest(".resize-handle") &&
+            !target.closest(".delete-button")
+          ) {
             handleFieldMouseDown(e, index, "move");
           }
         }}
@@ -1674,7 +1768,7 @@ Cordialement.`
       >
         {/* Conteneur interne avec le contenu */}
         <div
-          style={{ ...innerStyle, position: 'relative' }}
+          style={{ ...innerStyle, position: "relative" }}
           className="w-full h-full flex flex-col justify-center items-center text-xs p-1"
         >
           {hasSignature ? (
@@ -1682,7 +1776,7 @@ Cordialement.`
               src={field.value as string}
               alt="signature"
               className="w-full h-full object-contain"
-              style={{ maxWidth: '100%', maxHeight: '100%' }}
+              style={{ maxWidth: "100%", maxHeight: "100%" }}
             />
           ) : (
             <>
@@ -1707,13 +1801,17 @@ Cordialement.`
           >
             {recipient?.name || "Non assigné"}
           </span>
-          
+
           {/* Poignées de redimensionnement - aux coins du rectangle principal, visibles seulement si sélectionné */}
           {isSelected && (
             <>
               <div
                 className="resize-handle absolute -top-2 -left-2 w-4 h-4 rounded-full cursor-nw-resize shadow-lg border-2 border-white z-50"
-                style={{ touchAction: "none", pointerEvents: "auto", backgroundColor: color }}
+                style={{
+                  touchAction: "none",
+                  pointerEvents: "auto",
+                  backgroundColor: color,
+                }}
                 onMouseDown={(e) => {
                   e.stopPropagation();
                   handleFieldMouseDown(e, index, "resize-nw");
@@ -1725,7 +1823,11 @@ Cordialement.`
               />
               <div
                 className="resize-handle absolute -top-2 -right-2 w-4 h-4 rounded-full cursor-ne-resize shadow-lg border-2 border-white z-50"
-                style={{ touchAction: "none", pointerEvents: "auto", backgroundColor: color }}
+                style={{
+                  touchAction: "none",
+                  pointerEvents: "auto",
+                  backgroundColor: color,
+                }}
                 onMouseDown={(e) => {
                   e.stopPropagation();
                   handleFieldMouseDown(e, index, "resize-ne");
@@ -1737,7 +1839,11 @@ Cordialement.`
               />
               <div
                 className="resize-handle absolute -bottom-2 -left-2 w-4 h-4 rounded-full cursor-sw-resize shadow-lg border-2 border-white z-50"
-                style={{ touchAction: "none", pointerEvents: "auto", backgroundColor: color }}
+                style={{
+                  touchAction: "none",
+                  pointerEvents: "auto",
+                  backgroundColor: color,
+                }}
                 onMouseDown={(e) => {
                   e.stopPropagation();
                   handleFieldMouseDown(e, index, "resize-sw");
@@ -1749,7 +1855,11 @@ Cordialement.`
               />
               <div
                 className="resize-handle absolute -bottom-2 -right-2 w-4 h-4 rounded-full cursor-se-resize shadow-lg border-2 border-white z-50"
-                style={{ touchAction: "none", pointerEvents: "auto", backgroundColor: color }}
+                style={{
+                  touchAction: "none",
+                  pointerEvents: "auto",
+                  backgroundColor: color,
+                }}
                 onMouseDown={(e) => {
                   e.stopPropagation();
                   handleFieldMouseDown(e, index, "resize-se");
@@ -1770,9 +1880,13 @@ Cordialement.`
             removeField(index);
           }}
           className="delete-button absolute -top-2.5 -right-2.5 w-5 h-5 rounded-full flex items-center justify-center shadow-lg border-2 border-white z-50 opacity-0 group-hover:opacity-100 transition-opacity"
-          style={{ touchAction: "none", pointerEvents: "auto", backgroundColor: color }}
+          style={{
+            touchAction: "none",
+            pointerEvents: "auto",
+            backgroundColor: color,
+          }}
         >
-          <X size={12} style={{ color: '#ffffff' }} />
+          <X size={12} style={{ color: "#ffffff" }} />
         </button>
       </div>
     );
@@ -1852,8 +1966,8 @@ Cordialement.`
         setCreatorEmail={setCreatorEmail}
         isSubmitting={isSubmitting}
       />
-      <div className="flex flex-col h-[calc(100vh-8rem)]">
-        <div className="bg-surface/80 backdrop-blur-sm p-3 shadow-sm sticky top-16 z-30 border-b border-outlineVariant">
+      <div className="h-screen bg-background flex flex-col overflow-hidden">
+        <div className="bg-surface/80 backdrop-blur-sm p-3 shadow-sm z-30 border-b border-outlineVariant flex-shrink-0">
           <div className="container mx-auto flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
             <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
               <Button
@@ -1890,7 +2004,7 @@ Cordialement.`
             </button>
           </div>
         </div>
-        <div className="flex-grow flex overflow-hidden relative">
+        <div className="flex-1 flex overflow-hidden relative">
           {/* Left Panel: Recipients & Fields - Hidden on mobile, shown as modal */}
           <div className="hidden lg:block w-80 bg-surface flex-shrink-0 p-4 border-r border-outlineVariant overflow-y-auto">
             {selectedFieldIndex !== null && fields[selectedFieldIndex] ? (
@@ -2476,9 +2590,12 @@ Cordialement.`
         <SignaturePadUnified
           onSave={handleSaveSignature}
           onCancel={handleCancelSignature}
-          signerName={recipients.find((r) => r.id === fieldToSign.tempRecipientId)?.name || "Utilisateur"}
+          signerName={
+            recipients.find((r) => r.id === fieldToSign.tempRecipientId)
+              ?.name || "Utilisateur"
+          }
           initialTab="draw"
-          isParaphe={fieldToSign.signatureSubType === 'initial'}
+          isParaphe={fieldToSign.signatureSubType === "initial"}
         />
       )}
     </>

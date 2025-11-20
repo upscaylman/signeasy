@@ -4,6 +4,7 @@ import { deleteAllUserData } from '../services/firebaseApi';
 import { useToast } from '../components/Toast';
 import { useUser } from '../components/UserContext';
 import Button from '../components/Button';
+import Footer from '../components/Footer';
 import { Trash2, Loader2, Shield } from 'lucide-react';
 
 const DeleteUserDataPage: React.FC = () => {
@@ -75,9 +76,10 @@ const DeleteUserDataPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 sm:p-8">
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-surface rounded-3xl shadow-lg border border-outlineVariant p-6 sm:p-8">
+    <div className="min-h-screen bg-background flex flex-col">
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-8">
+        <div className="max-w-2xl w-full">
+          <div className="bg-surface rounded-3xl shadow-lg border border-outlineVariant p-6 sm:p-8">
           <div className="flex items-center gap-3 mb-6">
             <div className="bg-primaryContainer p-3 rounded-full">
               <Shield className="h-6 w-6 text-onPrimaryContainer" />
@@ -148,7 +150,9 @@ const DeleteUserDataPage: React.FC = () => {
             )}
           </div>
         </div>
+        </div>
       </div>
+      <Footer />
     </div>
   );
 };

@@ -52,6 +52,9 @@ const AppContent: React.FC = () => {
     );
   }
 
+  // Vérifier si on est sur une page qui doit afficher le Footer
+  const shouldShowFooter = location.pathname === "/dashboard" || location.pathname === "/verify";
+
   // Si utilisateur, afficher l'app
   return (
     <>
@@ -71,7 +74,7 @@ const AppContent: React.FC = () => {
           <Route path="*" element={<Navigate to="/dashboard" />} />
         </Routes>
       </main>
-      {currentUser && <Footer />}
+      {currentUser && shouldShowFooter && <Footer />}
       {currentUser && <CookieBanner />}
     </>
   );

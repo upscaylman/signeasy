@@ -15,6 +15,7 @@ import {
   removeAuthorizedUser,
 } from "../services/firebaseApi";
 import Button from "./Button";
+import DeleteUserDataModal from "./DeleteUserDataModal";
 import { useToast } from "./Toast";
 
 const AdminPanel: React.FC = () => {
@@ -26,6 +27,7 @@ const AdminPanel: React.FC = () => {
   const [isAdding, setIsAdding] = useState(false);
   const [error, setError] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const { addToast } = useToast();
   const navigate = useNavigate();
 
@@ -227,14 +229,24 @@ const AdminPanel: React.FC = () => {
                 <h3 className="text-sm font-semibold text-onSurface mb-1">
                   Suppression des données utilisateur
                 </h3>
-                <p className="text-xs text-onSurfaceVariant">
+                <p className="text-xs text-onSurfaceVariant mb-2">
                   Supprimer toutes les données d'un utilisateur (documents, emails, tokens, etc.)
                 </p>
+                <a
+                  href="#/admin/delete-user-data"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate("/admin/delete-user-data");
+                  }}
+                  className="text-xs text-primary hover:underline"
+                >
+                  Accéder à la page complète
+                </a>
               </div>
               <Button
                 variant="outlined"
                 icon={Database}
-                onClick={() => navigate("/admin/delete-user-data")}
+                onClick={() => setIsDeleteModalOpen(true)}
                 className="flex-shrink-0"
                 size="small"
               >
@@ -242,6 +254,11 @@ const AdminPanel: React.FC = () => {
               </Button>
             </div>
           </div>
+
+          <DeleteUserDataModal
+            isOpen={isDeleteModalOpen}
+            onClose={() => setIsDeleteModalOpen(false)}
+          />
 
           <div className="mt-6 pt-6 border-t border-outlineVariant">
             <p className="text-xs text-onSurfaceVariant">
