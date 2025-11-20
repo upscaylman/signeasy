@@ -5,12 +5,10 @@ import {
   Calendar,
   CheckSquare,
   Info,
-  Loader2,
   Mail,
   Signature,
   Trash2,
   Type as TypeIcon,
-  UploadCloud,
   UserPlus,
   X,
   ZoomIn,
@@ -679,6 +677,18 @@ const PrepareDocumentPage: React.FC = () => {
       document.body.style.overflow = "";
     };
   }, []);
+
+  // Timeout pour rediriger vers le dashboard si aucun fichier n'est chargé après 5 secondes
+  useEffect(() => {
+    if (!file) {
+      const timeout = setTimeout(() => {
+        addToast("Redirection vers le tableau de bord", "info");
+        navigate("/dashboard");
+      }, 5000); // 5 secondes
+
+      return () => clearTimeout(timeout);
+    }
+  }, [file, navigate, addToast]);
 
   // --- Initialiser l'email du créateur avec l'utilisateur connecté ---
   useEffect(() => {
@@ -1895,51 +1905,12 @@ Cordialement.`
   // --- UI Components ---
   if (!file) {
     return (
-      <div className="container mx-auto max-w-3xl text-center">
-        <div className="bg-surface p-8 rounded-3xl shadow-sm border border-outlineVariant/30">
-          <div className="bg-primaryContainer inline-block p-4 rounded-full">
-            <UploadCloud className="h-12 w-12 text-onPrimaryContainer" />
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="inline-block">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
           </div>
-          <h1 className="text-3xl font-bold text-onSurface mt-4">
-            Préparez votre document
-          </h1>
-          <p className="mt-2 text-md text-onSurfaceVariant max-w-md mx-auto">
-            Téléversez un document PDF pour commencer à ajouter des
-            destinataires et des champs de signature.
-          </p>
-          <div className="mt-8">
-            <label htmlFor="file-upload" className="cursor-pointer">
-              <div className="relative border-2 border-dashed border-outlineVariant rounded-2xl p-12 hover:bg-surfaceVariant/50 transition-colors">
-                {isProcessing ? (
-                  <div className="flex flex-col items-center">
-                    <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                    <p className="mt-4 font-semibold text-onSurface">
-                      Traitement du PDF...
-                    </p>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center">
-                    <UploadCloud className="h-10 w-10 text-onSurfaceVariant" />
-                    <span className="mt-4 font-semibold text-primary">
-                      Cliquez pour téléverser
-                    </span>
-                    <p className="text-sm text-onSurfaceVariant mt-1">
-                      ou glissez-déposez un fichier PDF ou Word ici
-                    </p>
-                  </div>
-                )}
-              </div>
-              <input
-                id="file-upload"
-                name="file-upload"
-                type="file"
-                className="sr-only"
-                onChange={handleFileChange}
-                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                disabled={isProcessing}
-              />
-            </label>
-          </div>
+          <p className="mt-4 text-onSurfaceVariant">Chargement...</p>
         </div>
       </div>
     );
