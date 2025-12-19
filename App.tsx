@@ -10,8 +10,10 @@ import CookieBanner from "./components/CookieBanner";
 import EmailLoginModal from "./components/EmailLoginModal";
 import Footer from "./components/Footer";
 import Header from "./components/Header";
+import { PresenceTracker } from "./components/PresenceTracker";
 import { ToastProvider } from "./components/Toast";
 import { UserProvider, useUser } from "./components/UserContext";
+import VersionUpdateBanner from "./components/VersionUpdateBanner";
 import DashboardPage from "./pages/DashboardPage";
 import InboxPage from "./pages/InboxPage";
 import PrepareDocumentPage from "./pages/PrepareDocumentPage";
@@ -59,6 +61,7 @@ const AppContent: React.FC = () => {
   return (
     <>
       {currentUser && <Header />}
+      {currentUser && <PresenceTracker />}
       <main className="flex-grow animate-fade-in page-transition">
         <Routes>
           <Route path="/dashboard" element={<DashboardPage />} />
@@ -87,6 +90,7 @@ const App: React.FC = () => {
         <HashRouter>
           <div className="min-h-screen bg-background text-onBackground flex flex-col">
             <AppContent />
+            <VersionUpdateBanner />
           </div>
         </HashRouter>
       </ToastProvider>

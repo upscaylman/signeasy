@@ -17,6 +17,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
+import { PDFDocument, rgb } from "pdf-lib";
 import * as pdfjsLib from "pdfjs-dist";
 import React, {
   useCallback,
@@ -33,7 +34,6 @@ import SignaturePadUnified from "../components/SignaturePadUnified";
 import { useToast } from "../components/Toast";
 import { useUser } from "../components/UserContext";
 import {
-  downloadDocument,
   getEnvelopeByToken,
   getPdfData,
   rejectSignature,
@@ -1198,16 +1198,125 @@ const SignDocumentPage: React.FC = () => {
   const handleDownload = async () => {
     if (!envelope) return;
 
-    addToast("Téléchargement en cours...", "info");
-    const result = await downloadDocument(
-      envelope.document.id,
-      envelope.document.name
-    );
+    addToast("Génération du PDF en cours...", "info");
+    
+    try {
+      // Récupérer le PDF original
+      const pdfDataUrl = await getPdfData(envelope.document.id);
+      if (!pdfDataUrl) {
+        addToast("Document introuvable", "error");
+        return;
+      }
 
-    if (result.success) {
+      // Charger le PDF avec pdf-lib
+      const base64Data = pdfDataUrl.split(",")[1];
+      const pdfBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+      const pdfDoc = await PDFDocument.load(pdfBytes);
+      const pages = pdfDoc.getPages();
+
+      // Créer les champs avec les valeurs actuelles (depuis le state local)
+      const fieldsWithValues = envelope.fields.map((field) => ({
+        ...field,
+        value: fieldValues[field.id] ?? field.value,
+      }));
+
+      console.log("📄 Génération PDF avec", fieldsWithValues.filter(f => f.value).length, "champs remplis");
+
+      // Parcourir tous les champs et les dessiner sur le PDF
+      for (const field of fieldsWithValues) {
+        if (!field.value) continue;
+
+        const page = pages[field.page - 1];
+        if (!page) continue;
+
+        // Obtenir les dimensions personnalisées si disponibles
+        const customDims = fieldDimensions[field.id];
+        const fieldX = customDims?.x ?? field.x;
+        const fieldY = customDims?.y ?? field.y;
+        const fieldWidth = customDims?.width ?? field.width;
+        const fieldHeight = customDims?.height ?? field.height;
+
+        const pageHeight = page.getHeight();
+        const pdfY = pageHeight - fieldY - fieldHeight;
+
+        if (field.type === "Signature" || field.type === "Paraphe") {
+          if (typeof field.value === "string" && field.value.startsWith("data:image")) {
+            try {
+              const imageData = field.value.split(",")[1];
+              const imageBytes = Uint8Array.from(atob(imageData), (c) => c.charCodeAt(0));
+              
+              // Détecter le type d'image (PNG ou JPEG)
+              const isJpeg = field.value.startsWith("data:image/jpeg") || field.value.startsWith("data:image/jpg");
+              const image = isJpeg 
+                ? await pdfDoc.embedJpg(imageBytes)
+                : await pdfDoc.embedPng(imageBytes);
+
+              page.drawImage(image, {
+                x: fieldX,
+                y: pdfY,
+                width: fieldWidth,
+                height: fieldHeight,
+              });
+              console.log(`✅ Signature ajoutée pour le champ ${field.id}`);
+            } catch (err) {
+              console.error("Erreur lors de l'ajout de la signature:", err);
+            }
+          }
+        } else if (field.type === "Texte") {
+          if (typeof field.value === "string") {
+            const fontSize = Math.min(fieldHeight * 0.6, 12);
+            page.drawText(field.value, {
+              x: fieldX + 5,
+              y: pdfY + fieldHeight / 2 - fontSize / 2,
+              size: fontSize,
+              color: rgb(0, 0, 0),
+            });
+          }
+        } else if (field.type === "Date") {
+          if (typeof field.value === "string") {
+            const fontSize = Math.min(fieldHeight * 0.6, 12);
+            page.drawText(field.value, {
+              x: fieldX + 5,
+              y: pdfY + fieldHeight / 2 - fontSize / 2,
+              size: fontSize,
+              color: rgb(0, 0, 0),
+            });
+          }
+        } else if (field.type === "Case à cocher") {
+          if (field.value === true) {
+            const checkSize = Math.min(fieldWidth, fieldHeight) * 0.8;
+            const centerX = fieldX + fieldWidth / 2;
+            const centerY = pdfY + fieldHeight / 2;
+            page.drawText("✓", {
+              x: centerX - checkSize / 2,
+              y: centerY - checkSize / 2,
+              size: checkSize,
+              color: rgb(0, 0.5, 0),
+            });
+          }
+        }
+      }
+
+      // Sauvegarder le PDF modifié
+      const modifiedPdfBytes = await pdfDoc.save();
+      const blob = new Blob([modifiedPdfBytes as unknown as BlobPart], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      
+      // Télécharger
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = envelope.document.name.endsWith(".pdf") 
+        ? envelope.document.name 
+        : `${envelope.document.name}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
       addToast("Document téléchargé avec succès !", "success");
-    } else {
-      addToast(result.error || "Erreur lors du téléchargement", "error");
+    } catch (error) {
+      console.error("Erreur lors du téléchargement:", error);
+      addToast("Erreur lors du téléchargement", "error");
     }
   };
 
@@ -1789,6 +1898,69 @@ const SignDocumentPage: React.FC = () => {
 
     if (readOnly && !value) {
       return null; // Don't render empty fields for other people in read-only mode
+    }
+
+    // 🔧 FIX : En mode readOnly avec une valeur, afficher directement l'image (comme pour les autres destinataires)
+    if (readOnly && value && (field.type === FieldType.SIGNATURE || field.type === FieldType.INITIAL)) {
+      return (
+        <div
+          style={baseStyle}
+          className="flex items-center justify-center"
+        >
+          <img
+            src={String(value)}
+            alt={
+              field.type === FieldType.SIGNATURE &&
+              field.signatureSubType === "initial"
+                ? "paraphe"
+                : "signature"
+            }
+            className="object-contain w-full h-full"
+          />
+        </div>
+      );
+    }
+
+    // 🔧 FIX : En mode readOnly avec une valeur DATE, afficher la date
+    if (readOnly && value && field.type === FieldType.DATE) {
+      return (
+        <div
+          style={baseStyle}
+          className="bg-surface rounded-md border border-outlineVariant flex items-center justify-center"
+        >
+          <span className="text-sm font-semibold text-onSurface">
+            {String(value)}
+          </span>
+        </div>
+      );
+    }
+
+    // 🔧 FIX : En mode readOnly avec une valeur TEXT, afficher le texte
+    if (readOnly && value && field.type === FieldType.TEXT) {
+      return (
+        <div
+          style={baseStyle}
+          className="bg-surface rounded-md border border-outlineVariant flex items-center justify-start p-2"
+        >
+          <span className="text-sm text-onSurface whitespace-pre-wrap break-words">
+            {String(value)}
+          </span>
+        </div>
+      );
+    }
+
+    // 🔧 FIX : En mode readOnly avec une valeur CHECKBOX, afficher la coche
+    if (readOnly && field.type === FieldType.CHECKBOX) {
+      return (
+        <div
+          style={baseStyle}
+          className="bg-surface rounded-md border border-outlineVariant flex items-center justify-center"
+        >
+          {value === true && (
+            <CheckSquare className="h-full w-full text-primary" />
+          )}
+        </div>
+      );
     }
 
     const interactiveClasses =

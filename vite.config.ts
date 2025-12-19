@@ -7,11 +7,11 @@ export default defineConfig(({ mode }) => {
     const isProduction = mode === 'production';
     return {
       server: {
-        port: 3000,
+        port: 5000,
         host: '0.0.0.0',
         hmr: isProduction ? false : {
           // HMR uniquement en développement
-          clientPort: 3000,
+          clientPort: 5000,
         },
       },
       plugins: [react()],

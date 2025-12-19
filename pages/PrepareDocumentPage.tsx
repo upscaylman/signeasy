@@ -572,7 +572,7 @@ const PrepareDocumentPage: React.FC = () => {
   const location = useLocation();
   const { addToast } = useToast();
   const { currentUser } = useUser();
-  const { drafts, getDraft, saveDraft, deleteDraft } = useDraftDocument();
+  const { drafts, getDraft, saveDraft, updateDraftData, deleteDraft } = useDraftDocument();
 
   // State
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
@@ -812,6 +812,45 @@ const PrepareDocumentPage: React.FC = () => {
     }
   };
 
+  // Fonction helper pour charger un brouillon avec tous ses champs et destinataires
+  const loadDraftWithData = useCallback(async (draft: ReturnType<typeof getDraft>) => {
+    if (!draft) return;
+
+    setCurrentDraftId(draft.id);
+    
+    try {
+      const res = await fetch(draft.pdfData);
+      const blob = await res.blob();
+      const draftFile = new File([blob], draft.fileName, {
+        type: "application/pdf",
+      });
+      await loadPdfFile(draftFile);
+
+      // Restaurer les destinataires si présents
+      if (draft.recipients && draft.recipients.length > 0) {
+        setRecipients(draft.recipients);
+        // Mettre à jour le compteur pour éviter les conflits d'ID
+        const maxId = Math.max(...draft.recipients.map(r => r.id), 0);
+        tempRecipientId = maxId + 1;
+        console.log("📥 Destinataires restaurés:", draft.recipients.length);
+      }
+
+      // Restaurer les champs si présents
+      if (draft.fields && draft.fields.length > 0) {
+        setFields(draft.fields as TempField[]);
+        console.log("📥 Champs restaurés:", draft.fields.length);
+      }
+
+      // Restaurer le destinataire actif
+      if (draft.activeRecipientId !== undefined) {
+        setActiveRecipientId(draft.activeRecipientId);
+      }
+    } catch (err) {
+      console.error("Erreur lors du chargement du brouillon:", err);
+      addToast("Erreur lors du chargement du brouillon.", "error");
+    }
+  }, [loadPdfFile, addToast]);
+
   // Charger automatiquement le fichier depuis le Dashboard ou depuis le brouillon
   useEffect(() => {
     const pdfData = (location.state as any)?.pdfData;
@@ -834,43 +873,19 @@ const PrepareDocumentPage: React.FC = () => {
       // Nettoyer le state pour éviter de recharger à chaque render
       navigate(location.pathname, { replace: true, state: {} });
     } else if (draftId && !file) {
-      // Charger un brouillon spécifique via son ID
+      // Charger un brouillon spécifique via son ID avec tous ses champs
       const specificDraft = getDraft(draftId);
       if (specificDraft) {
-        setCurrentDraftId(specificDraft.id);
-        fetch(specificDraft.pdfData)
-          .then((res) => res.blob())
-          .then((blob) => {
-            const draftFile = new File([blob], specificDraft.fileName, {
-              type: "application/pdf",
-            });
-            loadPdfFile(draftFile);
-          })
-          .catch((err) => {
-            console.error("Erreur lors du chargement du brouillon:", err);
-            addToast("Erreur lors du chargement du brouillon.", "error");
-          });
+        loadDraftWithData(specificDraft);
       }
       // Nettoyer le state
       navigate(location.pathname, { replace: true, state: {} });
     } else if (drafts.length === 1 && !file) {
       // Si un seul brouillon existe et pas de fichier chargé, le charger automatiquement
       const singleDraft = drafts[0];
-      setCurrentDraftId(singleDraft.id);
-      fetch(singleDraft.pdfData)
-        .then((res) => res.blob())
-        .then((blob) => {
-          const draftFile = new File([blob], singleDraft.fileName, {
-            type: "application/pdf",
-          });
-          loadPdfFile(draftFile);
-        })
-        .catch((err) => {
-          console.error("Erreur lors du chargement du brouillon:", err);
-          addToast("Erreur lors du chargement du brouillon.", "error");
-        });
+      loadDraftWithData(singleDraft);
     }
-  }, [drafts, file, location.state, navigate, addToast, getDraft, loadPdfFile]);
+  }, [drafts, file, location.state, navigate, addToast, getDraft, loadPdfFile, loadDraftWithData]);
 
   // Redirection vers le dashboard uniquement après le chargement initial et si vraiment vide
   useEffect(() => {
@@ -905,6 +920,36 @@ const PrepareDocumentPage: React.FC = () => {
 
     return () => clearTimeout(timer);
   }, [drafts.length, file, isProcessing, location.state, navigate, addToast]);
+
+  // 💾 Sauvegarde automatique des champs et destinataires dans le brouillon
+  useEffect(() => {
+    // Ne pas sauvegarder si pas de brouillon actif ou pas de PDF chargé
+    if (!currentDraftId || !fileBase64) return;
+
+    // Debounce pour éviter trop de sauvegardes
+    const saveTimer = setTimeout(() => {
+      updateDraftData(currentDraftId, {
+        recipients: recipients,
+        fields: fields.map(f => ({
+          type: f.type,
+          page: f.page,
+          x: f.x,
+          y: f.y,
+          width: f.width,
+          height: f.height,
+          tempRecipientId: f.tempRecipientId,
+          color: f.color,
+          parapheGroupId: f.parapheGroupId,
+          value: f.value,
+          signatureSubType: f.signatureSubType,
+          textOptions: f.textOptions,
+        })),
+        activeRecipientId: activeRecipientId,
+      });
+    }, 500); // Délai de 500ms pour éviter trop de sauvegardes
+
+    return () => clearTimeout(saveTimer);
+  }, [recipients, fields, activeRecipientId, currentDraftId, fileBase64, updateDraftData]);
 
   // --- Recipient Management ---
   const addRecipient = () => {

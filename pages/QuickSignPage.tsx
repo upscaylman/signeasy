@@ -274,7 +274,12 @@ const QuickSignPage: React.FC = () => {
         const signatureImageBytes = await fetch(signature.signatureData).then(
           (res) => res.arrayBuffer()
         );
-        const signatureImage = await pdfDoc.embedPng(signatureImageBytes);
+        
+        // Détecter le type d'image (PNG ou JPEG)
+        const isJpeg = signature.signatureData.startsWith("data:image/jpeg") || signature.signatureData.startsWith("data:image/jpg");
+        const signatureImage = isJpeg 
+          ? await pdfDoc.embedJpg(signatureImageBytes)
+          : await pdfDoc.embedPng(signatureImageBytes);
 
         const pageHeight = page.getHeight();
         page.drawImage(signatureImage, {

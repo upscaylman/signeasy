@@ -116,7 +116,7 @@ const Footer: React.FC = () => {
           <p className="text-xs text-white/70">
             Site réalisé par FO Métaux © {new Date().getFullYear()} FO Métaux.
             Tous droits réservés.
-            <span className="ml-2" style={{ color: "#c72727" }}>
+            <span className="ml-2 font-bold text-white">
               Version {packageJson.version}
             </span>
           </p>

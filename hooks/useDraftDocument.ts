@@ -3,11 +3,42 @@ import { useEffect, useState } from "react";
 const STORAGE_KEY = "prepare_document_drafts";
 const MAX_DRAFTS = 3;
 
+// Types pour les destinataires et champs temporaires
+interface TempRecipient {
+  id: number;
+  name: string;
+  email: string;
+  signingOrder: number;
+}
+
+interface TempField {
+  type: string;
+  page: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  tempRecipientId: number;
+  color?: string;
+  parapheGroupId?: string;
+  value?: string | boolean | null;
+  signatureSubType?: 'signature' | 'initial';
+  textOptions?: {
+    fontSize?: number;
+    lineHeight?: number;
+    wordWrap?: boolean;
+  };
+}
+
 export interface DraftDocument {
   id: string;
   pdfData: string;
   fileName: string;
   timestamp: number;
+  // Nouvelles données pour sauvegarder l'état complet du brouillon
+  recipients?: TempRecipient[];
+  fields?: TempField[];
+  activeRecipientId?: number | null;
 }
 
 export const useDraftDocument = () => {
@@ -56,7 +87,15 @@ export const useDraftDocument = () => {
     }
   };
 
-  const saveDraft = (pdfData: string, fileName: string): string | null => {
+  const saveDraft = (
+    pdfData: string, 
+    fileName: string,
+    options?: {
+      recipients?: TempRecipient[];
+      fields?: TempField[];
+      activeRecipientId?: number | null;
+    }
+  ): string | null => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       let currentDrafts: DraftDocument[] = stored ? JSON.parse(stored) : [];
@@ -72,8 +111,14 @@ export const useDraftDocument = () => {
           ...currentDrafts[existingIndex],
           pdfData,
           timestamp: Date.now(),
+          recipients: options?.recipients ?? currentDrafts[existingIndex].recipients,
+          fields: options?.fields ?? currentDrafts[existingIndex].fields,
+          activeRecipientId: options?.activeRecipientId ?? currentDrafts[existingIndex].activeRecipientId,
         };
-        console.log("💾 Brouillon mis à jour:", fileName);
+        console.log("💾 Brouillon mis à jour:", fileName, {
+          recipients: options?.recipients?.length ?? 0,
+          fields: options?.fields?.length ?? 0,
+        });
       } else {
         // Vérifier la limite de 3 brouillons
         if (currentDrafts.length >= MAX_DRAFTS) {
@@ -87,6 +132,9 @@ export const useDraftDocument = () => {
           pdfData,
           fileName,
           timestamp: Date.now(),
+          recipients: options?.recipients,
+          fields: options?.fields,
+          activeRecipientId: options?.activeRecipientId,
         };
         currentDrafts.push(newDraft);
         console.log("💾 Nouveau brouillon sauvegardé:", fileName);
@@ -98,7 +146,9 @@ export const useDraftDocument = () => {
       // Déclencher un événement personnalisé pour notifier les autres composants
       window.dispatchEvent(new Event("draftsChanged"));
 
-      return currentDrafts[currentDrafts.length - 1].id;
+      // Retourner l'ID du brouillon mis à jour ou créé
+      const updatedDraft = currentDrafts.find((d) => d.fileName === fileName);
+      return updatedDraft?.id || null;
     } catch (error) {
       console.error("Erreur lors de la sauvegarde du brouillon:", error);
       // Gérer l'erreur de quota localStorage
@@ -109,6 +159,48 @@ export const useDraftDocument = () => {
         console.error("Quota localStorage dépassé");
       }
       return null;
+    }
+  };
+
+  // Mettre à jour uniquement les champs et destinataires d'un brouillon existant (sans le PDF)
+  const updateDraftData = (
+    draftId: string,
+    data: {
+      recipients?: TempRecipient[];
+      fields?: TempField[];
+      activeRecipientId?: number | null;
+    }
+  ): boolean => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (!stored) return false;
+
+      let currentDrafts: DraftDocument[] = JSON.parse(stored);
+      const draftIndex = currentDrafts.findIndex((d) => d.id === draftId);
+
+      if (draftIndex === -1) return false;
+
+      currentDrafts[draftIndex] = {
+        ...currentDrafts[draftIndex],
+        timestamp: Date.now(),
+        recipients: data.recipients ?? currentDrafts[draftIndex].recipients,
+        fields: data.fields ?? currentDrafts[draftIndex].fields,
+        activeRecipientId: data.activeRecipientId ?? currentDrafts[draftIndex].activeRecipientId,
+      };
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(currentDrafts));
+      setDrafts(currentDrafts);
+      window.dispatchEvent(new Event("draftsChanged"));
+
+      console.log("💾 Données du brouillon mises à jour:", draftId, {
+        recipients: data.recipients?.length ?? 0,
+        fields: data.fields?.length ?? 0,
+      });
+
+      return true;
+    } catch (error) {
+      console.error("Erreur lors de la mise à jour du brouillon:", error);
+      return false;
     }
   };
 
@@ -136,6 +228,11 @@ export const useDraftDocument = () => {
     return drafts.find((d) => d.id === draftId) || null;
   };
 
+  // Obtenir un brouillon par nom de fichier
+  const getDraftByFileName = (fileName: string): DraftDocument | null => {
+    return drafts.find((d) => d.fileName === fileName) || null;
+  };
+
   const refreshDrafts = () => {
     loadDrafts();
   };
@@ -150,8 +247,10 @@ export const useDraftDocument = () => {
     drafts,
     isLoading,
     saveDraft,
+    updateDraftData,
     deleteDraft,
     getDraft,
+    getDraftByFileName,
     refreshDrafts,
     hasDrafts,
     canAddDraft,

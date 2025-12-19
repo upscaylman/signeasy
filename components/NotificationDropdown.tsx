@@ -138,19 +138,24 @@ const NotificationDropdown: React.FC = () => {
           const auditData = auditDoc.data();
           const events = auditData.events || [];
 
-          // Filtrer les événements pertinents (SIGN, REJECT uniquement)
-          const relevantEvents = events.filter((event: any) =>
-            ["SIGN", "REJECT"].includes(event.type)
-          );
-
           // Récupérer l'enveloppe pour obtenir les infos complètes du destinataire
           const envelopeDoc = await getDoc(
             doc(db, "envelopes", `env${docData.id.substring(3)}`)
           );
 
-          let recipientInfo = "";
+          let envelopeData: any = null;
           if (envelopeDoc.exists()) {
-            const envelopeData = envelopeDoc.data();
+            envelopeData = envelopeDoc.data();
+          }
+
+          // Filtrer les événements pertinents (SEND, SIGN, REJECT)
+          const relevantEvents = events.filter((event: any) =>
+            ["SEND", "SIGN", "REJECT"].includes(event.type)
+          );
+
+          // Trouver les infos du destinataire pour les événements SIGN/REJECT
+          let recipientInfo = "";
+          if (envelopeData) {
             const recipient = envelopeData.recipients?.find(
               (r: any) =>
                 r.email ===
@@ -169,6 +174,27 @@ const NotificationDropdown: React.FC = () => {
             const recipientName = recipientInfo || event.user || "Utilisateur";
 
             switch (event.type) {
+              case "SEND":
+                // Calculer le nombre de signataires en attente
+                if (envelopeData) {
+                  const totalRecipients = envelopeData.recipients?.length || 0;
+                  const signedCount = events.filter((e: any) => e.type === "SIGN").length;
+                  const pendingCount = totalRecipients - signedCount;
+                  
+                  if (pendingCount > 0) {
+                    const pendingRecipients = envelopeData.recipients
+                      ?.filter((r: any) => !events.some((e: any) => e.type === "SIGN" && e.user === r.email))
+                      .map((r: any) => r.name)
+                      .join(", ");
+                    message = `En attente de signature de ${pendingRecipients || `${pendingCount} destinataire(s)`}`;
+                  } else {
+                    // Tous ont signé, ne pas afficher cette notification SEND
+                    return;
+                  }
+                } else {
+                  message = "Document envoyé - En attente de signature";
+                }
+                break;
               case "SIGN":
                 message = `Document signé par ${recipientName}`;
                 break;

@@ -225,21 +225,28 @@ const Header: React.FC = () => {
             </div>
 
             {/* Profile Button */}
-            <Tooltip content={currentUser?.email || "Profil"} position="bottom">
-              <button
-                className={`
-                  min-h-[44px] min-w-[44px] w-10 h-10
-                  ${profileColor || "bg-primaryContainer"} text-white
-                  rounded-full flex items-center justify-center
-                  font-bold text-lg
-                  state-layer state-layer-primary press-effect
-                  elevation-0 hover:elevation-1 transition-all
-                  hover:scale-110
-                `}
-                aria-label="Profil utilisateur"
-              >
-                {getInitials()}
-              </button>
+            <Tooltip content={`${currentUser?.email || "Profil"}${currentUser?.isAdmin ? " (Admin)" : ""}`} position="bottom">
+              <div className={`relative rounded-full ${currentUser?.isAdmin ? "ring-3 ring-yellow-400 ring-offset-2 ring-offset-surface" : ""}`}>
+                <button
+                  className={`
+                    min-h-[44px] min-w-[44px] w-10 h-10
+                    ${profileColor || "bg-primaryContainer"} text-white
+                    rounded-full flex items-center justify-center
+                    font-bold text-lg
+                    state-layer state-layer-primary press-effect
+                    elevation-0 hover:elevation-1 transition-all
+                    hover:scale-110
+                  `}
+                  aria-label="Profil utilisateur"
+                >
+                  {getInitials()}
+                </button>
+                {currentUser?.isAdmin && (
+                  <div className="absolute -bottom-1 -right-1 bg-yellow-400 text-yellow-900 text-[8px] font-bold px-1 py-0.5 rounded-full shadow-md">
+                    ADMIN
+                  </div>
+                )}
+              </div>
             </Tooltip>
             {/* Logout Button in Desktop Nav - ICON ONLY */}
             <Tooltip content="Déconnexion" position="bottom">
