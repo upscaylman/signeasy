@@ -32,10 +32,10 @@
   --md-sys-color-error-container: #ffdad6;
   --md-sys-color-on-error-container: #410002;
 
-  --md-sys-color-background: #fffbff;
+  --md-sys-color-background: #fcf2f4;
   --md-sys-color-on-background: #201a19;
 
-  --md-sys-color-surface: #fffbff;
+  --md-sys-color-surface: #fcf2f4;
   --md-sys-color-on-surface: #201a19;
   --md-sys-color-surface-variant: #f5ddda;
   --md-sys-color-on-surface-variant: #3e302f;
@@ -1004,6 +1004,15 @@ select:focus {
   border: 1px solid rgba(255, 255, 255, 0.3);
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.15),
     inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+/* Utilitaires de couleur de fond (similaire à Tailwind) */
+.bg-background {
+  background-color: #fcf2f4 !important;
+}
+
+.text-onBackground {
+  color: var(--md-sys-color-on-background);
 }
 
 /* Gradients d'arrière-plan */

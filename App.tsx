@@ -14,13 +14,14 @@ import { PresenceTracker } from "./components/PresenceTracker";
 import { ToastProvider } from "./components/Toast";
 import { UserProvider, useUser } from "./components/UserContext";
 import VersionUpdateBanner from "./components/VersionUpdateBanner";
+import CookiePolicyPage from "./pages/CookiePolicyPage";
 import DashboardPage from "./pages/DashboardPage";
+import DeleteUserDataPage from "./pages/DeleteUserDataPage";
 import InboxPage from "./pages/InboxPage";
 import PrepareDocumentPage from "./pages/PrepareDocumentPage";
 import QuickSignPage from "./pages/QuickSignPage";
 import SignDocumentPage from "./pages/SignDocumentPage";
 import VerifyPage from "./pages/VerifyPage";
-import DeleteUserDataPage from "./pages/DeleteUserDataPage";
 // Vérification automatique de la configuration Firebase
 import "./utils/firebaseCheck";
 
@@ -55,7 +56,7 @@ const AppContent: React.FC = () => {
   }
 
   // Vérifier si on est sur une page qui doit afficher le Footer
-  const shouldShowFooter = location.pathname === "/dashboard" || location.pathname === "/verify";
+  const shouldShowFooter = location.pathname === "/dashboard" || location.pathname === "/verify" || location.pathname === "/cookies";
 
   // Si utilisateur, afficher l'app
   return (
@@ -73,6 +74,7 @@ const AppContent: React.FC = () => {
           <Route path="/sign/view" element={<SignDocumentPage />} />
           <Route path="/inbox" element={<InboxPage />} />
           <Route path="/verify" element={<VerifyPage />} />
+          <Route path="/cookies" element={<CookiePolicyPage />} />
           <Route path="/admin/delete-user-data" element={<DeleteUserDataPage />} />
           <Route path="*" element={<Navigate to="/dashboard" />} />
         </Routes>

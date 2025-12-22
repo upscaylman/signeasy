@@ -1,6 +1,7 @@
 import { Facebook, Instagram, Linkedin, Twitter, Youtube } from "lucide-react";
 import React from "react";
 import packageJson from "../package.json";
+import { CookieSettingsButton } from "./CookieBanner";
 import Tooltip from "./Tooltip";
 
 const Footer: React.FC = () => {
@@ -112,14 +113,17 @@ const Footer: React.FC = () => {
               );
             })}
           </div>
-          {/* Copyright */}
-          <p className="text-xs text-white/70">
-            Site réalisé par FO Métaux © {new Date().getFullYear()} FO Métaux.
-            Tous droits réservés.
-            <span className="ml-2 font-bold text-white">
-              Version {packageJson.version}
-            </span>
-          </p>
+          {/* Copyright et paramètres cookies */}
+          <div className="flex flex-col items-center gap-2">
+            <CookieSettingsButton className="text-white/70 hover:text-white" />
+            <p className="text-xs text-white/70">
+              Site réalisé par FO Métaux © {new Date().getFullYear()} FO Métaux.
+              Tous droits réservés.
+              <span className="ml-2 font-bold text-white">
+                Version {packageJson.version}
+              </span>
+            </p>
+          </div>
         </div>
       </div>
     </footer>
